@@ -20,6 +20,14 @@
 
 ---
 
+## 🖥️ 演示
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/f24a8f15-989d-4810-8970-577b16709b66" width="100%" autoplay loop muted playsinline></video>
+</div>
+
+---
+
 ## 🎯 我们解决了什么问题
 
 给《杀戮尖塔 2》装 Mod 很麻烦——我自己也经历过：
@@ -71,13 +79,6 @@
 
 ---
 
-## 🖥️ 演示
-
-<div align="center">
-  <video src="https://github.com/user-attachments/assets/f24a8f15-989d-4810-8970-577b16709b66" width="100%" autoplay loop muted playsinline></video>
-</div>
-
----
 
 ## 🚀 下载与安装
 

@@ -20,6 +20,14 @@ Built with Rust + Tauri + React — Fast, Secure, and Fully Automated.
 
 ---
 
+## 🖥️ Demo
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/f24a8f15-989d-4810-8970-577b16709b66" width="100%" autoplay loop muted playsinline></video>
+</div>
+
+---
+
 ## 🎯 The Problem We Solve
 
 Installing mods for Slay the Spire 2 is messy — and we've been there:
@@ -71,13 +79,6 @@ Installing mods for Slay the Spire 2 is messy — and we've been there:
 
 ---
 
-## 🖥️ Demo
-
-<div align="center">
-  <video src="https://github.com/user-attachments/assets/f24a8f15-989d-4810-8970-577b16709b66" width="100%" autoplay loop muted playsinline></video>
-</div>
-
----
 
 ## 🚀 Download & Install
 
