@@ -54,6 +54,7 @@ Installing mods for Slay the Spire 2 is messy — and we've been there:
 ### 🔍 Discover (Nexus Mods integration)
 - **Search Nexus Mods** for STS2 mods without leaving the app
 - **Mod detail panel** — description, author, version, endorsements, tags
+- **Multi-language Friendly** — translate mod descriptions right in the app
 - **Open on Nexus** — jump to the full Nexus page in your browser when you need more context
 - **Download queue** — persistent, visible across all pages while downloads are in progress
 - Requires a free Nexus Mods API key (the app walks you through getting one)
