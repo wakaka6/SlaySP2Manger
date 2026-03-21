@@ -254,7 +254,8 @@ export function ProfilesPage() {
     }
   }
 
-  const selectedCount = draft.modIds.length;
+  const availableIds = new Set(availableMods.map((m) => m.id.toLowerCase()));
+  const selectedCount = draft.modIds.filter((id) => availableIds.has(id.toLowerCase())).length;
 
   return (
     <section className="page">
@@ -306,7 +307,7 @@ export function ProfilesPage() {
                         <span className="p-badge p-badge--live">{t("profiles.liveBadge")}</span>
                       ) : (
                         <span className="p-badge p-badge--muted">
-                          {t("profiles.modCountBadge", { count: profile.modIds.length })}
+                          {t("profiles.modCountBadge", { count: profile.modIds.filter((id) => availableIds.has(id.toLowerCase())).length })}
                         </span>
                       )}
                     </div>
