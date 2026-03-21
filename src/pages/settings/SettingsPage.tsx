@@ -78,11 +78,12 @@ export function SettingsPage() {
     setSaved(t("settings.themeApplied"));
   }
 
-  async function handleSaveApiKey() {
+  async function handleSaveApiKey(value?: string | unknown) {
+    const keyToSave = typeof value === "string" ? value : apiKey;
     if (isActionRunningRef.current) return;
     isActionRunningRef.current = true;
     try {
-      await updateNexusApiKey(apiKey);
+      await updateNexusApiKey(keyToSave);
       setApiKeySaved(true);
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
       savedTimerRef.current = setTimeout(() => setApiKeySaved(false), 3000);
@@ -93,12 +94,15 @@ export function SettingsPage() {
     }
   }
 
-  function handlePasteApiKey() {
-    const input = apiKeyInputRef.current;
-    if (input) {
-      input.focus();
-      input.select();
-      document.execCommand("paste");
+  async function handlePasteApiKey() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        setApiKey(text);
+        void handleSaveApiKey(text);
+      }
+    } catch (err) {
+      console.error("Failed to read clipboard:", err);
     }
   }
 
