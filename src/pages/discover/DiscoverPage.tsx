@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useDownloads } from "../../contexts/DownloadContext";
 import {
   PackageSearch, Search, ServerOff, ExternalLink, Globe, Loader2,
-  Download, ThumbsUp, TrendingUp, Clock, ArrowDownToLine, Crown,
+  Download, ThumbsUp, TrendingUp, Clock, ArrowDownToLine, Crown, Library,
 } from "lucide-react";
 
 // ── Locale-aware Translation via MyMemory API ──────────────────────────
@@ -361,12 +361,6 @@ export function DiscoverPage() {
               </div>
 
               <div className="discover-detail2__actions">
-                {!isPremium && (
-                  <div className="discover-premium-hint">
-                    <Crown size={13} />
-                    <span>{t("discover.premiumHint")}</span>
-                  </div>
-                )}
                 <button
                   className="button button--primary"
                   onClick={() => startDownload(selected)}
@@ -388,6 +382,28 @@ export function DiscoverPage() {
                   {t("discover.openNexus")}
                 </button>
               </div>
+
+              {!isPremium && (
+                <div className="discover-manual-guide">
+                  <div className="discover-manual-guide__header">
+                    <Crown size={13} />
+                    <span>{t("discover.premiumHint")}</span>
+                  </div>
+                  <ol className="discover-manual-guide__steps">
+                    <li>{t("discover.manualStep1")}</li>
+                    <li>{t("discover.manualStep2")}</li>
+                    <li>{t("discover.manualStep3")}</li>
+                  </ol>
+                  <button
+                    className="discover-manual-guide__btn"
+                    onClick={() => navigate("/")}
+                    type="button"
+                  >
+                    <Library size={13} />
+                    {t("discover.goToLibrary")}
+                  </button>
+                </div>
+              )}
 
               <a
                 className="discover-detail2__link"

@@ -154,6 +154,10 @@ export type MessageKey =
   | "discover.noMore"
   | "discover.filterDownloads"
   | "discover.premiumHint"
+  | "discover.manualStep1"
+  | "discover.manualStep2"
+  | "discover.manualStep3"
+  | "discover.goToLibrary"
   | "download.title"
   | "download.clear"
   | "download.fetchingFiles"
@@ -242,6 +246,11 @@ export type MessageKey =
   | "saves.deleteBackupFailed"
   | "saves.openFolder"
   | "saves.delete"
+  | "saves.autoSyncLabel"
+  | "saves.syncNow"
+  | "saves.syncDone"
+  | "saves.syncUpToDate"
+  | "saves.syncFailed"
   | "common.cancel"
   | "common.confirm";
 
@@ -401,7 +410,11 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "discover.loadMore": "Load More",
     "discover.noMore": "All loaded",
     "discover.filterDownloads": "Most Downloaded",
-    "discover.premiumHint": "Nexus Premium required for direct download",
+    "discover.premiumHint": "Nexus Premium required for direct download. You can download manually:",
+    "discover.manualStep1": "Click \"Open Nexus Page\" to visit the mod page",
+    "discover.manualStep2": "Download the zip file from Nexus manually",
+    "discover.manualStep3": "Go to Library and click \"Import Zip\" to install",
+    "discover.goToLibrary": "Go to Library",
     "download.title": "Downloads",
     "download.clear": "Clear",
     "download.fetchingFiles": "Fetching files...",
@@ -490,6 +503,11 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.deleteBackupFailed": "Failed to delete backup.",
     "saves.openFolder": "Open Folder",
     "saves.delete": "Delete",
+    "saves.autoSyncLabel": "Auto-sync vanilla ↔ modded saves",
+    "saves.syncNow": "Sync now",
+    "saves.syncDone": "Synced {count} save slot(s)",
+    "saves.syncUpToDate": "All saves are up to date",
+    "saves.syncFailed": "Sync failed",
     "common.cancel": "Cancel",
     "common.confirm": "Confirm",
   },
@@ -646,7 +664,11 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "discover.loadMore": "加载更多",
     "discover.noMore": "已全部加载",
     "discover.filterDownloads": "下载最多",
-    "discover.premiumHint": "直接下载需要 Nexus Premium 会员",
+    "discover.premiumHint": "一键安装需要 Nexus Premium 会员，你可以手动下载：",
+    "discover.manualStep1": "点击「打开 Nexus 页面」前往模组页面",
+    "discover.manualStep2": "在 Nexus 网站手动下载 zip 文件",
+    "discover.manualStep3": "回到模组库，点击「导入 Zip」安装",
+    "discover.goToLibrary": "前往模组库",
     "download.title": "下载",
     "download.clear": "清除",
     "download.fetchingFiles": "获取信息...",
@@ -735,6 +757,11 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.deleteBackupFailed": "删除失败",
     "saves.openFolder": "打开文件夹",
     "saves.delete": "删除",
+    "saves.autoSyncLabel": "自动同步原版 ↔ 模组存档",
+    "saves.syncNow": "立即同步",
+    "saves.syncDone": "已同步 {count} 个存档槽位",
+    "saves.syncUpToDate": "所有存档已是最新",
+    "saves.syncFailed": "同步失败",
     "common.cancel": "取消",
     "common.confirm": "确认",
   },
