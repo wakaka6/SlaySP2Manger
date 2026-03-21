@@ -24,6 +24,7 @@ export function SettingsPage() {
   const [showTutorial, setShowTutorial] = useState(false);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const apiKeyInputRef = useRef<HTMLInputElement>(null);
+  const isActionRunningRef = useRef(false);
 
   useEffect(() => {
     void getAppBootstrap().then((bootstrap) => {
@@ -39,19 +40,31 @@ export function SettingsPage() {
   }, [setLocale]);
 
   async function handleSaveDirectory() {
-    await updateGameRootDir(gameRootDir);
-    setSaved(gameRootDir.trim() ? t("settings.savedGameDirectory") : t("settings.clearedGameDirectory"));
+    if (isActionRunningRef.current) return;
+    isActionRunningRef.current = true;
+    try {
+      await updateGameRootDir(gameRootDir);
+      setSaved(gameRootDir.trim() ? t("settings.savedGameDirectory") : t("settings.clearedGameDirectory"));
+    } finally {
+      isActionRunningRef.current = false;
+    }
   }
 
   async function handleDetect() {
-    const detected = await detectGameInstall();
-    if (detected?.rootDir) {
-      setGameRootDir(detected.rootDir);
-      await updateGameRootDir(detected.rootDir);
-      setSaved(t("settings.detectedGameDirectory"));
-      return;
+    if (isActionRunningRef.current) return;
+    isActionRunningRef.current = true;
+    try {
+      const detected = await detectGameInstall();
+      if (detected?.rootDir) {
+        setGameRootDir(detected.rootDir);
+        await updateGameRootDir(detected.rootDir);
+        setSaved(t("settings.detectedGameDirectory"));
+        return;
+      }
+      setSaved(t("settings.gameNotFound"));
+    } finally {
+      isActionRunningRef.current = false;
     }
-    setSaved(t("settings.gameNotFound"));
   }
 
   async function handleLocaleChange(nextLocale: "zh-CN" | "en-US") {
@@ -66,6 +79,8 @@ export function SettingsPage() {
   }
 
   async function handleSaveApiKey() {
+    if (isActionRunningRef.current) return;
+    isActionRunningRef.current = true;
     try {
       await updateNexusApiKey(apiKey);
       setApiKeySaved(true);
@@ -73,6 +88,8 @@ export function SettingsPage() {
       savedTimerRef.current = setTimeout(() => setApiKeySaved(false), 3000);
     } catch (e) {
       setSaved(String(e));
+    } finally {
+      isActionRunningRef.current = false;
     }
   }
 

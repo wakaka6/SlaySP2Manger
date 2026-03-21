@@ -200,10 +200,22 @@ export type MessageKey =
   | "library.confirmUninstallTitle"
   | "library.confirmUninstallBody"
   | "library.enableAfterImport"
+  | "library.installOnly"
+  | "library.installAndEnable"
+  | "library.dropHint"
+  | "library.dropHintTooltip"
   | "library.noSearchResults"
   | "library.searchPlaceholder"
   | "library.openFolder"
   | "library.unknownAuthor"
+  | "library.dropTitle"
+  | "library.dropSubtitle"
+  | "error.gameNotFound"
+  | "error.modNotFound"
+  | "error.modConflict"
+  | "error.invalidArchive"
+  | "error.ioPermission"
+  | "error.ioGeneral"
   | "saves.title"
   | "saves.description"
   | "saves.ready"
@@ -420,7 +432,7 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "discover.premiumHint": "Nexus Premium required for direct download. You can download manually:",
     "discover.manualStep1": "Click \"Open Nexus Page\" to visit the mod page",
     "discover.manualStep2": "Download the zip file from Nexus manually",
-    "discover.manualStep3": "Go to Library and click \"Import Zip\" to install",
+    "discover.manualStep3": "Simply drag and drop the ZIP file into this window to install",
     "discover.goToLibrary": "Go to Library",
     "download.title": "Downloads",
     "download.clear": "Clear",
@@ -432,14 +444,14 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "download.noFiles": "No files found",
     "download.premiumRequired": "Premium required",
     "library.title": "Mod Library",
-    "library.description": "Manage your installed mods, enable/disable them, or install new ones via Zip.",
+    "library.description": "Manage your installed mods, enable/disable them, or install new ones.",
     "library.importZip": "Import Archive (.zip)",
     "library.ready": "Ready",
     "library.enabled": "Enabled",
     "library.disabled": "Disabled",
     "library.activity": "Activity",
     "library.emptyEnabled": "No enabled mods.",
-    "library.emptyEnabledHelp": "Use the Discover page or import an archive to get started.",
+    "library.emptyEnabledHelp": "Get started by browsing Discover, or simply drag and drop a ZIP file here.",
     "library.emptyDisabled": "No disabled mods.",
     "library.emptyDisabledHelp": "Mods you disable will appear here.",
     "library.noActivity": "No recent activity.",
@@ -463,11 +475,23 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.startInstall": "Start Install",
     "library.confirmUninstallTitle": "Confirm Uninstall",
     "library.confirmUninstallBody": "Are you sure you want to uninstall \"{name}\"? This will permanently delete its files.",
-    "library.enableAfterImport": "Would you like to enable this mod immediately after installation?",
+    "library.enableAfterImport": "Would you like to enable this mod right after installation?",
+    "library.installOnly": "Install Only",
+    "library.installAndEnable": "Install & Enable",
+    "library.dropHint": "Drag & Drop Supported",
+    "library.dropHintTooltip": "Or drag a ZIP file anywhere to install",
     "library.noSearchResults": "No mods matching your search.",
     "library.searchPlaceholder": "Search mods...",
     "library.openFolder": "Open Folder",
     "library.unknownAuthor": "Unknown Author",
+    "library.dropTitle": "Drop to Import",
+    "library.dropSubtitle": "Release the file to start installing the mod archive.",
+    "error.gameNotFound": "Game directory not found. Please check your settings.",
+    "error.modNotFound": "Mod could not be found.",
+    "error.modConflict": "Installation failed because the folder '{name}' already exists in your mods directory. Please delete the old version first.",
+    "error.invalidArchive": "This ZIP archive is invalid or corrupted. It might be missing the Mod data or manifest.",
+    "error.ioPermission": "Permission denied. The app cannot read/write files. Please try running as Administrator.",
+    "error.ioGeneral": "Failed to read/write files: {detail}",
     "saves.title": "Save Management",
     "saves.description": "Back up, restore or sync your save files between vanilla and modded environments.",
     "saves.ready": "Ready",
@@ -681,7 +705,7 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "discover.premiumHint": "一键安装需要 Nexus Premium 会员，你可以手动下载：",
     "discover.manualStep1": "点击「打开 Nexus 页面」前往模组页面",
     "discover.manualStep2": "在 Nexus 网站手动下载 zip 文件",
-    "discover.manualStep3": "回到模组库，点击「导入 Zip」安装",
+    "discover.manualStep3": "直接将下载好的 zip 文件拖进窗口即可！",
     "discover.goToLibrary": "前往模组库",
     "download.title": "下载",
     "download.clear": "清除",
@@ -693,14 +717,14 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "download.noFiles": "未找到文件",
     "download.premiumRequired": "需要会员",
     "library.title": "模组库",
-    "library.description": "管理已安装模组或安装新 ZIP 包。",
+    "library.description": "管理已安装的模组，或安装新模组。",
     "library.importZip": "导入 ZIP",
     "library.ready": "就绪",
     "library.enabled": "已启用",
     "library.disabled": "已禁用",
     "library.activity": "动态",
     "library.emptyEnabled": "暂无启用模组",
-    "library.emptyEnabledHelp": "可以去“发现”页或手动导入 ZIP。",
+    "library.emptyEnabledHelp": "去「发现」页找找，或直接把 ZIP 文件拖进窗口即可。",
     "library.emptyDisabled": "暂无禁用模组",
     "library.emptyDisabledHelp": "你禁用的模组会在这里。",
     "library.noActivity": "暂无动态",
@@ -724,11 +748,23 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.startInstall": "开始安装",
     "library.confirmUninstallTitle": "确认卸载",
     "library.confirmUninstallBody": "你确定要卸载 “{name}” 吗？这会永久删除它的文件。",
-    "library.enableAfterImport": "安装后会立即启用吗？",
+    "library.enableAfterImport": "安装完成后，是否立即启用此模组？",
+    "library.installOnly": "仅安装",
+    "library.installAndEnable": "安装并启用",
+    "library.dropHint": "支持拖拽",
+    "library.dropHintTooltip": "也可以把 ZIP 文件拖进来安装",
     "library.noSearchResults": "没有找到匹配的模组。",
     "library.searchPlaceholder": "搜索模组...",
     "library.openFolder": "打开文件夹",
     "library.unknownAuthor": "未知作者",
+    "library.dropTitle": "拖放导入",
+    "library.dropSubtitle": "松开文件即可开始安装模组包。",
+    "error.gameNotFound": "找不到游戏目录，请在设置中指定。",
+    "error.modNotFound": "指定的模组文件找不到了。",
+    "error.modConflict": "安装中止！模组文件夹「{name}」已存在，请先删除旧版。",
+    "error.invalidArchive": "无效压缩包：里面缺失必要文件，或文件已损坏。",
+    "error.ioPermission": "权限不足，无法读写文件。请尝试使用管理员权限运行。",
+    "error.ioGeneral": "读写错误: {detail}",
     "saves.title": "存档管理",
     "saves.description": "在原版与模组环境之间备份、恢复或同步存档。",
     "saves.ready": "就绪",

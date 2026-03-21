@@ -5,15 +5,18 @@ import { router } from "./app/router";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import { DownloadProvider } from "./contexts/DownloadContext";
+import { DropZoneProvider } from "./contexts/DropZoneContext";
 import "./styles/global.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider>
       <I18nProvider>
-        <DownloadProvider>
-          <RouterProvider router={router} />
-        </DownloadProvider>
+        <DropZoneProvider>
+          <DownloadProvider>
+            <RouterProvider router={router} />
+          </DownloadProvider>
+        </DropZoneProvider>
       </I18nProvider>
     </ThemeProvider>
   </React.StrictMode>,

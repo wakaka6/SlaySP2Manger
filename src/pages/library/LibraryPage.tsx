@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { PageHeader } from "../../components/common/PageHeader";
 import { StatusBadge } from "../../components/common/StatusBadge";
 import { useI18n } from "../../i18n/I18nProvider";
+import { useDropZone } from "../../contexts/DropZoneContext";
 import {
   disableMod,
   enableMod,
@@ -35,6 +36,7 @@ function formatTime(value: string) {
 
 export function LibraryPage() {
   const { t } = useI18n();
+  const { pendingDropPath, setPendingDropPath } = useDropZone();
   const [enabledMods, setEnabledMods] = useState<InstalledMod[]>([]);
   const [disabledMods, setDisabledMods] = useState<InstalledMod[]>([]);
   const [status, setStatus] = useState(t("library.ready"));
@@ -46,6 +48,18 @@ export function LibraryPage() {
   const [askEnableAfterImport, setAskEnableAfterImport] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [listRef] = useAutoAnimate<HTMLDivElement>();
+  const isPickingFileRef = useRef(false);
+
+  const formatErrorMsg = useCallback((err: unknown): string => {
+    const raw = err instanceof Error ? err.message : typeof err === "string" ? err : String(err);
+    if (raw === "game install not found") return t("error.gameNotFound");
+    if (raw.startsWith("mod conflict detected: ")) return t("error.modConflict", { name: raw.replace("mod conflict detected: ", "") });
+    if (raw.startsWith("invalid archive: ")) return t("error.invalidArchive");
+    if (raw.startsWith("io error: ") && raw.includes("Permission denied")) return t("error.ioPermission");
+    if (raw.startsWith("io error: ")) return t("error.ioGeneral", { detail: raw.replace("io error: ", "") });
+    if (raw.includes("not found") && raw.startsWith("mod `")) return t("error.modNotFound");
+    return raw || t("library.importFailed");
+  }, [t]);
 
   const reload = useCallback(async () => {
     const [enabled, disabled] = await Promise.all([
@@ -59,6 +73,23 @@ export function LibraryPage() {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // Handle files dropped via drag-and-drop (from AppShell)
+  useEffect(() => {
+    if (pendingDropPath) {
+      setPendingDropPath(null);
+      setAskEnableAfterImport(pendingDropPath);
+    }
+  }, [pendingDropPath, setPendingDropPath]);
+
+  // Handle transient status messages auto-clearing
+  useEffect(() => {
+    if (status === t("library.ready")) return;
+    if (busyId) return; // Wait until background work is complete
+
+    const tId = setTimeout(() => setStatus(t("library.ready")), 3500);
+    return () => clearTimeout(tId);
+  }, [status, busyId, t]);
 
   const importDescription = useMemo(() => {
     if (!installPreview) {
@@ -99,11 +130,19 @@ export function LibraryPage() {
   }
 
   async function handleImport() {
-    const archivePath = await pickArchiveFile();
-    if (!archivePath) {
-      return;
+    if (isPickingFileRef.current || busyId) return;
+    isPickingFileRef.current = true;
+    setBusyId("picking_file");
+    try {
+      const archivePath = await pickArchiveFile();
+      if (!archivePath) {
+        return;
+      }
+      setAskEnableAfterImport(archivePath);
+    } finally {
+      isPickingFileRef.current = false;
+      setBusyId((prev) => (prev === "picking_file" ? null : prev));
     }
-    setAskEnableAfterImport(archivePath);
   }
 
   async function proceedWithImport(archivePath: string, enableNow: boolean) {
@@ -116,7 +155,7 @@ export function LibraryPage() {
       setInstallPreview(preview);
       setStatus(t("library.generatedPreview"));
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : t("library.importFailed"));
+      setStatus(formatErrorMsg(error));
     } finally {
       setBusyId(null);
     }
@@ -135,12 +174,11 @@ export function LibraryPage() {
         installPreview.hasConflicts,
       );
       setStatus(t("library.imported", { count: installed.length }));
-      setTimeout(() => setStatus(t("library.ready")), 3000);
       setInstallPreview(null);
       setPendingArchivePath(null);
       await reload();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : t("library.importFailed"));
+      setStatus(formatErrorMsg(error));
     } finally {
       setBusyId(null);
     }
@@ -158,7 +196,7 @@ export function LibraryPage() {
       setStatus(t("library.ready"));
       await reload();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : t("library.importFailed"));
+      setStatus(formatErrorMsg(error));
     } finally {
       setBusyId(null);
     }
@@ -177,7 +215,7 @@ export function LibraryPage() {
       setPendingUninstall(null);
       await reload();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : t("library.importFailed"));
+      setStatus(formatErrorMsg(error));
     } finally {
       setBusyId(null);
     }
@@ -194,7 +232,19 @@ export function LibraryPage() {
             {status !== t("library.ready") && (
               <>
                 <span style={{ margin: "0 6px", opacity: 0.3 }}>|</span>
-                <span className="library-header__status-text" style={{ color: "var(--accent)" }}>{status}</span>
+                <span 
+                  className="library-header__status-text" 
+                  style={{ 
+                    color: "var(--accent)", 
+                    whiteSpace: "nowrap", 
+                    overflow: "hidden", 
+                    textOverflow: "ellipsis", 
+                    maxWidth: "500px" 
+                  }}
+                  title={status}
+                >
+                  {status}
+                </span>
               </>
             )}
           </div>
@@ -221,8 +271,9 @@ export function LibraryPage() {
           </button>
           <button
             className="button button--primary"
-            disabled={busyId === "install"}
+            disabled={busyId !== null || askEnableAfterImport !== null}
             onClick={() => void handleImport()}
+            title={t("library.dropHintTooltip")}
             type="button"
           >
             {t("library.importZip")}
@@ -339,9 +390,14 @@ export function LibraryPage() {
       </div>
 
       <ConfirmDialog
-        cancelLabel={t("library.disabledStatus")}
-        confirmLabel={t("library.enabledStatus")}
+        cancelLabel={t("library.installOnly")}
+        confirmLabel={t("library.installAndEnable")}
+        dismissLabel={t("common.cancel")}
         description={t("library.enableAfterImport")}
+        onDismiss={() => {
+          setAskEnableAfterImport(null);
+          setStatus(t("library.importCancelled"));
+        }}
         onCancel={() => {
           if (askEnableAfterImport) {
             void proceedWithImport(askEnableAfterImport, false);

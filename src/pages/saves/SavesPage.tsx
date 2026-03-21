@@ -56,6 +56,7 @@ export function SavesPage() {
   const layoutRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
   const [lines, setLines] = useState<(LineCoord & { key: string })[]>([]);
+  const isActionRunningRef = useRef(false);
 
   async function reload() {
     const [slotItems, backupItems] = await Promise.all([listSaveSlots(), listSaveBackups()]);
@@ -218,6 +219,8 @@ export function SavesPage() {
       if (!silent) setStatus(t("saves.syncNoPairs"));
       return;
     }
+    if (isActionRunningRef.current) return;
+    isActionRunningRef.current = true;
     setIsSyncing(true);
     try {
       const result = await syncSaves();
@@ -228,6 +231,7 @@ export function SavesPage() {
       setStatus(error instanceof Error ? error.message : t("saves.syncFailed"));
     } finally {
       setIsSyncing(false);
+      isActionRunningRef.current = false;
     }
   }
 
@@ -250,7 +254,9 @@ export function SavesPage() {
   }
 
   async function confirmTransfer() {
+    if (isActionRunningRef.current) return;
     if (!selectedSource || !selectedTarget) return;
+    isActionRunningRef.current = true;
     try {
       const backup = await transferSave(slotRef(selectedSource), slotRef(selectedTarget));
       setTransferPreview(null);
@@ -258,31 +264,43 @@ export function SavesPage() {
       await reload();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t("saves.transferFailed"));
+    } finally {
+      isActionRunningRef.current = false;
     }
   }
 
   async function handleManualBackup(slot: SaveSlot) {
+    if (isActionRunningRef.current) return;
+    isActionRunningRef.current = true;
     try {
       const backup = await createSaveBackup(slotRef(slot));
       setStatus(t("saves.backupDone", { label: backupLabel(backup) }));
       await reload();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t("saves.backupFailed"));
+    } finally {
+      isActionRunningRef.current = false;
     }
   }
 
   async function handleDeleteBackup(id: string) {
+    if (isActionRunningRef.current) return;
+    isActionRunningRef.current = true;
     try {
       await deleteSaveBackup(id);
       await reload();
       setStatus(t("saves.deleteBackupDone"));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t("saves.deleteBackupFailed"));
+    } finally {
+      isActionRunningRef.current = false;
     }
   }
 
   async function confirmRestore() {
+    if (isActionRunningRef.current) return;
     if (!pendingRestore) return;
+    isActionRunningRef.current = true;
     try {
       await restoreSaveBackup(pendingRestore.id);
       setPendingRestore(null);
@@ -290,6 +308,8 @@ export function SavesPage() {
       await reload();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t("saves.restoreFailed"));
+    } finally {
+      isActionRunningRef.current = false;
     }
   }
 

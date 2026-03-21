@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
 import {
   applyProfile,
@@ -71,6 +71,7 @@ export function ProfilesPage() {
   const [activeProfileName, setActiveProfileName] = useState("No active profile");
   const [status, setStatus] = useState(t("profiles.loading"));
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const isBusyRef = useRef(false);
 
   async function reload(nextSelectedId?: string | null) {
     const [profileItems, enabledItems, disabledItems, bootstrap] = await Promise.all([
@@ -151,12 +152,14 @@ export function ProfilesPage() {
   }
 
   async function handleSave() {
+    if (isBusyRef.current) return;
     const name = draft.name.trim();
     if (!name) {
       setStatus(t("profiles.nameRequired"));
       return;
     }
 
+    isBusyRef.current = true;
     setBusyAction("save");
     try {
       if (isCreating || !draft.id) {
@@ -178,16 +181,19 @@ export function ProfilesPage() {
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t("profiles.saveFailed"));
     } finally {
+      isBusyRef.current = false;
       setBusyAction(null);
     }
   }
 
   async function handleApply() {
+    if (isBusyRef.current) return;
     if (!draft.id) {
       setStatus(t("profiles.applyNeedSave"));
       return;
     }
 
+    isBusyRef.current = true;
     setBusyAction("apply");
     try {
       const result = await applyProfile(draft.id);
@@ -209,16 +215,19 @@ export function ProfilesPage() {
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t("profiles.applyFailed"));
     } finally {
+      isBusyRef.current = false;
       setBusyAction(null);
     }
   }
 
   async function handleExport() {
+    if (isBusyRef.current) return;
     if (!draft.id) {
       setStatus(t("profiles.exportNeedSave"));
       return;
     }
 
+    isBusyRef.current = true;
     setBusyAction("export");
     try {
       const path = await exportProfile(draft.id);
@@ -226,11 +235,13 @@ export function ProfilesPage() {
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t("profiles.exportFailed"));
     } finally {
+      isBusyRef.current = false;
       setBusyAction(null);
     }
   }
 
   async function handleDelete() {
+    if (isBusyRef.current) return;
     if (!draft.id) {
       beginCreate();
       return;
@@ -241,6 +252,7 @@ export function ProfilesPage() {
       return;
     }
 
+    isBusyRef.current = true;
     setBusyAction("delete");
     try {
       const removed = await deleteProfile(draft.id);
@@ -250,6 +262,7 @@ export function ProfilesPage() {
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t("profiles.deleteFailed"));
     } finally {
+      isBusyRef.current = false;
       setBusyAction(null);
     }
   }
@@ -349,7 +362,7 @@ export function ProfilesPage() {
           <div className="profiles-zone profiles-zone--actions">
             <button
               className="profiles-apply-btn"
-              disabled={!draft.id || busyAction === "apply"}
+              disabled={!draft.id || busyAction !== null}
               onClick={() => void handleApply()}
               type="button"
             >
@@ -369,7 +382,7 @@ export function ProfilesPage() {
                   flex: 1,
                   justifyContent: "center",
                 }}
-                disabled={busyAction === "save"}
+                disabled={busyAction !== null}
                 onClick={() => void handleSave()}
                 type="button"
               >
@@ -385,7 +398,7 @@ export function ProfilesPage() {
                   flex: 1,
                   justifyContent: "center",
                 }}
-                disabled={!draft.id || busyAction === "export"}
+                disabled={!draft.id || busyAction !== null}
                 onClick={() => void handleExport()}
                 type="button"
               >
@@ -394,7 +407,7 @@ export function ProfilesPage() {
               </button>
               <button
                 className="icon-button icon-button--danger"
-                disabled={busyAction === "delete"}
+                disabled={busyAction !== null}
                 onClick={() => void handleDelete()}
                 title={t("profiles.delete")}
                 type="button"

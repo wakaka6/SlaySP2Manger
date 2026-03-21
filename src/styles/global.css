@@ -289,6 +289,7 @@ button:disabled {
   background: var(--bg-app);
   transition: grid-template-columns var(--duration-slow) var(--ease-standard);
   overflow: hidden;
+  position: relative;
 }
 
 @media (max-width: 900px) {
@@ -302,6 +303,94 @@ button:disabled {
   height: 100vh;
   overflow-y: auto;
   animation: fadeIn 0.4s var(--ease-out);
+}
+
+/* ── Drop Overlay (drag-and-drop) ──────────────────────────────── */
+
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(9, 9, 11, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: dropOverlayIn 0.2s var(--ease-out);
+}
+
+@keyframes dropOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.drop-overlay__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 56px 72px;
+  border-radius: 20px;
+  border: 2px dashed var(--accent);
+  background: linear-gradient(
+    135deg,
+    rgba(232, 167, 55, 0.06),
+    rgba(232, 167, 55, 0.02)
+  );
+  box-shadow:
+    0 0 60px rgba(232, 167, 55, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  animation: dropInnerPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes dropInnerPulse {
+  0%, 100% {
+    border-color: var(--accent);
+    box-shadow:
+      0 0 60px rgba(232, 167, 55, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+  50% {
+    border-color: var(--accent-hover);
+    box-shadow:
+      0 0 80px rgba(232, 167, 55, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+}
+
+.drop-overlay__icon {
+  color: var(--accent);
+  opacity: 0.9;
+  animation: dropIconBounce 1.5s ease-in-out infinite;
+}
+
+@keyframes dropIconBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.drop-overlay__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.drop-overlay__subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 400;
 }
 
 /* ── Sidebar ─────────────────────────────────────────────────────── */
