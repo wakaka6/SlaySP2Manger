@@ -2,6 +2,7 @@ use std::sync::RwLock;
 
 use serde::{Deserialize, Serialize};
 
+use crate::domain::save::SaveSyncPair;
 use crate::domain::task::ActivityLogEntry;
 use crate::integrations::settings_repo;
 
@@ -15,6 +16,10 @@ pub struct AppSettings {
     pub active_profile_name: String,
     #[serde(default = "default_locale")]
     pub locale: String,
+    #[serde(default)]
+    pub save_auto_sync: bool,
+    #[serde(default)]
+    pub save_sync_pairs: Vec<SaveSyncPair>,
     #[serde(default)]
     pub nexus_api_key: Option<String>,
     #[serde(default)]
@@ -30,6 +35,8 @@ impl Default for AppSettings {
             disabled_mods_dir_name: default_disabled_mods_dir_name(),
             active_profile_name: default_active_profile_name(),
             locale: default_locale(),
+            save_auto_sync: false,
+            save_sync_pairs: Vec::new(),
             nexus_api_key: None,
             nexus_is_premium: false,
             nexus_user_name: None,

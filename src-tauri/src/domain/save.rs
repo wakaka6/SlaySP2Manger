@@ -50,3 +50,25 @@ pub enum SaveKind {
     Vanilla,
     Modded,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveSyncPair {
+    pub vanilla_slot: u8,
+    pub modded_slot: u8,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveSyncResult {
+    pub synced_count: usize,
+    pub details: Vec<SaveSyncDetail>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveSyncDetail {
+    pub slot_index: u8,
+    pub direction: String,       // "vanilla_to_modded" | "modded_to_vanilla"
+    pub backup_created: bool,
+}

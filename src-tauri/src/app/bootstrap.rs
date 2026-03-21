@@ -1,4 +1,5 @@
 use serde::Serialize;
+use crate::domain::save::SaveSyncPair;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -11,6 +12,8 @@ pub struct AppBootstrapDto {
     pub disabled_count: usize,
     pub active_profile_name: String,
     pub locale: String,
+    pub save_auto_sync: bool,
+    pub save_sync_pairs: Vec<SaveSyncPair>,
     pub nexus_api_key: Option<String>,
     pub nexus_is_premium: bool,
     pub nexus_user_name: Option<String>,

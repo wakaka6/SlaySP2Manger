@@ -50,14 +50,16 @@ Installing mods for Slay the Spire 2 is messy — and we've been there:
 - **Download queue** — persistent, visible across all pages while downloads are in progress
 - Requires a free Nexus Mods API key (the app walks you through getting one)
 
-### 🗂️ Profiles
-- Create **2–3 local mod profiles** (e.g. "Vanilla-friendly", "Full chaos run")
-- Switch profiles safely — the app validates integrity before applying
-- Duplicate, rename, export, and import profiles
+### 🗂️ Presets
+- Create **multiple local mod presets** (e.g. "Vanilla-friendly", "Full chaos run")
+- Switch presets safely — the app validates integrity before applying
+- Duplicate, rename, export, and import presets
 
 ### 💾 Save Management
 - Clearly separates **vanilla save slots** from **modded save slots**
 - **Two-way copy** between vanilla and modded saves (with a preview of what will be overwritten)
+- **Save pairing & sync** — link any vanilla slot with any modded slot, enable auto-sync and saves are bidirectionally synced by modification time (rsync-style), with cross-slot pairing support
+- **Visual connection lines** between paired cards; click the × button on a line to unlink
 - **Auto-backup before every risky action** — no silent overwrites
 - **Backup list & restore** — browse past backups and restore with one click
 

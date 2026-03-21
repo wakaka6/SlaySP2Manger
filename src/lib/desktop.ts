@@ -35,6 +35,8 @@ export type AppBootstrap = {
   disabledCount: number;
   activeProfileName: string;
   locale: string;
+  saveAutoSync: boolean;
+  saveSyncPairs: SaveSyncPair[];
   nexusApiKey: string | null;
   nexusIsPremium: boolean;
   nexusUserName: string | null;
@@ -284,6 +286,36 @@ export async function createSaveBackup(slot: SaveSlotRef) {
 
 export async function listSaveBackups(): Promise<SaveBackupEntry[]> {
   return cached("save_backups", () => invoke<SaveBackupEntry[]>("list_save_backups"));
+}
+
+export type SaveSyncPair = {
+  vanillaSlot: number;
+  moddedSlot: number;
+};
+
+export type SaveSyncResult = {
+  syncedCount: number;
+  details: Array<{
+    slotIndex: number;
+    direction: string;
+    backupCreated: boolean;
+  }>;
+};
+
+export async function toggleSaveAutoSync(enabled: boolean) {
+  await invoke("toggle_save_auto_sync", { enabled });
+  invalidate("app_bootstrap");
+}
+
+export async function updateSaveSyncPairs(pairs: SaveSyncPair[]) {
+  await invoke("update_save_sync_pairs", { pairs });
+  invalidate("app_bootstrap");
+}
+
+export async function syncSaves(): Promise<SaveSyncResult> {
+  const result = await invoke<SaveSyncResult>("sync_saves");
+  invalidate("save_slots", "save_backups");
+  return result;
 }
 
 export async function restoreSaveBackup(backupId: string) {

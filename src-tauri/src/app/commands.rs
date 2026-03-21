@@ -9,7 +9,7 @@ use crate::domain::install_plan::ArchiveInstallPreview;
 use crate::domain::mod_entity::InstalledMod;
 use crate::domain::profile::{ApplyProfileResult, ModProfile};
 use crate::domain::remote_mod::RemoteModSearchResult;
-use crate::domain::save::{SaveBackupEntry, SaveSlot, SaveSlotRef, SaveTransferPreview};
+use crate::domain::save::{SaveBackupEntry, SaveSlot, SaveSlotRef, SaveSyncPair, SaveSyncResult, SaveTransferPreview};
 use crate::domain::task::ActivityLogEntry;
 use crate::integrations::settings_repo;
 use crate::services::discover_service::DiscoverService;
@@ -42,6 +42,8 @@ pub fn get_app_bootstrap(state: State<'_, AppState>) -> Result<AppBootstrapDto, 
         disabled_count: disabled.len(),
         active_profile_name: settings.active_profile_name,
         locale: settings.locale,
+        save_auto_sync: settings.save_auto_sync,
+        save_sync_pairs: settings.save_sync_pairs,
         nexus_api_key: settings.nexus_api_key,
         nexus_is_premium: settings.nexus_is_premium,
         nexus_user_name: settings.nexus_user_name,
@@ -797,6 +799,57 @@ pub fn open_url_in_browser(url: String) -> Result<(), String> {
             .map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+#[tauri::command]
+pub fn toggle_save_auto_sync(
+    enabled: bool,
+    state: State<'_, AppState>,
+) -> Result<AppSettings, String> {
+    let mut settings = state
+        .settings
+        .write()
+        .map_err(|_| "failed to write app settings".to_string())?;
+
+    settings.save_auto_sync = enabled;
+    settings_repo::save_settings(&settings)?;
+    Ok(settings.clone())
+}
+
+#[tauri::command]
+pub fn update_save_sync_pairs(
+    pairs: Vec<SaveSyncPair>,
+    state: State<'_, AppState>,
+) -> Result<AppSettings, String> {
+    let mut settings = state
+        .settings
+        .write()
+        .map_err(|_| "failed to write app settings".to_string())?;
+
+    settings.save_sync_pairs = pairs;
+    settings_repo::save_settings(&settings)?;
+    Ok(settings.clone())
+}
+
+#[tauri::command]
+pub fn sync_saves(state: State<'_, AppState>) -> Result<SaveSyncResult, String> {
+    let pairs = state
+        .settings
+        .read()
+        .map_err(|_| "failed to read app settings".to_string())?
+        .save_sync_pairs
+        .clone();
+
+    let result = SaveService::new().sync_saves(&pairs)?;
+    if result.synced_count > 0 {
+        push_activity(
+            &state,
+            "saves",
+            format!("Synced {} save slot(s)", result.synced_count),
+            None,
+        )?;
+    }
+    Ok(result)
 }
 
 #[tauri::command]

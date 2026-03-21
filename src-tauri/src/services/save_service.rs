@@ -4,7 +4,10 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 
-use crate::domain::save::{SaveBackupEntry, SaveKind, SaveSlot, SaveSlotRef, SaveTransferPreview};
+use crate::domain::save::{
+    SaveBackupEntry, SaveKind, SaveSlot, SaveSlotRef, SaveSyncDetail, SaveSyncPair,
+    SaveSyncResult, SaveTransferPreview,
+};
 
 pub struct SaveService;
 
@@ -137,6 +140,92 @@ impl SaveService {
 
         backups.sort_by(|a, b| b.created_at.cmp(&a.created_at));
         Ok(backups)
+    }
+
+    /// Bidirectional sync: for each configured pair, copy the newer save to the older one.
+    pub fn sync_saves(&self, pairs: &[SaveSyncPair]) -> Result<SaveSyncResult, String> {
+        if pairs.is_empty() {
+            return Ok(SaveSyncResult { synced_count: 0, details: Vec::new() });
+        }
+
+        let slots = self.list_slots()?;
+        let mut details = Vec::new();
+
+        // Get first steam user id (single-user app)
+        let uid = match slots.first() {
+            Some(s) => s.steam_user_id.clone(),
+            None => return Ok(SaveSyncResult { synced_count: 0, details: Vec::new() }),
+        };
+
+        for pair in pairs {
+            let vanilla = slots.iter().find(|s| {
+                s.steam_user_id == uid
+                    && s.kind == SaveKind::Vanilla
+                    && s.slot_index == pair.vanilla_slot
+            });
+            let modded = slots.iter().find(|s| {
+                s.steam_user_id == uid
+                    && s.kind == SaveKind::Modded
+                    && s.slot_index == pair.modded_slot
+            });
+
+            let (vanilla, modded) = match (vanilla, modded) {
+                (Some(v), Some(m)) => (v, m),
+                _ => continue,
+            };
+
+            if !vanilla.has_data && !modded.has_data {
+                continue;
+            }
+
+            let v_time = vanilla.last_modified_at.as_deref().unwrap_or("");
+            let m_time = modded.last_modified_at.as_deref().unwrap_or("");
+
+            let direction = if vanilla.has_data && !modded.has_data {
+                "vanilla_to_modded"
+            } else if modded.has_data && !vanilla.has_data {
+                "modded_to_vanilla"
+            } else if v_time > m_time {
+                "vanilla_to_modded"
+            } else if m_time > v_time {
+                "modded_to_vanilla"
+            } else {
+                continue;
+            };
+
+            let (source_ref, target_ref) = if direction == "vanilla_to_modded" {
+                (
+                    SaveSlotRef { steam_user_id: uid.clone(), kind: SaveKind::Vanilla, slot_index: pair.vanilla_slot },
+                    SaveSlotRef { steam_user_id: uid.clone(), kind: SaveKind::Modded, slot_index: pair.modded_slot },
+                )
+            } else {
+                (
+                    SaveSlotRef { steam_user_id: uid.clone(), kind: SaveKind::Modded, slot_index: pair.modded_slot },
+                    SaveSlotRef { steam_user_id: uid.clone(), kind: SaveKind::Vanilla, slot_index: pair.vanilla_slot },
+                )
+            };
+
+            let source_path = slot_path(&source_ref)?;
+            let target_path = slot_path(&target_ref)?;
+
+            let backup_created = if target_path.join("progress.save").exists() {
+                create_backup_from_slot(&target_ref, "auto_before_sync")?;
+                true
+            } else {
+                false
+            };
+
+            replace_directory_contents(&source_path, &target_path)?;
+
+            details.push(SaveSyncDetail {
+                slot_index: pair.vanilla_slot,
+                direction: direction.to_string(),
+                backup_created,
+            });
+        }
+
+        let synced_count = details.len();
+        Ok(SaveSyncResult { synced_count, details })
     }
 
     pub fn restore_backup(&self, backup_id: &str) -> Result<(), String> {

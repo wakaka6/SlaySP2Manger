@@ -251,6 +251,13 @@ export type MessageKey =
   | "saves.syncDone"
   | "saves.syncUpToDate"
   | "saves.syncFailed"
+  | "saves.syncNoPairs"
+  | "saves.pairCount"
+  | "saves.pairNone"
+  | "saves.linkHint"
+  | "saves.linkSelectModded"
+  | "saves.linkCreated"
+  | "saves.linkRemoved"
   | "common.cancel"
   | "common.confirm";
 
@@ -508,6 +515,13 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.syncDone": "Synced {count} save slot(s)",
     "saves.syncUpToDate": "All saves are up to date",
     "saves.syncFailed": "Sync failed",
+    "saves.syncNoPairs": "No sync pairs configured. Click a vanilla card to link.",
+    "saves.pairCount": "{count} pair(s) linked",
+    "saves.pairNone": "Click a vanilla card to link with a modded card",
+    "saves.linkHint": "Linking vanilla slot {slot} — click a modded card to pair",
+    "saves.linkSelectModded": "Select a modded card to pair with",
+    "saves.linkCreated": "Linked vanilla slot {v} ↔ modded slot {m}",
+    "saves.linkRemoved": "Link removed",
     "common.cancel": "Cancel",
     "common.confirm": "Confirm",
   },
@@ -762,6 +776,13 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.syncDone": "已同步 {count} 个存档槽位",
     "saves.syncUpToDate": "所有存档已是最新",
     "saves.syncFailed": "同步失败",
+    "saves.syncNoPairs": "未配置同步配对，点击原版卡片开始关联",
+    "saves.pairCount": "已关联 {count} 对",
+    "saves.pairNone": "点击原版卡片与模组卡片建立关联",
+    "saves.linkHint": "正在关联原版槽位 {slot} — 点击模组卡片完成配对",
+    "saves.linkSelectModded": "选择一个模组卡片进行配对",
+    "saves.linkCreated": "已关联原版槽位 {v} ↔ 模组槽位 {m}",
+    "saves.linkRemoved": "已取消关联",
     "common.cancel": "取消",
     "common.confirm": "确认",
   },
