@@ -71,9 +71,11 @@
 
 ---
 
-## 🖥️ 截图
+## 🖥️ 演示
 
-> _截图即将加入——应用正在积极开发中。_
+<div align="center">
+  <video src="https://github.com/wakaka6/SlaySP2Manger/raw/main/assets/demo.mp4" width="100%" autoplay loop muted playsinline></video>
+</div>
 
 ---
 
