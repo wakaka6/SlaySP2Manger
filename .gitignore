@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.vite/
+.npm-cache/
+refer/
+
+src-tauri/target/
+
+.DS_Store
+Thumbs.db
+
+# Local utility / helper files
+clean.js
+convert_icon.html
+icon_generator.html
+
+# Icon source files (built icon.ico is tracked)
+src-tauri/icons/icon_source.png
+src-tauri/icons/icon_source.webp

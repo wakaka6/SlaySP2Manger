@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#1c1c32"/>
+      <stop offset="100%" stop-color="#0e0e1a"/>
+    </linearGradient>
+    <linearGradient id="gold1" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#fad888"/>
+      <stop offset="100%" stop-color="#e8af52"/>
+    </linearGradient>
+    <linearGradient id="gold2" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#e8af52"/>
+      <stop offset="100%" stop-color="#cc9235"/>
+    </linearGradient>
+    <linearGradient id="gold3" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#cc9235"/>
+      <stop offset="100%" stop-color="#a06820"/>
+    </linearGradient>
+    <linearGradient id="spire-grad" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#ffe0a0"/>
+      <stop offset="100%" stop-color="#e8af52"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="24" result="blur"/>
+      <feFlood flood-color="#e8af52" flood-opacity="0.45" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="210" fill="url(#bg)"/>
+
+  <!-- Subtle border glow -->
+  <rect x="4" y="4" width="1016" height="1016" rx="208" fill="none" stroke="#e8af52" stroke-width="1.5" opacity="0.12"/>
+
+  <!-- Main icon group with glow -->
+  <g filter="url(#glow)">
+    <!-- Spire tip -->
+    <polygon points="512,148 546,298 512,282 478,298" fill="url(#spire-grad)"/>
+
+    <!-- Top layer (smallest, brightest) -->
+    <polygon points="512,298 664,366 512,434 360,366" fill="url(#gold1)"/>
+
+    <!-- Middle layer -->
+    <polygon points="512,464 706,544 512,624 318,544" fill="url(#gold2)" opacity="0.88"/>
+
+    <!-- Bottom layer (largest, deepest) -->
+    <polygon points="512,654 762,746 512,838 262,746" fill="url(#gold3)" opacity="0.75"/>
+  </g>
+
+  <!-- Highlight edges on top layer for depth -->
+  <line x1="512" y1="298" x2="664" y2="366" stroke="#ffe8b8" stroke-width="2" opacity="0.5"/>
+  <line x1="512" y1="298" x2="360" y2="366" stroke="#ffe8b8" stroke-width="2" opacity="0.5"/>
+</svg>

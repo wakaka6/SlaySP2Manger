@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Release (Windows)
+    runs-on: windows-latest
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Rust toolchain ────────────────────────────────────────────────────
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      # ── Node.js ───────────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ── Frontend dependencies ─────────────────────────────────────────────
+      - name: Install frontend dependencies
+        run: npm ci --ignore-scripts
+
+      # ── Tauri build ───────────────────────────────────────────────────────
+      - name: Build Tauri application
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: npx tauri
+          tagName: ${{ inputs.tag || github.ref_name }}
+          releaseName: 'SlaySP2Manager ${{ inputs.tag || github.ref_name }}'
+          releaseBody: |
+            ## SlaySP2Manager ${{ inputs.tag || github.ref_name }}
+
+            ### 安装方式 / How to Install
+
+            下载下方 `.msi` 安装包，双击运行即可完成安装。
+
+            Download the `.msi` installer below and run it to install.
+
+            ---
+
+            **Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ inputs.tag || github.ref_name }}
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: false
+          args: --target x86_64-pc-windows-msvc
