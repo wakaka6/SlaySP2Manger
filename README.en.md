@@ -74,7 +74,7 @@ Installing mods for Slay the Spire 2 is messy — and we've been there:
 ## 🖥️ Demo
 
 <div align="center">
-  <video src="https://github.com/wakaka6/SlaySP2Manger/raw/main/assets/demo.mp4" width="100%" autoplay loop muted playsinline></video>
+  <video src="https://github.com/user-attachments/assets/f24a8f15-989d-4810-8970-577b16709b66" width="100%" autoplay loop muted playsinline></video>
 </div>
 
 ---
