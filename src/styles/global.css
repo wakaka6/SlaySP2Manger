@@ -287,9 +287,13 @@ button:disabled {
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);
   background: var(--bg-app);
-  transition: grid-template-columns var(--duration-slow) var(--ease-standard);
+  transition: grid-template-columns 0.3s var(--ease-standard);
   overflow: hidden;
   position: relative;
+}
+
+.app-shell--collapsed {
+  grid-template-columns: 64px minmax(0, 1fr);
 }
 
 @media (max-width: 900px) {
@@ -303,6 +307,74 @@ button:disabled {
   height: 100vh;
   overflow-y: auto;
   animation: fadeIn 0.4s var(--ease-out);
+  position: relative;
+}
+
+/* Invisible drag region across top of content area */
+.app-shell__drag-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  z-index: 90;
+  -webkit-app-region: drag;
+  pointer-events: auto;
+}
+
+/* Custom window controls — macOS traffic light style */
+.window-controls {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.window-controls__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  color: transparent;
+  transition: background 0.2s ease, transform 0.1s ease;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+.window-controls:hover .window-controls__btn {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.window-controls__btn:active {
+  transform: scale(0.9);
+}
+
+.window-controls__btn--minimize {
+  background: #ffbd2e;
+}
+.window-controls__btn--minimize:hover {
+  background: #e5a929;
+}
+
+.window-controls__btn--maximize {
+  background: #27c93f;
+}
+.window-controls__btn--maximize:hover {
+  background: #23b438;
+}
+
+.window-controls__btn--close {
+  background: #ff5f56;
+}
+.window-controls__btn--close:hover {
+  background: #e5554d;
 }
 
 /* ── Drop Overlay (drag-and-drop) ──────────────────────────────── */
@@ -405,6 +477,89 @@ button:disabled {
   overflow: hidden;
 }
 
+/* ── Collapsed sidebar overrides ─── */
+
+.sidebar-nav--collapsed .sidebar-nav__brand-copy,
+.sidebar-nav--collapsed .sidebar-nav__item-label,
+.sidebar-nav--collapsed .sidebar-nav__badge,
+.sidebar-nav--collapsed .sidebar-nav__section-title,
+.sidebar-nav--collapsed .sidebar-nav__launch-text,
+.sidebar-nav--collapsed .sidebar-dl__item-info,
+.sidebar-nav--collapsed .sidebar-dl__header span,
+.sidebar-nav--collapsed .sidebar-dl__clear {
+  display: none;
+}
+
+.sidebar-nav--collapsed .sidebar-nav__brand {
+  justify-content: center;
+  padding: 0;
+}
+
+.sidebar-nav--collapsed .sidebar-nav__items {
+  padding: 24px 8px 20px;
+}
+
+.sidebar-nav--collapsed .sidebar-nav__item {
+  justify-content: center;
+  padding: 0;
+  min-height: 40px;
+}
+
+.sidebar-nav--collapsed .sidebar-nav__item::before {
+  display: none;
+}
+
+.sidebar-nav--collapsed .sidebar-nav__item-main {
+  gap: 0;
+}
+
+.sidebar-nav--collapsed .sidebar-nav__footer {
+  padding: 12px 8px 16px;
+}
+
+.sidebar-nav--collapsed .sidebar-nav__launch {
+  min-height: 40px;
+  padding: 0;
+}
+
+.sidebar-nav--collapsed .sidebar-dl {
+  display: none;
+}
+
+/* Toggle button — floats on sidebar right edge */
+.sidebar-nav__toggle {
+  position: absolute;
+  right: -12px;
+  top: 50px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  background: var(--bg-sidebar);
+  color: var(--text-dim);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, color 0.15s, background 0.15s, transform 0.3s ease;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+.sidebar-nav:hover .sidebar-nav__toggle,
+.sidebar-nav--collapsed .sidebar-nav__toggle {
+  opacity: 1;
+}
+.sidebar-nav__toggle:hover {
+  background: var(--surface-faint-strong);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+.sidebar-nav--collapsed .sidebar-nav__toggle {
+  right: -12px;
+  transform: rotate(180deg);
+}
+
 /* Decorative top edge */
 .sidebar-nav::before {
   content: '';
@@ -433,20 +588,21 @@ button:disabled {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--brand-gradient-start), var(--brand-gradient-end));
-  color: var(--on-accent);
-  box-shadow: var(--shadow-glow), inset 0 1px 0 rgba(255,255,255,0.15);
   flex: 0 0 auto;
   transition: transform var(--duration-normal) var(--ease-spring);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 0 0 1px rgba(128,128,128,0.15);
 }
 
 .sidebar-nav__brand-mark:hover {
   transform: scale(1.05);
 }
 
-.sidebar-nav__brand-mark svg {
-  width: 18px;
-  height: 18px;
+.sidebar-nav__brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .sidebar-nav__brand-copy {
@@ -741,7 +897,7 @@ button:disabled {
 
 .page {
   min-height: 0;
-  padding: 32px 32px 48px;
+  padding: 64px 40px 60px;
   background: var(--bg-app);
   color: var(--text-primary);
   animation: fadeInUp 0.35s var(--ease-out);
@@ -933,8 +1089,8 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  min-height: 84px;
-  padding: 0 32px;
+  min-height: 110px;
+  padding: 30px 40px 0;
   border-bottom: 1px solid var(--border-subtle);
   background: var(--bg-app);
 }
@@ -1502,6 +1658,157 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+/* ── Settings Page Redesign ───────────────────────────────────────────── */
+
+.st-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.st-section {
+  background: var(--surface-default);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+.st-section:hover {
+  border-color: var(--border-strong);
+}
+
+.st-section--wide {
+  grid-column: 1 / -1;
+}
+
+.st-section__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px 0;
+  color: var(--text-primary);
+}
+.st-section__head h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.st-section__head svg {
+  color: var(--accent);
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.st-section__body {
+  padding: 14px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.st-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.st-field__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.st-field__row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.st-hint {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.st-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.st-inline-msg {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  animation: fadeIn 0.2s ease;
+}
+.st-inline-msg--success {
+  color: var(--accent);
+}
+.st-inline-msg--error {
+  color: var(--danger);
+}
+
+.st-link-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.st-link-btn--inline {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 400;
+}
+
+.st-input-icon-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.st-tutorial {
+  padding: 16px 20px;
+  background: var(--surface-contrast);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+.st-tutorial h4 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.st-tutorial ol {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.st-tutorial li {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
 }
 
 /* ── Saves Page Redesign ───────────────────────────────────────────── */
@@ -2348,6 +2655,37 @@ input::-webkit-textfield-decoration-container {
   overflow: hidden;
   background: var(--bg-app);
   color: var(--text-primary);
+  position: relative;
+}
+
+/* ── Refresh progress bar — shows when stale data is being updated ──── */
+.discover-refresh-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 10;
+  overflow: hidden;
+}
+
+.discover-refresh-bar__track {
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: discoverRefreshSlide 1.2s ease-in-out infinite;
+}
+
+@keyframes discoverRefreshSlide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+/* Stale data rows — subtle opacity reduction while new data loads */
+.discover-row.is-stale {
+  opacity: 0.55;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 /* ── Toolbar: search + sorts on one line ──── */
@@ -2356,7 +2694,7 @@ input::-webkit-textfield-decoration-container {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 20px 28px 16px;
+  padding: 56px 28px 16px;
 }
 
 .discover-toolbar2__search {

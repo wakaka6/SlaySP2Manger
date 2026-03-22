@@ -17,4 +17,5 @@ pub struct AppBootstrapDto {
     pub nexus_api_key: Option<String>,
     pub nexus_is_premium: bool,
     pub nexus_user_name: Option<String>,
+    pub proxy_url: Option<String>,
 }

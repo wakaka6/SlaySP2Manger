@@ -8,9 +8,24 @@ import {
   updateGameRootDir,
   updateNexusApiKey,
   openUrlInBrowser,
+  updateProxyUrl,
+  testProxy,
 } from "../../lib/desktop";
 import { useTheme, type ThemeMode } from "../../theme/ThemeProvider";
-import { Eye, EyeOff, Clipboard, CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Clipboard,
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  Globe,
+  Loader2,
+  FolderOpen,
+  Languages,
+  Palette,
+  Key,
+} from "lucide-react";
 
 export function SettingsPage() {
   const { locale, setLocale, t } = useI18n();
@@ -22,6 +37,13 @@ export function SettingsPage() {
   const [apiKeySaved, setApiKeySaved] = useState(false);
   const [apiKeyLoaded, setApiKeyLoaded] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [proxyUrl, setProxyUrl] = useState("");
+  const [proxySaved, setProxySaved] = useState(false);
+  const [proxyTesting, setProxyTesting] = useState(false);
+  const [proxyTestResult, setProxyTestResult] = useState<{
+    ok: boolean;
+    msg: string;
+  } | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const apiKeyInputRef = useRef<HTMLInputElement>(null);
   const isActionRunningRef = useRef(false);
@@ -34,6 +56,9 @@ export function SettingsPage() {
       if (bootstrap.nexusApiKey) {
         setApiKey(bootstrap.nexusApiKey);
       }
+      if (bootstrap.proxyUrl) {
+        setProxyUrl(bootstrap.proxyUrl);
+      }
       setApiKeyLoaded(true);
       setLocale(bootstrap.locale === "en-US" ? "en-US" : "zh-CN");
     });
@@ -44,7 +69,11 @@ export function SettingsPage() {
     isActionRunningRef.current = true;
     try {
       await updateGameRootDir(gameRootDir);
-      setSaved(gameRootDir.trim() ? t("settings.savedGameDirectory") : t("settings.clearedGameDirectory"));
+      setSaved(
+        gameRootDir.trim()
+          ? t("settings.savedGameDirectory")
+          : t("settings.clearedGameDirectory"),
+      );
     } finally {
       isActionRunningRef.current = false;
     }
@@ -137,294 +166,350 @@ export function SettingsPage() {
 
   return (
     <section className="page">
-      <PageHeader description={t("settings.description")} title={t("settings.title")} />
+      <PageHeader
+        description={t("settings.description")}
+        title={t("settings.title")}
+      />
 
-      <div className="settings-layout">
-        <div className="settings-column">
-          <section className="panel profile-panel">
-            <div className="panel__header">
-              <h2>{t("settings.gameDirectory")}</h2>
-            </div>
-            <div className="form-stack">
-              <label className="field">
-                <span>{t("settings.gameRoot")}</span>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    className="input"
-                    onChange={(event) => setGameRootDir(event.target.value)}
-                    placeholder="D:\\SteamLibrary\\steamapps\\common\\Slay the Spire 2"
-                    value={gameRootDir}
-                    style={{ flex: 1 }}
-                  />
-                  <button 
-                    type="button" 
-                    className="button button--secondary" 
-                    onClick={async () => {
-                      const { pickImportFolder } = await import("../../lib/desktop");
-                      const folder = await pickImportFolder();
-                      if (folder) setGameRootDir(folder);
-                    }}
-                  >
-                    {t("welcome.browse")}
-                  </button>
-                </div>
-              </label>
-
-              <div className="action-row">
-                <button className="button button--secondary" onClick={() => void handleDetect()} type="button">
-                  {t("settings.autoDetect")}
-                </button>
-                <button className="button button--primary" onClick={() => void handleSaveDirectory()} type="button">
-                  {t("settings.saveDirectory")}
+      <div className="st-grid">
+        {/* ── Game Directory ── */}
+        <div className="st-section st-section--wide">
+          <div className="st-section__head">
+            <FolderOpen size={18} />
+            <h2>{t("settings.gameDirectory")}</h2>
+          </div>
+          <div className="st-section__body">
+            <label className="st-field">
+              <span className="st-field__label">{t("settings.gameRoot")}</span>
+              <div className="st-field__row">
+                <input
+                  className="input"
+                  onChange={(event) => setGameRootDir(event.target.value)}
+                  placeholder="D:\\SteamLibrary\\steamapps\\common\\Slay the Spire 2"
+                  value={gameRootDir}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  onClick={async () => {
+                    const { pickImportFolder } = await import(
+                      "../../lib/desktop"
+                    );
+                    const folder = await pickImportFolder();
+                    if (folder) setGameRootDir(folder);
+                  }}
+                >
+                  {t("welcome.browse")}
                 </button>
               </div>
-              {saved ? <p className="inline-note">{saved}</p> : null}
+            </label>
+            <div className="st-actions">
+              <button
+                className="button button--secondary"
+                onClick={() => void handleDetect()}
+                type="button"
+              >
+                {t("settings.autoDetect")}
+              </button>
+              <button
+                className="button button--primary"
+                onClick={() => void handleSaveDirectory()}
+                type="button"
+              >
+                {t("settings.saveDirectory")}
+              </button>
+              {saved ? <span className="st-inline-msg">{saved}</span> : null}
             </div>
-          </section>
-
-          <section className="panel profile-panel">
-            <div className="panel__header">
-              <h2>{t("settings.preferences")}</h2>
-            </div>
-            <div className="form-stack">
-              <label className="field">
-                <span>{t("settings.language")}</span>
-                <select
-                  className="input"
-                  onChange={(event) => void handleLocaleChange(event.target.value as "zh-CN" | "en-US")}
-                  value={locale}
-                >
-                  <option value="zh-CN">{t("settings.languageZh")}</option>
-                  <option value="en-US">{t("settings.languageEn")}</option>
-                </select>
-                <span className="panel__meta">{t("settings.languageHelp")}</span>
-              </label>
-              <label className="field">
-                <span>{t("settings.theme")}</span>
-                <select
-                  className="input"
-                  onChange={(event) => handleThemeChange(event.target.value as ThemeMode)}
-                  value={themeMode}
-                >
-                  <option value="system">{t("settings.themeSystem")}</option>
-                  <option value="light">{t("settings.themeLight")}</option>
-                  <option value="dark">{t("settings.themeDark")}</option>
-                </select>
-                <span className="panel__meta">{t("settings.themeHelp")}</span>
-                <span className="panel__meta">
-                  {t("settings.currentAppearance")}：
-                  {resolvedTheme === "light"
-                    ? t("settings.currentAppearanceLight")
-                    : t("settings.currentAppearanceDark")}
-                </span>
-              </label>
-            </div>
-          </section>
+          </div>
         </div>
 
-        <div className="settings-column">
-          <section className="panel profile-panel">
-            <div className="panel__header">
-              <h2>{t("settings.nexusIntegration")}</h2>
+        {/* ── Appearance ── */}
+        <div className="st-section">
+          <div className="st-section__head">
+            <Languages size={18} />
+            <h2>{t("settings.language")}</h2>
+          </div>
+          <div className="st-section__body">
+            <select
+              className="input"
+              onChange={(event) =>
+                void handleLocaleChange(
+                  event.target.value as "zh-CN" | "en-US",
+                )
+              }
+              value={locale}
+            >
+              <option value="zh-CN">{t("settings.languageZh")}</option>
+              <option value="en-US">{t("settings.languageEn")}</option>
+            </select>
+            <span className="st-hint">{t("settings.languageHelp")}</span>
+          </div>
+        </div>
+
+        <div className="st-section">
+          <div className="st-section__head">
+            <Palette size={18} />
+            <h2>{t("settings.theme")}</h2>
+          </div>
+          <div className="st-section__body">
+            <select
+              className="input"
+              onChange={(event) =>
+                handleThemeChange(event.target.value as ThemeMode)
+              }
+              value={themeMode}
+            >
+              <option value="system">{t("settings.themeSystem")}</option>
+              <option value="light">{t("settings.themeLight")}</option>
+              <option value="dark">{t("settings.themeDark")}</option>
+            </select>
+            <span className="st-hint">{t("settings.themeHelp")}</span>
+            <span className="st-hint">
+              {t("settings.currentAppearance")}：
+              {resolvedTheme === "light"
+                ? t("settings.currentAppearanceLight")
+                : t("settings.currentAppearanceDark")}
+            </span>
+          </div>
+        </div>
+
+        {/* ── Proxy ── */}
+        <div className="st-section">
+          <div className="st-section__head">
+            <Globe size={18} />
+            <h2>{t("settings.proxy")}</h2>
+          </div>
+          <div className="st-section__body">
+            <label className="st-field">
+              <span className="st-field__label">{t("settings.proxyUrl")}</span>
+              <input
+                className="input"
+                placeholder={t("settings.proxyPlaceholder")}
+                value={proxyUrl}
+                onChange={(e) => {
+                  setProxyUrl(e.target.value);
+                  setProxySaved(false);
+                  setProxyTestResult(null);
+                }}
+              />
+              <span className="st-hint">{t("settings.proxyHelp")}</span>
+            </label>
+            <div className="st-actions">
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={async () => {
+                  if (isActionRunningRef.current) return;
+                  isActionRunningRef.current = true;
+                  try {
+                    await updateProxyUrl(proxyUrl);
+                    setProxySaved(true);
+                    setProxyTestResult(null);
+                    setSaved(
+                      proxyUrl.trim()
+                        ? t("settings.proxySaved")
+                        : t("settings.proxyCleared"),
+                    );
+                  } finally {
+                    isActionRunningRef.current = false;
+                  }
+                }}
+              >
+                {t("settings.proxySave")}
+              </button>
+              <button
+                className="button button--secondary"
+                type="button"
+                disabled={proxyTesting || !proxyUrl.trim()}
+                onClick={async () => {
+                  setProxyTesting(true);
+                  setProxyTestResult(null);
+                  try {
+                    await testProxy(proxyUrl);
+                    setProxyTestResult({
+                      ok: true,
+                      msg: t("settings.proxyTestSuccess"),
+                    });
+                  } catch (e) {
+                    setProxyTestResult({
+                      ok: false,
+                      msg: t("settings.proxyTestFail").replace(
+                        "{error}",
+                        String(e),
+                      ),
+                    });
+                  } finally {
+                    setProxyTesting(false);
+                  }
+                }}
+              >
+                {proxyTesting ? (
+                  <Loader2 size={14} className="spin-icon" />
+                ) : null}
+                {t("settings.proxyTest")}
+              </button>
+              {proxySaved && (
+                <span className="st-inline-msg st-inline-msg--success">
+                  <CheckCircle size={14} />
+                  {t("settings.proxySaved")}
+                </span>
+              )}
             </div>
-            <div className="form-stack">
-              <label className="field">
-                <span>{t("settings.apiKey")}</span>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                  <div style={{ position: "relative", flex: 1 }}>
-                    <input
-                      className="input"
-                      ref={apiKeyInputRef}
-                      type={apiKeyVisible ? "text" : "password"}
-                      placeholder={apiKeyLoaded ? t("settings.apiKeyPlaceholder") : "…"}
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      style={{ paddingRight: "40px", width: "100%", boxSizing: "border-box" }}
-                      autoComplete="off"
-                      autoCorrect="off"
-                      spellCheck={false}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setApiKeyVisible((v) => !v)}
-                      style={{
-                        position: "absolute",
-                        right: "10px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: "2px",
-                        color: "var(--text-secondary)",
-                        display: "flex",
-                        alignItems: "center",
-                      }}
-                      title={apiKeyVisible ? t("settings.apiKeyHidden") : t("settings.apiKeyVisible")}
-                    >
-                      {apiKeyVisible ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </button>
-                  </div>
+            {proxyTestResult && (
+              <p
+                className={`st-inline-msg ${proxyTestResult.ok ? "st-inline-msg--success" : "st-inline-msg--error"}`}
+              >
+                {proxyTestResult.msg}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* ── Nexus Mods API ── */}
+        <div className="st-section st-section--wide">
+          <div className="st-section__head">
+            <Key size={18} />
+            <h2>{t("settings.nexusIntegration")}</h2>
+          </div>
+          <div className="st-section__body">
+            <label className="st-field">
+              <span className="st-field__label">{t("settings.apiKey")}</span>
+              <div className="st-field__row">
+                <div style={{ position: "relative", flex: 1 }}>
+                  <input
+                    className="input"
+                    ref={apiKeyInputRef}
+                    type={apiKeyVisible ? "text" : "password"}
+                    placeholder={
+                      apiKeyLoaded ? t("settings.apiKeyPlaceholder") : "…"
+                    }
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    style={{
+                      paddingRight: "40px",
+                      width: "100%",
+                      boxSizing: "border-box",
+                    }}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                  />
                   <button
                     type="button"
-                    className="button button--secondary button--compact"
-                    onClick={handlePasteApiKey}
-                    title={t("settings.paste")}
-                    style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: "6px" }}
+                    onClick={() => setApiKeyVisible((v) => !v)}
+                    className="st-input-icon-btn"
+                    title={
+                      apiKeyVisible
+                        ? t("settings.apiKeyHidden")
+                        : t("settings.apiKeyVisible")
+                    }
                   >
-                    <Clipboard size={14} />
-                    {t("settings.paste")}
+                    {apiKeyVisible ? (
+                      <EyeOff size={15} />
+                    ) : (
+                      <Eye size={15} />
+                    )}
                   </button>
                 </div>
-              </label>
-
-              {/* In-app tutorial */}
-              <div style={{ marginTop: "4px" }}>
                 <button
                   type="button"
-                  onClick={() => setShowTutorial((v) => !v)}
+                  className="button button--secondary button--compact"
+                  onClick={handlePasteApiKey}
+                  title={t("settings.paste")}
                   style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "var(--accent)",
-                    fontSize: "13px",
-                    fontWeight: 500,
-                    padding: 0,
-                    display: "inline-flex",
+                    flexShrink: 0,
+                    display: "flex",
                     alignItems: "center",
-                    gap: "4px",
+                    gap: "6px",
                   }}
                 >
-                  {t("settings.howToGetKey")}
-                  {showTutorial ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  <Clipboard size={14} />
+                  {t("settings.paste")}
                 </button>
-
-                {showTutorial && (
-                  <div
-                    style={{
-                      marginTop: "12px",
-                      padding: "16px 20px",
-                      background: "var(--surface-contrast)",
-                      borderRadius: "var(--radius-sm)",
-                      border: "1px solid var(--border-subtle)",
-                    }}
-                  >
-                    <h4
-                      style={{
-                        margin: "0 0 12px",
-                        fontSize: "14px",
-                        fontWeight: 600,
-                        color: "var(--text-primary)",
-                      }}
-                    >
-                      {t("settings.tutorialTitle")}
-                    </h4>
-                    <ol
-                      style={{
-                        margin: 0,
-                        paddingLeft: "20px",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "8px",
-                      }}
-                    >
-                      {tutorialSteps.map((step, i) => (
-                        <li
-                          key={i}
-                          style={{
-                            fontSize: "13px",
-                            lineHeight: "1.6",
-                            color: "var(--text-secondary)",
-                          }}
-                        >
-                          {step.text}
-                          {step.linkUrl && step.linkLabel && (
-                            <>
-                              {" "}
-                              <button
-                                type="button"
-                                onClick={() => handleOpenUrl(step.linkUrl!)}
-                                style={{
-                                  background: "none",
-                                  border: "none",
-                                  padding: 0,
-                                  cursor: "pointer",
-                                  color: "var(--accent)",
-                                  fontSize: "inherit",
-                                  textDecoration: "underline",
-                                  textUnderlineOffset: "2px",
-                                  fontFamily: "inherit",
-                                }}
-                              >
-                                {step.linkLabel} ↗
-                              </button>
-                            </>
-                          )}
-                        </li>
-                      ))}
-                    </ol>
-                    <button
-                      type="button"
-                      onClick={() => setShowTutorial(false)}
-                      style={{
-                        marginTop: "12px",
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--text-dim)",
-                        fontSize: "12px",
-                        padding: 0,
-                      }}
-                    >
-                      {t("settings.tutorialCollapse")}
-                    </button>
-                  </div>
-                )}
               </div>
+            </label>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "8px" }}>
+            {/* Tutorial toggle */}
+            <button
+              type="button"
+              onClick={() => setShowTutorial((v) => !v)}
+              className="st-link-btn"
+            >
+              {t("settings.howToGetKey")}
+              {showTutorial ? (
+                <ChevronUp size={14} />
+              ) : (
+                <ChevronDown size={14} />
+              )}
+            </button>
+
+            {showTutorial && (
+              <div className="st-tutorial">
+                <h4>{t("settings.tutorialTitle")}</h4>
+                <ol>
+                  {tutorialSteps.map((step, i) => (
+                    <li key={i}>
+                      {step.text}
+                      {step.linkUrl && step.linkLabel && (
+                        <>
+                          {" "}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenUrl(step.linkUrl!)}
+                            className="st-link-btn st-link-btn--inline"
+                          >
+                            {step.linkLabel} ↗
+                          </button>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ol>
                 <button
-                  className="button button--primary"
                   type="button"
-                  style={{ alignSelf: "flex-start" }}
-                  onClick={() => void handleSaveApiKey()}
+                  onClick={() => setShowTutorial(false)}
+                  className="st-link-btn"
+                  style={{ fontSize: "12px", color: "var(--text-dim)" }}
                 >
-                  {t("settings.saveNexusAuth")}
+                  {t("settings.tutorialCollapse")}
                 </button>
-                {apiKeySaved && (
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      color: "var(--accent)",
-                      fontSize: "13px",
-                      animation: "fadeIn 0.2s ease",
-                    }}
-                  >
-                    <CheckCircle size={14} />
-                    {t("settings.apiKeySaved")}
-                  </span>
-                )}
               </div>
+            )}
 
-              <p className="panel__meta" style={{ marginTop: 4 }}>
-                {t("settings.apiKeyPrivacy")}{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleOpenUrl("https://www.nexusmods.com/users/myaccount?tab=api+access");
-                  }}
-                  className="detail-link"
-                  style={{ cursor: "pointer" }}
-                >
-                  {t("settings.nexusAccount")} →
-                </a>
-              </p>
+            <div className="st-actions">
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={() => void handleSaveApiKey()}
+              >
+                {t("settings.saveNexusAuth")}
+              </button>
+              {apiKeySaved && (
+                <span className="st-inline-msg st-inline-msg--success">
+                  <CheckCircle size={14} />
+                  {t("settings.apiKeySaved")}
+                </span>
+              )}
             </div>
-          </section>
+
+            <p className="st-hint" style={{ marginTop: 4 }}>
+              {t("settings.apiKeyPrivacy")}{" "}
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleOpenUrl(
+                    "https://www.nexusmods.com/users/myaccount?tab=api+access",
+                  );
+                }}
+                className="detail-link"
+                style={{ cursor: "pointer" }}
+              >
+                {t("settings.nexusAccount")} →
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </section>

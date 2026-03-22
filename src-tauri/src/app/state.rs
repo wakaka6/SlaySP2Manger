@@ -26,6 +26,8 @@ pub struct AppSettings {
     pub nexus_is_premium: bool,
     #[serde(default)]
     pub nexus_user_name: Option<String>,
+    #[serde(default)]
+    pub proxy_url: Option<String>,
 }
 
 impl Default for AppSettings {
@@ -40,6 +42,7 @@ impl Default for AppSettings {
             nexus_api_key: None,
             nexus_is_premium: false,
             nexus_user_name: None,
+            proxy_url: None,
         }
     }
 }

@@ -1,4 +1,6 @@
+use crate::app::state::AppSettings;
 use crate::domain::remote_mod::{RemoteMod, RemoteModSearchResult};
+use crate::utils::http::http_client;
 use serde::Deserialize;
 
 const NEXUS_GAME_DOMAIN: &str = "slaythespire2";
@@ -7,7 +9,9 @@ const NEXUS_API_BASE: &str = "https://api.nexusmods.com/v1";
 const NEXUS_GRAPHQL_URL: &str = "https://api.nexusmods.com/v2/graphql";
 const NEXUS_DETAIL_BASE: &str = "https://www.nexusmods.com/slaythespire2/mods";
 
-pub struct DiscoverService;
+pub struct DiscoverService {
+    settings: AppSettings,
+}
 
 // ── GraphQL response types ──────────────────────────────────────────────
 
@@ -79,18 +83,15 @@ pub struct NexusUserValidation {
 }
 
 impl DiscoverService {
-    pub fn new() -> Self {
-        Self
+    pub fn new(settings: AppSettings) -> Self {
+        Self { settings }
     }
 
     /// Validate API key and return user info (including premium status).
     pub fn validate_user(&self, api_key: &str) -> Result<NexusUserValidation, String> {
         let url = format!("{}/users/validate.json", NEXUS_API_BASE);
 
-        let client = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(10))
-            .build()
-            .map_err(|e| e.to_string())?;
+        let client = http_client(&self.settings, 10)?;
 
         let response = client
             .get(&url)
@@ -125,7 +126,7 @@ impl DiscoverService {
         self.search_graphql(query, sort_by, offset, count, &api_key)
     }
 
-    /// Get file list for a mod (v1 REST – unchanged)
+    /// Get file list for a mod (v1 REST)
     pub fn get_mod_files(&self, mod_id: u64) -> Result<Vec<NexusModFile>, String> {
         let api_key = self.read_api_key().unwrap_or_default();
         if api_key.is_empty() {
@@ -137,10 +138,7 @@ impl DiscoverService {
             NEXUS_API_BASE, NEXUS_GAME_DOMAIN, mod_id
         );
 
-        let client = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(10))
-            .build()
-            .map_err(|e| e.to_string())?;
+        let client = http_client(&self.settings, 10)?;
 
         let response = client
             .get(&url)
@@ -157,7 +155,7 @@ impl DiscoverService {
         Ok(files_resp.files)
     }
 
-    /// Get download link for a specific file (v1 REST – unchanged)
+    /// Get download link for a specific file (v1 REST)
     pub fn get_download_link(&self, mod_id: u64, file_id: u64) -> Result<String, String> {
         let api_key = self.read_api_key().unwrap_or_default();
         if api_key.is_empty() {
@@ -169,10 +167,7 @@ impl DiscoverService {
             NEXUS_API_BASE, NEXUS_GAME_DOMAIN, mod_id, file_id
         );
 
-        let client = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(10))
-            .build()
-            .map_err(|e| e.to_string())?;
+        let client = http_client(&self.settings, 10)?;
 
         let response = client
             .get(&url)
@@ -206,22 +201,17 @@ impl DiscoverService {
             "latest_updated" => r#"{ updatedAt: { direction: DESC } }"#,
             "trending" => r#"{ endorsements: { direction: DESC } }"#,
             "downloads" => r#"{ downloads: { direction: DESC } }"#,
-            // default: latest_added
             _ => r#"{ createdAt: { direction: DESC } }"#,
         };
 
         let query_trimmed = query.trim();
 
-        // Build filter: always filter by game; if query provided, also search
-        // name (EQUALS) OR description (MATCHES) across OR branches, each
-        // scoped to the game.
         let filter = if query_trimmed.is_empty() {
             format!(
                 r#"{{ gameId: {{ value: "{}", op: EQUALS }} }}"#,
                 NEXUS_GAME_ID
             )
         } else {
-            // Escape the query for safe embedding in GraphQL string literals
             let escaped = query_trimmed
                 .replace('\\', "\\\\")
                 .replace('"', "\\\"");
@@ -242,10 +232,7 @@ impl DiscoverService {
 
         let body = serde_json::json!({ "query": graphql_query });
 
-        let client = reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(10))
-            .build()
-            .map_err(|e| e.to_string())?;
+        let client = http_client(&self.settings, 10)?;
 
         let response = client
             .post(NEXUS_GRAPHQL_URL)
@@ -301,15 +288,6 @@ impl DiscoverService {
     }
 
     fn read_api_key(&self) -> Option<String> {
-        let app_data = std::env::var("APPDATA").ok()?;
-        let settings_path = std::path::PathBuf::from(app_data)
-            .join("SlaySP2Manager")
-            .join("settings.json");
-        let text = std::fs::read_to_string(settings_path).ok()?;
-        let val: serde_json::Value = serde_json::from_str(&text).ok()?;
-        val.get("nexus_api_key")
-            .and_then(|v| v.as_str())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string())
+        self.settings.nexus_api_key.clone().filter(|s| !s.is_empty())
     }
 }

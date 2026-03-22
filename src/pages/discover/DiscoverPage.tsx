@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useTransition } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
 import { searchRemoteMods, openUrlInBrowser, getAppBootstrap, type RemoteMod } from "../../lib/desktop";
 import { useNavigate } from "react-router-dom";
@@ -65,6 +65,9 @@ export function DiscoverPage() {
   const { startDownload, isDownloading } = useDownloads();
   const listRef = useRef<HTMLDivElement>(null);
 
+  // ── React 18 transition: heavy state updates won't block sidebar clicks ──
+  const [isPending, startTransition] = useTransition();
+
   const sortOptions: SortOption[] = [
     { key: "latest_added", label: t("discover.filterNewest"), icon: <Clock size={12} /> },
     { key: "latest_updated", label: t("discover.filterLatestUpdated"), icon: <ArrowDownToLine size={12} /> },
@@ -78,14 +81,19 @@ export function DiscoverPage() {
   const [results, setResults] = useState<RemoteMod[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [selected, setSelected] = useState<RemoteMod | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+
+  // Separate loading states: initial load vs. refreshing with stale data visible
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [errorState, setErrorState] = useState<string | null>(null);
   const [translatedSummary, setTranslatedSummary] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isPremium, setIsPremium] = useState(true); // optimistic default
 
-  const searchRef = useRef({ query: "", sortBy: "latest_added" });
+  // Unique request ID to cancel stale requests
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     getAppBootstrap().then((b) => setIsPremium(b.nexusIsPremium)).catch(() => {});
@@ -96,41 +104,59 @@ export function DiscoverPage() {
     return () => clearTimeout(handler);
   }, [query]);
 
+  // ── Main search effect — optimized for non-blocking UX ──
   useEffect(() => {
-    let cancelled = false;
-    searchRef.current = { query: debouncedQuery, sortBy };
-    setIsLoading(true);
+    const reqId = ++requestIdRef.current;
+
+    // If we already have results, show a subtle refresh indicator
+    // instead of clearing everything (keep stale data visible)
+    if (results.length > 0) {
+      setIsRefreshing(true);
+    } else {
+      setIsInitialLoad(true);
+    }
     setErrorState(null);
-    setResults([]);
-    setTotalCount(0);
 
     searchRemoteMods(debouncedQuery, sortBy, 0, PAGE_SIZE)
       .then((result) => {
-        if (cancelled) return;
-        setResults(result.items);
-        setTotalCount(result.totalCount);
-        setSelected((cur) => {
-          if (cur && result.items.some((i) => i.remoteId === cur.remoteId)) return cur;
-          return result.items[0] ?? null;
+        // Stale response — a newer request was fired
+        if (reqId !== requestIdRef.current) return;
+
+        // Use startTransition so this heavy state batch
+        // doesn't block the main thread (sidebar stays clickable)
+        startTransition(() => {
+          setResults(result.items);
+          setTotalCount(result.totalCount);
+          setSelected((cur) => {
+            if (cur && result.items.some((i) => i.remoteId === cur.remoteId)) return cur;
+            return result.items[0] ?? null;
+          });
+          setIsInitialLoad(false);
+          setIsRefreshing(false);
         });
-        setIsLoading(false);
       })
       .catch((e) => {
-        if (cancelled) return;
-        setIsLoading(false);
+        if (reqId !== requestIdRef.current) return;
+        setIsInitialLoad(false);
+        setIsRefreshing(false);
         setErrorState(e instanceof Error ? e.message : String(e));
       });
 
-    return () => { cancelled = true; };
-  }, [debouncedQuery, sortBy]);
+    // Cleanup: mark this request as stale if deps change
+    return () => {
+      // We don't need to do anything because reqId check handles staleness
+    };
+  }, [debouncedQuery, sortBy]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadMore = useCallback(async () => {
     if (isLoadingMore || results.length >= totalCount) return;
     setIsLoadingMore(true);
     try {
       const result = await searchRemoteMods(debouncedQuery, sortBy, results.length, PAGE_SIZE);
-      setResults((prev) => [...prev, ...result.items]);
-      setTotalCount(result.totalCount);
+      startTransition(() => {
+        setResults((prev) => [...prev, ...result.items]);
+        setTotalCount(result.totalCount);
+      });
     } catch (e) {
       setErrorState(e instanceof Error ? e.message : String(e));
     } finally {
@@ -184,6 +210,11 @@ export function DiscoverPage() {
 
   const hasMore = results.length < totalCount;
 
+  // Derived: show skeletons only for initial load without any stale data
+  const showSkeletons = isInitialLoad && results.length === 0;
+  // Show a subtle progress bar when refreshing with stale data visible
+  const showRefreshBar = isRefreshing || isPending;
+
   const renderSkeletons = () =>
     Array.from({ length: 8 }).map((_, i) => (
       <div className="discover-row discover-row--skeleton" key={i}>
@@ -193,9 +224,9 @@ export function DiscoverPage() {
     ));
 
   const renderList = () => {
-    if (isLoading) return renderSkeletons();
+    if (showSkeletons) return renderSkeletons();
 
-    if (errorState) {
+    if (errorState && results.length === 0) {
       const isMissingKey = errorState.includes("MISSING_API_KEY") || errorState.includes("INVALID_API_KEY");
       if (isMissingKey) {
         return (
@@ -218,7 +249,7 @@ export function DiscoverPage() {
       );
     }
 
-    if (results.length === 0) {
+    if (results.length === 0 && !isInitialLoad) {
       return (
         <div className="discover-empty">
           <PackageSearch size={36} style={{ opacity: 0.25 }} />
@@ -234,7 +265,7 @@ export function DiscoverPage() {
           const isActive = selected?.remoteId === item.remoteId;
           return (
             <button
-              className={`discover-row${isActive ? " is-active" : ""}`}
+              className={`discover-row${isActive ? " is-active" : ""}${showRefreshBar ? " is-stale" : ""}`}
               key={item.remoteId}
               onClick={() => setSelected(item)}
               type="button"
@@ -272,6 +303,13 @@ export function DiscoverPage() {
 
   return (
     <section className="discover-page">
+      {/* ── Subtle refresh progress bar ──────────────── */}
+      {showRefreshBar && (
+        <div className="discover-refresh-bar">
+          <div className="discover-refresh-bar__track" />
+        </div>
+      )}
+
       {/* ── Toolbar: search + sort inline ──────────────── */}
       <div className="discover-toolbar2">
         <div className="discover-toolbar2__search">
@@ -297,7 +335,7 @@ export function DiscoverPage() {
               </button>
             ))}
           </div>
-          {totalCount > 0 && !isLoading && (
+          {totalCount > 0 && !isInitialLoad && (
             <span className="discover-toolbar2__count">
               {t("discover.totalCount", { total: totalCount })}
             </span>
@@ -312,7 +350,7 @@ export function DiscoverPage() {
         </div>
 
         <aside className="discover-detail2">
-          {isLoading ? (
+          {showSkeletons ? (
             <div className="discover-detail2__skeleton">
               <div className="skeleton-text" style={{ width: "60%", height: "20px", marginBottom: "10px" }} />
               <div className="skeleton-text" style={{ width: "40%", height: "12px", marginBottom: "24px" }} />

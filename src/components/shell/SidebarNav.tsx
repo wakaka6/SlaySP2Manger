@@ -1,6 +1,7 @@
-import { ArrowDownToLine, CheckCircle, AlertTriangle, Loader2, X, Play } from "lucide-react";
+import { ArrowDownToLine, CheckCircle, AlertTriangle, Loader2, X, Play, ChevronsLeft } from "lucide-react";
 import { useI18n } from "../../i18n/I18nProvider";
 import { launchGame } from "../../lib/desktop";
+import appIcon from "../../assets/app-icon.png";
 import { useDownloads } from "../../contexts/DownloadContext";
 import type { ShellNavItem } from "./AppShell";
 
@@ -8,6 +9,8 @@ type SidebarNavProps = {
   items: ShellNavItem[];
   activePath: string;
   onNavigate: (path: string) => void;
+  collapsed: boolean;
+  onToggle: () => void;
 };
 
 export function SidebarNav(props: SidebarNavProps) {
@@ -16,10 +19,19 @@ export function SidebarNav(props: SidebarNavProps) {
   const hasAnyTasks = tasks.length > 0;
 
   return (
-    <aside className="sidebar-nav">
+    <aside className={`sidebar-nav${props.collapsed ? " sidebar-nav--collapsed" : ""}`}>
+      {/* Edge-mounted toggle — floats on the sidebar border */}
+      <button
+        className="sidebar-nav__toggle"
+        type="button"
+        onClick={props.onToggle}
+      >
+        <ChevronsLeft size={14} />
+      </button>
+
       <div className="sidebar-nav__brand" data-tauri-drag-region>
         <span className="sidebar-nav__brand-mark">
-          <BrandGlyph />
+          <img src={appIcon} alt="SlaySP2Manager" width={22} height={22} style={{ borderRadius: 4 }} />
         </span>
         <div className="sidebar-nav__brand-copy">
           <div className="sidebar-nav__title">
@@ -43,6 +55,7 @@ export function SidebarNav(props: SidebarNavProps) {
                 className={`sidebar-nav__item${active ? " is-active" : ""}`}
                 onClick={() => props.onNavigate(item.path)}
                 type="button"
+                title={props.collapsed ? item.label : undefined}
               >
                 <div className="sidebar-nav__item-main">
                   <Icon className="sidebar-nav__item-icon" size={17} strokeWidth={1.8} />
@@ -109,15 +122,5 @@ export function SidebarNav(props: SidebarNavProps) {
         </button>
       </div>
     </aside>
-  );
-}
-
-function BrandGlyph() {
-  return (
-    <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
-      <path d="M12 4 5.5 7.2 12 10.4l6.5-3.2L12 4Z" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M5.5 11.3 12 14.5l6.5-3.2" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M5.5 15.3 12 18.5l6.5-3.2" stroke="currentColor" strokeWidth="1.7" />
-    </svg>
   );
 }

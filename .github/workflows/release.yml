@@ -60,11 +60,11 @@ jobs:
 
             ### 安装方式 / How to Install
 
-            | 文件 / File | 说明 / Description |
-            |---|---|
-            | `.msi` | 安装包，双击安装 / Installer, double-click to install |
-            | `.msi.sig` | 更新签名 / Update signature for auto-updater |
-            | `.zip` (portable) | 便携版，解压即用，无需安装 / Portable, extract and run |
+            下载 `.msi` 安装包，双击即可安装。支持自定义安装目录。
+            Download the `.msi` installer and double-click to install. Custom install path supported.
+
+            安装后应用将自动检查更新。
+            The app will check for updates automatically after installation.
 
             ---
 
@@ -73,20 +73,3 @@ jobs:
           prerelease: false
           includeUpdaterJson: true
           args: --target x86_64-pc-windows-msvc
-
-      # ── Portable ZIP ──────────────────────────────────────────────────────
-      - name: Create portable ZIP
-        shell: pwsh
-        run: |
-          $exePath = "src-tauri/target/x86_64-pc-windows-msvc/release/SlaySP2Manager.exe"
-          $tag = if ("${{ inputs.tag }}") { "${{ inputs.tag }}" } else { "${{ github.ref_name }}" }
-          $zipName = "SlaySP2Manager_${tag}_portable_x64.zip"
-          Compress-Archive -Path $exePath -DestinationPath $zipName
-          echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
-          echo "TAG_NAME=$tag" >> $env:GITHUB_ENV
-
-      - name: Upload portable ZIP to release
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "$TAG_NAME" "$ZIP_NAME" --clobber

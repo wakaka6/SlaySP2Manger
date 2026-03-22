@@ -57,6 +57,16 @@ export type MessageKey =
   | "settings.tutorialCollapse"
   | "settings.tutorialLinkSite"
   | "settings.tutorialLinkApi"
+  | "settings.proxy"
+  | "settings.proxyUrl"
+  | "settings.proxyPlaceholder"
+  | "settings.proxyHelp"
+  | "settings.proxySave"
+  | "settings.proxySaved"
+  | "settings.proxyTest"
+  | "settings.proxyTestSuccess"
+  | "settings.proxyTestFail"
+  | "settings.proxyCleared"
   | "welcome.title"
   | "welcome.subtitle"
   | "welcome.step1"
@@ -66,6 +76,12 @@ export type MessageKey =
   | "welcome.submit"
   | "welcome.browse"
   | "welcome.error"
+  | "updater.available"
+  | "updater.body"
+  | "updater.downloading"
+  | "updater.install"
+  | "updater.later"
+  | "updater.restarting"
   | "profiles.title"
   | "profiles.description"
   | "profiles.new"
@@ -360,6 +376,17 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "settings.tutorialLinkSite": "Nexus Mods",
     "settings.tutorialLinkApi": "API Access Page",
 
+    "settings.proxy": "Proxy",
+    "settings.proxyUrl": "Proxy URL",
+    "settings.proxyPlaceholder": "e.g., http://127.0.0.1:7890 or socks5://127.0.0.1:1080",
+    "settings.proxyHelp": "Supports HTTP, HTTPS, and SOCKS5 proxies for all network requests.",
+    "settings.proxySave": "Save Proxy",
+    "settings.proxySaved": "Proxy settings saved.",
+    "settings.proxyTest": "Test",
+    "settings.proxyTestSuccess": "Proxy connection successful!",
+    "settings.proxyTestFail": "Proxy test failed: {error}",
+    "settings.proxyCleared": "Proxy settings cleared.",
+
     "welcome.title": "Welcome to SlaySP2Manager",
     "welcome.subtitle": "To get started, please locate your Slay the Spire 2 installation folder.",
     "welcome.step1": "Open Steam, right-click Slay the Spire 2 in your library and select Manage.",
@@ -369,6 +396,13 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "welcome.submit": "Save and Continue",
     "welcome.browse": "Browse...",
     "welcome.error": "Invalid game directory. SlayTheSpire2.exe not found.",
+
+    "updater.available": "New Version Available",
+    "updater.body": "Version {version} is ready. Would you like to update now?",
+    "updater.downloading": "Downloading update…",
+    "updater.install": "Update Now",
+    "updater.later": "Later",
+    "updater.restarting": "Restarting…",
 
     "profiles.title": "Profiles",
     "profiles.description": "Save a set of mod states as a reusable configuration and apply it to the game.",
@@ -661,6 +695,17 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "settings.tutorialLinkSite": "Nexus Mods 官网",
     "settings.tutorialLinkApi": "API 访问页面",
 
+    "settings.proxy": "代理",
+    "settings.proxyUrl": "代理地址",
+    "settings.proxyPlaceholder": "例如: http://127.0.0.1:7890 或 socks5://127.0.0.1:1080",
+    "settings.proxyHelp": "支持 HTTP、HTTPS 和 SOCKS5 代理，应用于所有网络请求。",
+    "settings.proxySave": "保存代理",
+    "settings.proxySaved": "代理设置已保存。",
+    "settings.proxyTest": "测试",
+    "settings.proxyTestSuccess": "代理连接成功！",
+    "settings.proxyTestFail": "代理测试失败: {error}",
+    "settings.proxyCleared": "代理设置已清除。",
+
     "welcome.title": "欢迎使用 SlaySP2Manager",
     "welcome.subtitle": "初次使用请先配置《杀戮尖塔 2》的游戏安装目录。",
     "welcome.step1": "打开 Steam，在库中右键点击 Slay the Spire 2，选择“管理”。",
@@ -670,6 +715,13 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "welcome.submit": "保存并继续",
     "welcome.browse": "浏览...",
     "welcome.error": "无效的游戏目录。未找到 SlayTheSpire2.exe。",
+
+    "updater.available": "发现新版本",
+    "updater.body": "版本 {version} 已就绪，是否立即更新？",
+    "updater.downloading": "正在下载更新…",
+    "updater.install": "立即更新",
+    "updater.later": "稍后再说",
+    "updater.restarting": "正在重启…",
 
     "profiles.title": "模组预设",
     "profiles.description": "把一组模组状态保存成可复用预设，并一键应用到当前游戏目录。",

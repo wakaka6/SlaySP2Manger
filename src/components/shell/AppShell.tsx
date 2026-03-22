@@ -8,12 +8,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition, useCallback } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
 import { getAppBootstrap, type AppBootstrap } from "../../lib/desktop";
 import { SidebarNav } from "./SidebarNav";
 import { WelcomeGuide } from "./WelcomeGuide";
+import { UpdateChecker } from "./UpdateChecker";
 import { useDropZone } from "../../contexts/DropZoneContext";
+import { WindowControls } from "./WindowControls";
 
 export type ShellNavItem = {
   label: string;
@@ -29,16 +31,33 @@ export function AppShell() {
   const { t } = useI18n();
   const [appState, setAppState] = useState<AppBootstrap | null>(null);
   const { pendingDropPaths, isDragging } = useDropZone();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem("sidebar-collapsed") === "true"; } catch { return false; }
+  });
 
-  function fetchAppState() {
+  // Use transition so bootstrap refetch doesn't block navigation interactions
+  const [, startTransition] = useTransition();
+
+  const fetchAppState = useCallback((force = false) => {
     getAppBootstrap()
-      .then(setAppState)
+      .then((data) => {
+        startTransition(() => setAppState(data));
+      })
       .catch((e) => console.error("Failed to load bootstrap:", e));
-  }
+  }, []);
 
+  // Re-fetch on route change
   useEffect(() => {
     fetchAppState();
-  }, [location.pathname]);
+  }, [location.pathname, fetchAppState]);
+
+  // Listen for bootstrap invalidation events (triggered by any mutation like mod import/enable/disable)
+  // This ensures the sidebar badge count stays in sync without waiting for route changes
+  useEffect(() => {
+    const handler = () => fetchAppState(true);
+    window.addEventListener("slaymgr:bootstrap-changed", handler);
+    return () => window.removeEventListener("slaymgr:bootstrap-changed", handler);
+  }, [fetchAppState]);
 
   // Navigate to library magically when dropping a file on any page
   useEffect(() => {
@@ -61,11 +80,25 @@ export function AppShell() {
   ];
 
   return (
-    <div className="app-shell">
-      <SidebarNav activePath={location.pathname} items={navItems} onNavigate={navigate} />
+    <div className={`app-shell${sidebarCollapsed ? " app-shell--collapsed" : ""}`}>
+      <SidebarNav
+        activePath={location.pathname}
+        items={navItems}
+        onNavigate={navigate}
+        collapsed={sidebarCollapsed}
+        onToggle={() => {
+          setSidebarCollapsed((v) => {
+            const next = !v;
+            try { localStorage.setItem("sidebar-collapsed", String(next)); } catch {}
+            return next;
+          });
+        }}
+      />
       <main className="app-shell__content">
+        <div className="app-shell__drag-bar" data-tauri-drag-region />
         <Outlet />
       </main>
+      <WindowControls />
 
       {isDragging && (
         <div className="drop-overlay">
@@ -82,6 +115,8 @@ export function AppShell() {
       {appState && !appState.gameDirectoryValid && (
         <WelcomeGuide onSuccess={fetchAppState} />
       )}
+
+      <UpdateChecker />
     </div>
   );
 }

@@ -17,6 +17,7 @@ use crate::services::game_service::GameService;
 use crate::services::mod_service::ModService;
 use crate::services::profile_service::ProfileService;
 use crate::services::save_service::SaveService;
+use crate::utils::http::http_client;
 
 #[tauri::command]
 pub fn get_app_bootstrap(state: State<'_, AppState>) -> Result<AppBootstrapDto, String> {
@@ -59,6 +60,7 @@ pub fn get_app_bootstrap(state: State<'_, AppState>) -> Result<AppBootstrapDto, 
         nexus_api_key: settings.nexus_api_key,
         nexus_is_premium: settings.nexus_is_premium,
         nexus_user_name: settings.nexus_user_name,
+        proxy_url: settings.proxy_url,
     })
 }
 
@@ -106,7 +108,7 @@ pub fn update_nexus_api_key(
         settings.nexus_user_name = None;
     } else {
         // Validate API key and fetch user info
-        let discover = DiscoverService::new();
+        let discover = DiscoverService::new(settings.clone());
         let user = discover.validate_user(&trimmed)?;
 
         settings.nexus_api_key = Some(trimmed);
@@ -433,8 +435,10 @@ pub fn search_remote_mods(
     sort_by: String,
     offset: Option<u64>,
     count: Option<u64>,
+    state: State<'_, AppState>,
 ) -> Result<RemoteModSearchResult, String> {
-    DiscoverService::new().search(&query, &sort_by, offset.unwrap_or(0), count.unwrap_or(20))
+    let settings = state.settings.read().map_err(|_| "failed to read app settings".to_string())?.clone();
+    DiscoverService::new(settings).search(&query, &sort_by, offset.unwrap_or(0), count.unwrap_or(20))
 }
 
 #[derive(serde::Serialize)]
@@ -450,8 +454,9 @@ pub struct ModFileInfo {
 }
 
 #[tauri::command]
-pub fn get_mod_files(mod_id: u64) -> Result<Vec<ModFileInfo>, String> {
-    let files = DiscoverService::new().get_mod_files(mod_id)?;
+pub fn get_mod_files(mod_id: u64, state: State<'_, AppState>) -> Result<Vec<ModFileInfo>, String> {
+    let settings = state.settings.read().map_err(|_| "failed to read app settings".to_string())?.clone();
+    let files = DiscoverService::new(settings).get_mod_files(mod_id)?;
     Ok(files
         .into_iter()
         .map(|f| ModFileInfo {
@@ -467,8 +472,9 @@ pub fn get_mod_files(mod_id: u64) -> Result<Vec<ModFileInfo>, String> {
 }
 
 #[tauri::command]
-pub fn get_download_link(mod_id: u64, file_id: u64) -> Result<String, String> {
-    DiscoverService::new().get_download_link(mod_id, file_id)
+pub fn get_download_link(mod_id: u64, file_id: u64, state: State<'_, AppState>) -> Result<String, String> {
+    let settings = state.settings.read().map_err(|_| "failed to read app settings".to_string())?.clone();
+    DiscoverService::new(settings).get_download_link(mod_id, file_id)
 }
 
 #[tauri::command]
@@ -478,7 +484,8 @@ pub fn download_and_install_mod(
     file_name: String,
     state: State<'_, AppState>,
 ) -> Result<InstalledMod, String> {
-    let discover = DiscoverService::new();
+    let settings = state.settings.read().map_err(|_| "failed to read app settings".to_string())?.clone();
+    let discover = DiscoverService::new(settings.clone());
 
     // 1. Get download URL
     let download_url = discover.get_download_link(mod_id, file_id)?;
@@ -488,10 +495,7 @@ pub fn download_and_install_mod(
     std::fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
     let file_path = temp_dir.join(&file_name);
 
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(300))
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = http_client(&settings, 300)?;
 
     let response = client
         .get(&download_url)
@@ -945,4 +949,51 @@ pub fn delete_save_backup(id: String) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+#[tauri::command]
+pub fn update_proxy_url(
+    proxy_url: String,
+    state: State<'_, AppState>,
+) -> Result<AppSettings, String> {
+    let mut settings = state
+        .settings
+        .write()
+        .map_err(|_| "failed to write app settings".to_string())?;
+
+    settings.proxy_url = if proxy_url.trim().is_empty() {
+        None
+    } else {
+        Some(proxy_url.trim().to_string())
+    };
+
+    settings_repo::save_settings(&settings)?;
+    Ok(settings.clone())
+}
+
+#[tauri::command]
+pub fn test_proxy(
+    proxy_url: String,
+) -> Result<String, String> {
+    let trimmed = proxy_url.trim();
+    if trimmed.is_empty() {
+        return Err("Proxy URL is empty".to_string());
+    }
+
+    let proxy = reqwest::Proxy::all(trimmed)
+        .map_err(|e| format!("Invalid proxy URL: {}", e))?;
+
+    let client = reqwest::blocking::Client::builder()
+        .proxy(proxy)
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let response = client
+        .get("https://api.github.com")
+        .header("User-Agent", "SlaySP2Manager")
+        .send()
+        .map_err(|e| format!("Proxy connection failed: {}", e))?;
+
+    Ok(format!("OK ({})", response.status()))
 }

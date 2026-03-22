@@ -50,11 +50,14 @@ use app::commands::{
     get_download_link,
     download_and_install_mod,
     open_url_in_browser,
+    update_proxy_url,
+    test_proxy,
 };
 use app::state::AppState;
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             get_app_bootstrap,
@@ -99,7 +102,9 @@ pub fn run() {
             pick_archive_files,
             pick_import_folder,
             process_import_targets,
-            batch_install_mods
+            batch_install_mods,
+            update_proxy_url,
+            test_proxy
         ])
         .run(tauri::generate_context!())
         .expect("failed to run tauri application");

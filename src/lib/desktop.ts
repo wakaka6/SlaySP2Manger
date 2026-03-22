@@ -14,15 +14,22 @@ function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
 }
 
 function invalidate(...patterns: string[]) {
+  let bootstrapInvalidated = false;
   for (const p of patterns) {
+    if (p === "app_bootstrap") bootstrapInvalidated = true;
     if (p.endsWith("*")) {
       const prefix = p.slice(0, -1);
       for (const k of _cache.keys()) {
         if (k.startsWith(prefix)) _cache.delete(k);
+        if (k === "app_bootstrap") bootstrapInvalidated = true;
       }
     } else {
       _cache.delete(p);
     }
+  }
+  // Notify listeners (e.g. AppShell sidebar badge) that bootstrap data changed
+  if (bootstrapInvalidated) {
+    window.dispatchEvent(new CustomEvent("slaymgr:bootstrap-changed"));
   }
 }
 
@@ -40,6 +47,7 @@ export type AppBootstrap = {
   nexusApiKey: string | null;
   nexusIsPremium: boolean;
   nexusUserName: string | null;
+  proxyUrl: string | null;
 };
 
 export type InstalledMod = {
@@ -471,4 +479,13 @@ export async function updateNexusApiKey(apiKey: string) {
 
 export async function openUrlInBrowser(url: string) {
   return invoke<void>("open_url_in_browser", { url });
+}
+
+export async function updateProxyUrl(proxyUrl: string) {
+  await invoke<void>("update_proxy_url", { proxyUrl });
+  invalidate("app_bootstrap");
+}
+
+export async function testProxy(proxyUrl: string) {
+  return invoke<string>("test_proxy", { proxyUrl });
 }
