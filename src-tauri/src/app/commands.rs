@@ -30,6 +30,18 @@ pub fn get_app_bootstrap(state: State<'_, AppState>) -> Result<AppBootstrapDto, 
     let mod_service = ModService::new(settings.clone());
 
     let detected_game = game_service.detect_install().ok();
+
+    // Auto-persist: if no game_root_dir is configured but we detected one,
+    // save it so the user doesn't have to manually click "Auto Detect".
+    if settings.game_root_dir.is_none() {
+        if let Some(ref game) = detected_game {
+            if let Ok(mut w) = state.settings.write() {
+                w.game_root_dir = Some(game.root_dir.clone());
+                let _ = settings_repo::save_settings(&w);
+            }
+        }
+    }
+
     let installed = mod_service.list_installed().unwrap_or_default();
     let disabled = mod_service.list_disabled().unwrap_or_default();
 

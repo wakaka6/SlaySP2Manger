@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
 import { getAppBootstrap, type AppBootstrap } from "../../lib/desktop";
 import { SidebarNav } from "./SidebarNav";
+import { WelcomeGuide } from "./WelcomeGuide";
 import { useDropZone } from "../../contexts/DropZoneContext";
 
 export type ShellNavItem = {
@@ -29,10 +30,14 @@ export function AppShell() {
   const [appState, setAppState] = useState<AppBootstrap | null>(null);
   const { pendingDropPaths, isDragging } = useDropZone();
 
-  useEffect(() => {
+  function fetchAppState() {
     getAppBootstrap()
       .then(setAppState)
       .catch((e) => console.error("Failed to load bootstrap:", e));
+  }
+
+  useEffect(() => {
+    fetchAppState();
   }, [location.pathname]);
 
   // Navigate to library magically when dropping a file on any page
@@ -72,6 +77,10 @@ export function AppShell() {
             <p className="drop-overlay__subtitle">{t("library.dropSubtitle")}</p>
           </div>
         </div>
+      )}
+
+      {appState && !appState.gameDirectoryValid && (
+        <WelcomeGuide onSuccess={fetchAppState} />
       )}
     </div>
   );

@@ -23,3 +23,4 @@ sevenz-rust = "0.6"
 infer = "0.16"
 reqwest = { version = "0.12", features = ["blocking", "json"] }
 dirs-next = "2.0"
+winreg = "0.55"

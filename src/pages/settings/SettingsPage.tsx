@@ -148,17 +148,28 @@ export function SettingsPage() {
             <div className="form-stack">
               <label className="field">
                 <span>{t("settings.gameRoot")}</span>
-                <input
-                  className="input"
-                  onChange={(event) => setGameRootDir(event.target.value)}
-                  placeholder="D:\\SteamLibrary\\steamapps\\common\\Slay the Spire 2"
-                  value={gameRootDir}
-                />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    className="input"
+                    onChange={(event) => setGameRootDir(event.target.value)}
+                    placeholder="D:\\SteamLibrary\\steamapps\\common\\Slay the Spire 2"
+                    value={gameRootDir}
+                    style={{ flex: 1 }}
+                  />
+                  <button 
+                    type="button" 
+                    className="button button--secondary" 
+                    onClick={async () => {
+                      const { pickImportFolder } = await import("../../lib/desktop");
+                      const folder = await pickImportFolder();
+                      if (folder) setGameRootDir(folder);
+                    }}
+                  >
+                    {t("welcome.browse")}
+                  </button>
+                </div>
               </label>
-              <label className="field">
-                <span>{t("settings.disabledFolder")}</span>
-                <input className="input" readOnly value="mods_disabled" />
-              </label>
+
               <div className="action-row">
                 <button className="button button--secondary" onClick={() => void handleDetect()} type="button">
                   {t("settings.autoDetect")}

@@ -57,6 +57,15 @@ export type MessageKey =
   | "settings.tutorialCollapse"
   | "settings.tutorialLinkSite"
   | "settings.tutorialLinkApi"
+  | "welcome.title"
+  | "welcome.subtitle"
+  | "welcome.step1"
+  | "welcome.step2"
+  | "welcome.step3"
+  | "welcome.placeholder"
+  | "welcome.submit"
+  | "welcome.browse"
+  | "welcome.error"
   | "profiles.title"
   | "profiles.description"
   | "profiles.new"
@@ -347,9 +356,20 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "settings.tutorialStep4": "Scroll to the bottom of the page",
     "settings.tutorialStep5": "Copy the text inside the \"Personal API Key\" box",
     "settings.tutorialStep6": "Come back here and paste it in the field above",
-    "settings.tutorialCollapse": "Collapse tutorial",
-    "settings.tutorialLinkSite": "Visit NexusMods",
-    "settings.tutorialLinkApi": "Open API settings",
+    "settings.tutorialCollapse": "Hide Instructions",
+    "settings.tutorialLinkSite": "Nexus Mods",
+    "settings.tutorialLinkApi": "API Access Page",
+
+    "welcome.title": "Welcome to SlaySP2Manager",
+    "welcome.subtitle": "To get started, please locate your Slay the Spire 2 installation folder.",
+    "welcome.step1": "Open Steam, right-click Slay the Spire 2 in your library and select Manage.",
+    "welcome.step2": "Select Browse local files. This will open your game directory.",
+    "welcome.step3": "Copy the folder path from the address bar and paste it below.",
+    "welcome.placeholder": "e.g., C:\\Program Files (x86)\\Steam\\steamapps\\common\\Slay the Spire 2",
+    "welcome.submit": "Save and Continue",
+    "welcome.browse": "Browse...",
+    "welcome.error": "Invalid game directory. SlayTheSpire2.exe not found.",
+
     "profiles.title": "Profiles",
     "profiles.description": "Save a set of mod states as a reusable configuration and apply it to the game.",
     "profiles.new": "New Profile",
@@ -637,10 +657,21 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "settings.tutorialStep4": "滚动到网页底部",
     "settings.tutorialStep5": "复制 \"Personal API Key\" 框内的文本",
     "settings.tutorialStep6": "回到这里，粘贴到上方的输入框中",
-    "settings.tutorialCollapse": "收起教程",
-    "settings.tutorialLinkSite": "前往 NexusMods 网站",
-    "settings.tutorialLinkApi": "打开 API 设置页",
-    "profiles.title": "预设",
+    "settings.tutorialCollapse": "收起说明",
+    "settings.tutorialLinkSite": "Nexus Mods 官网",
+    "settings.tutorialLinkApi": "API 访问页面",
+
+    "welcome.title": "欢迎使用 SlaySP2Manager",
+    "welcome.subtitle": "初次使用请先配置《杀戮尖塔 2》的游戏安装目录。",
+    "welcome.step1": "打开 Steam，在库中右键点击 Slay the Spire 2，选择“管理”。",
+    "welcome.step2": "选择“浏览本地文件”，会自动打开游戏目录。",
+    "welcome.step3": "从打开的文件夹地址栏中复制路径，并粘贴到下方。",
+    "welcome.placeholder": "例如: D:\\SteamLibrary\\steamapps\\common\\Slay the Spire 2",
+    "welcome.submit": "保存并继续",
+    "welcome.browse": "浏览...",
+    "welcome.error": "无效的游戏目录。未找到 SlayTheSpire2.exe。",
+
+    "profiles.title": "模组预设",
     "profiles.description": "把一组模组状态保存成可复用预设，并一键应用到当前游戏目录。",
     "profiles.new": "新建预设",
     "profiles.savedProfiles": "已保存预设",
