@@ -27,7 +27,7 @@ export function AppShell() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const [appState, setAppState] = useState<AppBootstrap | null>(null);
-  const { pendingDropPath, isDragging } = useDropZone();
+  const { pendingDropPaths, isDragging } = useDropZone();
 
   useEffect(() => {
     getAppBootstrap()
@@ -37,10 +37,10 @@ export function AppShell() {
 
   // Navigate to library magically when dropping a file on any page
   useEffect(() => {
-    if (pendingDropPath && location.pathname !== "/") {
+    if (pendingDropPaths.length > 0 && location.pathname !== "/") {
       navigate("/");
     }
-  }, [pendingDropPath, location.pathname, navigate]);
+  }, [pendingDropPaths, location.pathname, navigate]);
 
   const navItems: ShellNavItem[] = [
     { label: t("nav.library"), path: "/", icon: Library, badge: appState ? String(appState.installedCount + appState.disabledCount) : "0" },

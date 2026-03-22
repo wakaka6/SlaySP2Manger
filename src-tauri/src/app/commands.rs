@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::app::bootstrap::AppBootstrapDto;
 use crate::app::state::{AppSettings, AppState};
 use crate::domain::game::GameInstall;
-use crate::domain::install_plan::ArchiveInstallPreview;
+use crate::domain::install_plan::{ArchiveInstallPreview, BatchImportPreview, BatchInstallResult};
 use crate::domain::mod_entity::InstalledMod;
 use crate::domain::profile::{ApplyProfileResult, ModProfile};
 use crate::domain::remote_mod::RemoteModSearchResult;
@@ -270,9 +270,76 @@ pub fn preview_install_archive(
 #[tauri::command]
 pub fn pick_archive_file() -> Option<String> {
     rfd::FileDialog::new()
-        .add_filter("Zip Archive", &["zip"])
+        .add_filter("Archive", &["zip", "7z"])
         .pick_file()
         .map(|path| path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn pick_archive_files() -> Vec<String> {
+    rfd::FileDialog::new()
+        .add_filter("Archive", &["zip", "7z"])
+        .pick_files()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|path| path.to_string_lossy().to_string())
+        .collect()
+}
+
+#[tauri::command]
+pub fn pick_import_folder() -> Option<String> {
+    rfd::FileDialog::new()
+        .pick_folder()
+        .map(|path| path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn process_import_targets(
+    paths: Vec<String>,
+    enable_after_install: bool,
+    state: State<'_, AppState>,
+) -> Result<BatchImportPreview, String> {
+    let settings = state
+        .settings
+        .read()
+        .map_err(|_| "failed to read app settings".to_string())?
+        .clone();
+
+    let service = ModService::new(settings);
+    service
+        .process_import_targets(&paths, enable_after_install)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn batch_install_mods(
+    paths: Vec<String>,
+    enable_after_install: bool,
+    replace_existing: bool,
+    selected_mod_ids: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<BatchInstallResult, String> {
+    let settings = state
+        .settings
+        .read()
+        .map_err(|_| "failed to read app settings".to_string())?
+        .clone();
+
+    let service = ModService::new(settings);
+    let result = service
+        .batch_install(&paths, enable_after_install, replace_existing, &selected_mod_ids)
+        .map_err(|error| error.to_string())?;
+
+    push_activity(
+        &state,
+        "mods",
+        format!(
+            "Batch installed {} mod(s), {} failed",
+            result.success_count, result.failure_count
+        ),
+        None,
+    )?;
+    Ok(result)
 }
 
 #[tauri::command]

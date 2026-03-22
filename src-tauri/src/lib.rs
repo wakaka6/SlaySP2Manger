@@ -24,6 +24,10 @@ use app::commands::{
     list_save_backups,
     list_save_slots,
     pick_archive_file,
+    pick_archive_files,
+    pick_import_folder,
+    process_import_targets,
+    batch_install_mods,
     preview_install_archive,
     preview_save_transfer,
     restore_save_backup,
@@ -91,7 +95,11 @@ pub fn run() {
             get_mod_files,
             get_download_link,
             download_and_install_mod,
-            open_url_in_browser
+            open_url_in_browser,
+            pick_archive_files,
+            pick_import_folder,
+            process_import_targets,
+            batch_install_mods
         ])
         .run(tauri::generate_context!())
         .expect("failed to run tauri application");

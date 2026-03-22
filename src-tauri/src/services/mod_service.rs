@@ -5,7 +5,11 @@ use std::path::{Path, PathBuf};
 
 use crate::app::state::AppSettings;
 use crate::domain::game::GameInstall;
-use crate::domain::install_plan::{ArchiveInstallItemPreview, ArchiveInstallPreview};
+use crate::domain::install_plan::{
+    ArchiveInstallItemPreview, ArchiveInstallPreview,
+    BatchImportPreview, BatchInstallItemResult, BatchInstallResult,
+    DiscoveredMod, DiscoveredModSourceType, DiscoveredModStatus,
+};
 use crate::domain::mod_entity::{InstalledMod, InstalledModState};
 use crate::integrations::filesystem::list_directories;
 use crate::integrations::manifest::{find_manifest_path, read_manifest};
@@ -152,10 +156,229 @@ impl ModService {
         Ok(preview)
     }
 
+    // ── Batch Import Engine ─────────────────────────────────────────────
+
+    /// Scan multiple import targets (files and/or folders) and discover all mods.
+    /// Returns a preview with discovery status for each found mod.
+    pub fn process_import_targets(
+        &self,
+        paths: &[String],
+        enable_after_install: bool,
+    ) -> Result<BatchImportPreview, AppError> {
+        let game = self.resolve_game()?;
+
+        let target_root = if enable_after_install {
+            Path::new(&game.mods_dir)
+        } else {
+            Path::new(&game.disabled_mods_dir)
+        };
+        let state = if enable_after_install {
+            InstalledModState::Enabled
+        } else {
+            InstalledModState::Disabled
+        };
+
+        // Collect all existing mods for conflict detection
+        let existing = scan_mod_directory(Path::new(&game.mods_dir), InstalledModState::Enabled)
+            .into_iter()
+            .chain(scan_mod_directory(
+                Path::new(&game.disabled_mods_dir),
+                InstalledModState::Disabled,
+            ))
+            .collect::<Vec<_>>();
+
+        let mut all_discovered: Vec<DiscoveredMod> = Vec::new();
+        let mut temp_dirs: Vec<PathBuf> = Vec::new();
+
+        for path_str in paths {
+            let path = PathBuf::from(path_str);
+
+            if path.is_dir() {
+                // Scan folder for mods and nested archives
+                recursive_discover_from_dir(
+                    &path,
+                    path_str,
+                    0,
+                    3,
+                    &existing,
+                    target_root,
+                    &state,
+                    DiscoveredModSourceType::Folder,
+                    &mut all_discovered,
+                    &mut temp_dirs,
+                );
+            } else if path.is_file() {
+                recursive_discover_from_file(
+                    &path,
+                    path_str,
+                    0,
+                    3,
+                    &existing,
+                    target_root,
+                    &state,
+                    &mut all_discovered,
+                    &mut temp_dirs,
+                );
+            }
+        }
+
+        // Clean up temp dirs
+        for dir in &temp_dirs {
+            let _ = fs::remove_dir_all(dir);
+        }
+
+        let ready_count = all_discovered.iter().filter(|m| m.status == DiscoveredModStatus::Ready).count();
+        let conflict_count = all_discovered.iter().filter(|m| m.status == DiscoveredModStatus::Conflict).count();
+        let unsupported_count = all_discovered.iter().filter(|m| m.status == DiscoveredModStatus::UnsupportedFormat).count();
+        let error_count = all_discovered.iter().filter(|m| m.status == DiscoveredModStatus::Error).count();
+
+        Ok(BatchImportPreview {
+            total_targets_scanned: paths.len(),
+            discovered_mods: all_discovered,
+            ready_count,
+            conflict_count,
+            unsupported_count,
+            error_count,
+        })
+    }
+
+    /// Install a batch of mods from previously scanned paths. Each mod is installed
+    /// independently — failures are captured and reported, not propagated.
+    pub fn batch_install(
+        &self,
+        paths: &[String],
+        enable_after_install: bool,
+        replace_existing: bool,
+        selected_mod_ids: &[String],
+    ) -> Result<BatchInstallResult, AppError> {
+        let game = self.resolve_game()?;
+
+        let target_root = if enable_after_install {
+            Path::new(&game.mods_dir)
+        } else {
+            Path::new(&game.disabled_mods_dir)
+        };
+        let current_state = if enable_after_install {
+            InstalledModState::Enabled
+        } else {
+            InstalledModState::Disabled
+        };
+
+        let mut results: Vec<BatchInstallItemResult> = Vec::new();
+        let mut temp_dirs: Vec<PathBuf> = Vec::new();
+
+        for path_str in paths {
+            let path = PathBuf::from(path_str);
+
+            // Collect mod directories from this path
+            let mut mod_dirs: Vec<(PathBuf, PathBuf)> = Vec::new(); // (mod_dir, temp_root)
+
+            if path.is_dir() {
+                // Check if the directory itself is a mod
+                if find_manifest_path(&path).is_some() {
+                    // The directory itself is a mod — no temp root
+                    mod_dirs.push((path.clone(), PathBuf::new()));
+                } else {
+                    // Scan for archives inside
+                    collect_installable_dirs_from_dir(
+                        &path,
+                        0,
+                        3,
+                        &mut mod_dirs,
+                        &mut temp_dirs,
+                    );
+                }
+            } else if path.is_file() {
+                collect_installable_dirs_from_file(
+                    &path,
+                    0,
+                    3,
+                    &mut mod_dirs,
+                    &mut temp_dirs,
+                );
+            }
+
+            for (mod_dir, _temp_root) in &mod_dirs {
+                let mapped = map_mod_directory(mod_dir.clone(), current_state.clone());
+
+                // Skip mods the user didn't select in the preview
+                if !selected_mod_ids.is_empty()
+                    && !selected_mod_ids.iter().any(|sid| sid.eq_ignore_ascii_case(&mapped.id))
+                {
+                    continue;
+                }
+
+                let mod_name = mapped.name.clone();
+                let mod_id = mapped.id.clone();
+
+                let install_result: Result<(), AppError> = (|| {
+                    if replace_existing {
+                        remove_existing_conflicts(&game, &mapped)?;
+                    }
+
+                    let target_dir = target_root.join(&mapped.folder_name);
+                    if target_dir.exists() && !replace_existing {
+                        return Err(AppError::ModConflict(mapped.folder_name.clone()));
+                    }
+                    if target_dir.exists() && replace_existing {
+                        fs::remove_dir_all(&target_dir)
+                            .map_err(|e| AppError::Io(e.to_string()))?;
+                    }
+
+                    // If the source is from a temp directory (archive extraction),
+                    // we can move it. If it's an already-extracted user folder
+                    // (temp_root is empty), we must copy instead of move to avoid
+                    // deleting the user's original files.
+                    if _temp_root.as_os_str().is_empty() {
+                        copy_directory_recursive(mod_dir, &target_dir)?;
+                    } else {
+                        move_directory(mod_dir, &target_dir)?;
+                    }
+                    Ok(())
+                })();
+
+                match install_result {
+                    Ok(()) => {
+                        results.push(BatchInstallItemResult {
+                            mod_id,
+                            name: mod_name,
+                            success: true,
+                            error_message: None,
+                        });
+                    }
+                    Err(e) => {
+                        results.push(BatchInstallItemResult {
+                            mod_id,
+                            name: mod_name,
+                            success: false,
+                            error_message: Some(e.to_string()),
+                        });
+                    }
+                }
+            }
+        }
+
+        // Clean up all temp dirs
+        for dir in &temp_dirs {
+            let _ = fs::remove_dir_all(dir);
+        }
+
+        let success_count = results.iter().filter(|r| r.success).count();
+        let failure_count = results.iter().filter(|r| !r.success).count();
+
+        Ok(BatchInstallResult {
+            success_count,
+            failure_count,
+            results,
+        })
+    }
+
     fn resolve_game(&self) -> Result<GameInstall, AppError> {
         GameService::new(self.settings.clone()).detect_install()
     }
 }
+
+// ── Internal Helpers ────────────────────────────────────────────────────
 
 struct UnpackedArchive {
     temp_root: PathBuf,
@@ -327,6 +550,8 @@ fn remove_existing_conflicts(game: &GameInstall, incoming: &InstalledMod) -> Res
     Ok(())
 }
 
+// ── Archive Extraction ──────────────────────────────────────────────────
+
 fn extract_archive(archive_path: &Path, target_root: &Path) -> Result<(), AppError> {
     let file = fs::File::open(archive_path).map_err(|error| AppError::Io(error.to_string()))?;
     let mut archive =
@@ -357,6 +582,359 @@ fn extract_archive(archive_path: &Path, target_root: &Path) -> Result<(), AppErr
 
     Ok(())
 }
+
+fn extract_7z(archive_path: &Path, target_root: &Path) -> Result<(), AppError> {
+    sevenz_rust::decompress_file(archive_path, target_root)
+        .map_err(|error| AppError::InvalidArchive(format!("7z extraction failed: {}", error)))
+}
+
+/// Detect archive format using binary magic bytes and extract accordingly.
+/// Returns `Ok(())` on success, `Err` with a descriptive message otherwise.
+fn detect_and_extract(file_path: &Path, target_root: &Path) -> Result<(), AppError> {
+    let buf = fs::read(file_path).map_err(|e| AppError::Io(e.to_string()))?;
+    let kind = infer::get(&buf);
+
+    // Try extension-based matching first for known types
+    let ext = file_path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    match ext.as_str() {
+        "zip" => return extract_archive(file_path, target_root),
+        "7z" => return extract_7z(file_path, target_root),
+        _ => {}
+    }
+
+    // Binary detection fallback
+    if let Some(kind) = kind {
+        match kind.mime_type() {
+            "application/zip" => return extract_archive(file_path, target_root),
+            "application/x-7z-compressed" => return extract_7z(file_path, target_root),
+            "application/vnd.rar" | "application/x-rar-compressed" => {
+                return Err(AppError::UnsupportedFormat(
+                    "rar".to_string(),
+                    "识别为 RAR 格式，请转换为 .zip 或 .7z 后导入".to_string(),
+                ));
+            }
+            "application/gzip" => {
+                return Err(AppError::UnsupportedFormat(
+                    "gzip".to_string(),
+                    "识别为 Gzip 格式，请转换为 .zip 或 .7z 后导入".to_string(),
+                ));
+            }
+            "application/x-tar" => {
+                return Err(AppError::UnsupportedFormat(
+                    "tar".to_string(),
+                    "识别为 Tar 格式，请转换为 .zip 或 .7z 后导入".to_string(),
+                ));
+            }
+            _ => {}
+        }
+    }
+
+    // Last resort: try zip, then 7z
+    if extract_archive(file_path, target_root).is_ok() {
+        return Ok(());
+    }
+    if extract_7z(file_path, target_root).is_ok() {
+        return Ok(());
+    }
+
+    Err(AppError::InvalidArchive(format!(
+        "unable to extract: {}",
+        file_path.to_string_lossy()
+    )))
+}
+
+// ── Batch Discovery ─────────────────────────────────────────────────────
+
+/// Supported archive extensions for batch scanning.
+fn is_archive_extension(ext: &str) -> bool {
+    matches!(ext.to_lowercase().as_str(), "zip" | "7z" | "rar" | "gz" | "tar")
+}
+
+/// Recursively discover mods from a directory (looking for manifests and nested archives).
+fn recursive_discover_from_dir(
+    dir: &Path,
+    source_label: &str,
+    depth: usize,
+    max_depth: usize,
+    existing: &[InstalledMod],
+    target_root: &Path,
+    state: &InstalledModState,
+    source_type: DiscoveredModSourceType,
+    discovered: &mut Vec<DiscoveredMod>,
+    temp_dirs: &mut Vec<PathBuf>,
+) {
+    if depth > max_depth || !dir.is_dir() {
+        return;
+    }
+
+    // If this directory is itself a mod
+    if find_manifest_path(dir).is_some() {
+        let mapped = map_mod_directory(dir.to_path_buf(), state.clone());
+        let (status, conflicts, msg) = check_conflicts(&mapped, existing, target_root);
+        let target_dir = target_root.join(&mapped.folder_name).to_string_lossy().to_string();
+        discovered.push(DiscoveredMod {
+            mod_id: mapped.id,
+            name: mapped.name,
+            version: mapped.version,
+            author: mapped.author,
+            folder_name: mapped.folder_name,
+            target_dir,
+            source_archive: source_label.to_string(),
+            source_type: source_type.clone(),
+            status,
+            conflicts,
+            status_message: msg,
+        });
+        return;
+    }
+
+    // Scan children
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        let child = entry.path();
+        if child.is_dir() {
+            recursive_discover_from_dir(
+                &child,
+                source_label,
+                depth + 1,
+                max_depth,
+                existing,
+                target_root,
+                state,
+                source_type.clone(),
+                discovered,
+                temp_dirs,
+            );
+        } else if child.is_file() {
+            let ext = child.extension().and_then(|s| s.to_str()).unwrap_or("");
+            if is_archive_extension(ext) {
+                recursive_discover_from_file(
+                    &child,
+                    source_label,
+                    depth + 1,
+                    max_depth,
+                    existing,
+                    target_root,
+                    state,
+                    discovered,
+                    temp_dirs,
+                );
+            }
+        }
+    }
+}
+
+/// Extract an archive file and recursively discover mods within it.
+fn recursive_discover_from_file(
+    file: &Path,
+    source_label: &str,
+    depth: usize,
+    max_depth: usize,
+    existing: &[InstalledMod],
+    target_root: &Path,
+    state: &InstalledModState,
+    discovered: &mut Vec<DiscoveredMod>,
+    temp_dirs: &mut Vec<PathBuf>,
+) {
+    if depth > max_depth {
+        return;
+    }
+
+    let file_name = file.file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| source_label.to_string());
+
+    let temp_root = env::temp_dir().join(format!("slaysp2manager-batch-{}", Uuid::new_v4()));
+    if fs::create_dir_all(&temp_root).is_err() {
+        discovered.push(DiscoveredMod {
+            mod_id: file_name.clone(),
+            name: file_name.clone(),
+            version: None,
+            author: None,
+            folder_name: file_name.clone(),
+            target_dir: String::new(),
+            source_archive: source_label.to_string(),
+            source_type: DiscoveredModSourceType::Archive,
+            status: DiscoveredModStatus::Error,
+            conflicts: vec![],
+            status_message: Some("无法创建临时目录".to_string()),
+        });
+        return;
+    }
+    temp_dirs.push(temp_root.clone());
+
+    match detect_and_extract(file, &temp_root) {
+        Ok(()) => {
+            // Recursively discover inside the extracted content
+            recursive_discover_from_dir(
+                &temp_root,
+                &file_name,
+                depth,
+                max_depth,
+                existing,
+                target_root,
+                state,
+                DiscoveredModSourceType::Archive,
+                discovered,
+                temp_dirs,
+            );
+        }
+        Err(AppError::UnsupportedFormat(_fmt, suggestion)) => {
+            discovered.push(DiscoveredMod {
+                mod_id: file_name.clone(),
+                name: file_name.clone(),
+                version: None,
+                author: None,
+                folder_name: file_name.clone(),
+                target_dir: String::new(),
+                source_archive: source_label.to_string(),
+                source_type: DiscoveredModSourceType::Archive,
+                status: DiscoveredModStatus::UnsupportedFormat,
+                conflicts: vec![],
+                status_message: Some(suggestion),
+            });
+        }
+        Err(e) => {
+            discovered.push(DiscoveredMod {
+                mod_id: file_name.clone(),
+                name: file_name.clone(),
+                version: None,
+                author: None,
+                folder_name: file_name.clone(),
+                target_dir: String::new(),
+                source_archive: source_label.to_string(),
+                source_type: DiscoveredModSourceType::Archive,
+                status: DiscoveredModStatus::Error,
+                conflicts: vec![],
+                status_message: Some(e.to_string()),
+            });
+        }
+    }
+}
+
+/// Collect installable mod directories from a folder (for batch_install).
+fn collect_installable_dirs_from_dir(
+    dir: &Path,
+    depth: usize,
+    max_depth: usize,
+    mod_dirs: &mut Vec<(PathBuf, PathBuf)>,
+    temp_dirs: &mut Vec<PathBuf>,
+) {
+    if depth > max_depth || !dir.is_dir() {
+        return;
+    }
+
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        let child = entry.path();
+        if child.is_dir() {
+            if find_manifest_path(&child).is_some() {
+                mod_dirs.push((child, PathBuf::new()));
+            } else {
+                collect_installable_dirs_from_dir(&child, depth + 1, max_depth, mod_dirs, temp_dirs);
+            }
+        } else if child.is_file() {
+            let ext = child.extension().and_then(|s| s.to_str()).unwrap_or("");
+            if is_archive_extension(ext) {
+                collect_installable_dirs_from_file(&child, depth + 1, max_depth, mod_dirs, temp_dirs);
+            }
+        }
+    }
+}
+
+/// Extract archive and collect mod dirs from it (for batch_install).
+fn collect_installable_dirs_from_file(
+    file: &Path,
+    depth: usize,
+    max_depth: usize,
+    mod_dirs: &mut Vec<(PathBuf, PathBuf)>,
+    temp_dirs: &mut Vec<PathBuf>,
+) {
+    if depth > max_depth {
+        return;
+    }
+
+    let temp_root = env::temp_dir().join(format!("slaysp2manager-batch-{}", Uuid::new_v4()));
+    if fs::create_dir_all(&temp_root).is_err() {
+        return;
+    }
+    temp_dirs.push(temp_root.clone());
+
+    if detect_and_extract(file, &temp_root).is_ok() {
+        // Find mod dirs within extracted content
+        let found = find_extracted_mod_dirs(&temp_root);
+        for mod_dir in found {
+            mod_dirs.push((mod_dir, temp_root.clone()));
+        }
+
+        // Also check for nested archives
+        collect_installable_dirs_from_dir(&temp_root, depth, max_depth, mod_dirs, temp_dirs);
+    }
+}
+
+/// Check a mod against existing installations for conflicts.
+/// Detects conflicts across both enabled and disabled state — so importing a mod
+/// that already exists in the opposite state is still flagged.
+fn check_conflicts(
+    mapped: &InstalledMod,
+    existing: &[InstalledMod],
+    target_root: &Path,
+) -> (DiscoveredModStatus, Vec<String>, Option<String>) {
+    let mut conflicts = Vec::new();
+
+    // Check ID conflict across both enabled and disabled
+    for item in existing {
+        if item.id.eq_ignore_ascii_case(&mapped.id) {
+            let state_label = match &item.state {
+                InstalledModState::Enabled => "已启用",
+                InstalledModState::Disabled => "已禁用",
+                _ => "已安装",
+            };
+            conflicts.push(format!(
+                "已存在相同 Mod ID：{} (当前状态: {})",
+                mapped.id, state_label
+            ));
+            break;
+        }
+    }
+
+    // Check folder name conflict across both enabled and disabled
+    for item in existing {
+        if item.folder_name.eq_ignore_ascii_case(&mapped.folder_name)
+            && !item.id.eq_ignore_ascii_case(&mapped.id)
+        {
+            conflicts.push(format!("目标目录已存在：{}", mapped.folder_name));
+            break;
+        }
+    }
+
+    // Also check the target directory on disk
+    let target_dir = target_root.join(&mapped.folder_name);
+    if target_dir.exists() && conflicts.is_empty() {
+        conflicts.push(format!("目标目录已存在：{}", mapped.folder_name));
+    }
+
+    if conflicts.is_empty() {
+        (DiscoveredModStatus::Ready, conflicts, None)
+    } else {
+        (DiscoveredModStatus::Conflict, conflicts, None)
+    }
+}
+
+// ── Mod Directory Scanning ──────────────────────────────────────────────
 
 fn find_extracted_mod_dirs(root: &Path) -> Vec<PathBuf> {
     let mut found = Vec::new();
@@ -407,11 +985,14 @@ fn map_mod_directory(mod_dir: PathBuf, state: InstalledModState) -> InstalledMod
     let manifest = read_manifest(&mod_dir);
     let manifest_path = find_manifest_path(&mod_dir);
 
+    // For mod ID: use manifest `id` (always present due to strict validation), fallback to folder name
+    let mod_id = manifest
+        .as_ref()
+        .and_then(|m| m.id.clone())
+        .unwrap_or_else(|| folder_name.clone());
+
     InstalledMod {
-        id: manifest
-            .as_ref()
-            .and_then(|manifest| manifest.id.clone())
-            .unwrap_or_else(|| folder_name.clone()),
+        id: mod_id,
         name: manifest
             .as_ref()
             .and_then(|manifest| manifest.name.clone())
@@ -424,3 +1005,4 @@ fn map_mod_directory(mod_dir: PathBuf, state: InstalledModState) -> InstalledMod
         state,
     }
 }
+

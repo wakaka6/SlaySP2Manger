@@ -1,25 +1,41 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
-import { PageHeader } from "../../components/common/PageHeader";
-import { StatusBadge } from "../../components/common/StatusBadge";
 import { useI18n } from "../../i18n/I18nProvider";
 import { useDropZone } from "../../contexts/DropZoneContext";
 import {
+  batchInstallMods,
   disableMod,
   enableMod,
   installArchiveWithReplace,
   listDisabledMods,
   listInstalledMods,
   pickArchiveFile,
+  pickArchiveFiles,
+  pickImportFolder,
   previewInstallArchive,
+  processImportTargets,
   openModsDirectory,
   openModFolder,
   type ArchiveInstallPreview,
+  type BatchImportPreview,
+  type BatchInstallResult,
+  type DiscoveredMod,
   type InstalledMod,
   uninstallMod,
 } from "../../lib/desktop";
-import { Trash2, FolderOpen } from "lucide-react";
+import {
+  Trash2,
+  FolderOpen,
+  ChevronDown,
+  Package,
+  FolderSearch,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 
 function formatTime(value: string) {
   const date = new Date(value);
@@ -36,36 +52,53 @@ function formatTime(value: string) {
 
 export function LibraryPage() {
   const { t } = useI18n();
-  const { pendingDropPath, setPendingDropPath } = useDropZone();
+  const { pendingDropPaths, setPendingDropPaths, setIsBusy } = useDropZone();
   const [enabledMods, setEnabledMods] = useState<InstalledMod[]>([]);
   const [disabledMods, setDisabledMods] = useState<InstalledMod[]>([]);
   const [status, setStatus] = useState(t("library.ready"));
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Single-file legacy install preview
   const [installPreview, setInstallPreview] = useState<ArchiveInstallPreview | null>(null);
   const [pendingArchivePath, setPendingArchivePath] = useState<string | null>(null);
   const [pendingEnableNow, setPendingEnableNow] = useState(false);
+
+  // Batch import state
+  const [batchPreview, setBatchPreview] = useState<BatchImportPreview | null>(null);
+  const [batchPaths, setBatchPaths] = useState<string[]>([]);
+  const [batchEnableNow, setBatchEnableNow] = useState(true);
+  const [batchInstalling, setBatchInstalling] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, name: "" });
+  const [batchResult, setBatchResult] = useState<BatchInstallResult | null>(null);
+  const [selectedModIds, setSelectedModIds] = useState<Set<string>>(new Set());
+  const [successToast, setSuccessToast] = useState<{ message: string; visible: boolean } | null>(null);
+
   const [pendingUninstall, setPendingUninstall] = useState<InstalledMod | null>(null);
-  const [askEnableAfterImport, setAskEnableAfterImport] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showImportMenu, setShowImportMenu] = useState(false);
   const [listRef] = useAutoAnimate<HTMLDivElement>();
   const isPickingFileRef = useRef(false);
+  const importMenuRef = useRef<HTMLDivElement>(null);
 
-  const formatErrorMsg = useCallback((err: unknown): string => {
-    const raw = err instanceof Error ? err.message : typeof err === "string" ? err : String(err);
-    if (raw === "game install not found") return t("error.gameNotFound");
-    if (raw.startsWith("mod conflict detected: ")) return t("error.modConflict", { name: raw.replace("mod conflict detected: ", "") });
-    if (raw.startsWith("invalid archive: ")) return t("error.invalidArchive");
-    if (raw.startsWith("io error: ") && raw.includes("Permission denied")) return t("error.ioPermission");
-    if (raw.startsWith("io error: ")) return t("error.ioGeneral", { detail: raw.replace("io error: ", "") });
-    if (raw.includes("not found") && raw.startsWith("mod `")) return t("error.modNotFound");
-    return raw || t("library.importFailed");
-  }, [t]);
+  const formatErrorMsg = useCallback(
+    (err: unknown): string => {
+      const raw = err instanceof Error ? err.message : typeof err === "string" ? err : String(err);
+      if (raw === "game install not found") return t("error.gameNotFound");
+      if (raw.startsWith("mod conflict detected: "))
+        return t("error.modConflict", { name: raw.replace("mod conflict detected: ", "") });
+      if (raw.startsWith("invalid archive: ")) return t("error.invalidArchive");
+      if (raw.startsWith("io error: ") && raw.includes("Permission denied"))
+        return t("error.ioPermission");
+      if (raw.startsWith("io error: "))
+        return t("error.ioGeneral", { detail: raw.replace("io error: ", "") });
+      if (raw.includes("not found") && raw.startsWith("mod `")) return t("error.modNotFound");
+      return raw || t("library.importFailed");
+    },
+    [t],
+  );
 
   const reload = useCallback(async () => {
-    const [enabled, disabled] = await Promise.all([
-      listInstalledMods(),
-      listDisabledMods(),
-    ]);
+    const [enabled, disabled] = await Promise.all([listInstalledMods(), listDisabledMods()]);
     setEnabledMods(enabled);
     setDisabledMods(disabled);
   }, []);
@@ -74,22 +107,54 @@ export function LibraryPage() {
     void reload();
   }, [reload]);
 
-  // Handle files dropped via drag-and-drop (from AppShell)
+  // Handle files dropped via drag-and-drop (with re-entry guard)
   useEffect(() => {
-    if (pendingDropPath) {
-      setPendingDropPath(null);
-      setAskEnableAfterImport(pendingDropPath);
+    if (pendingDropPaths.length > 0 && !busyId) {
+      const paths = [...pendingDropPaths];
+      setPendingDropPaths([]);
+      void proceedWithBatchImport(paths, batchEnableNow);
     }
-  }, [pendingDropPath, setPendingDropPath]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingDropPaths, setPendingDropPaths, busyId]);
 
   // Handle transient status messages auto-clearing
   useEffect(() => {
     if (status === t("library.ready")) return;
-    if (busyId) return; // Wait until background work is complete
+    if (busyId) return;
 
     const tId = setTimeout(() => setStatus(t("library.ready")), 3500);
     return () => clearTimeout(tId);
   }, [status, busyId, t]);
+
+  // Auto-dismiss success toast
+  useEffect(() => {
+    if (!successToast) return;
+    // Start exit animation after 2.5s
+    const fadeTimer = setTimeout(() => {
+      setSuccessToast((prev) => (prev ? { ...prev, visible: false } : null));
+    }, 2500);
+    // Remove from DOM after animation completes
+    const removeTimer = setTimeout(() => {
+      setSuccessToast(null);
+    }, 3000);
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(removeTimer);
+    };
+  }, [successToast?.message]);
+
+  // Close import menu on click outside
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (importMenuRef.current && !importMenuRef.current.contains(e.target as Node)) {
+        setShowImportMenu(false);
+      }
+    }
+    if (showImportMenu) {
+      document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
+    }
+  }, [showImportMenu]);
 
   const importDescription = useMemo(() => {
     if (!installPreview) {
@@ -104,67 +169,169 @@ export function LibraryPage() {
   const filteredEnabled = useMemo(() => {
     if (!searchQuery.trim()) return enabledMods;
     const q = searchQuery.trim().toLowerCase();
-    return enabledMods.filter((m) => m.name.toLowerCase().includes(q) || m.author?.toLowerCase().includes(q) || m.id.toLowerCase().includes(q));
+    return enabledMods.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        m.author?.toLowerCase().includes(q) ||
+        m.id.toLowerCase().includes(q),
+    );
   }, [enabledMods, searchQuery]);
 
   const filteredDisabled = useMemo(() => {
     if (!searchQuery.trim()) return disabledMods;
     const q = searchQuery.trim().toLowerCase();
-    return disabledMods.filter((m) => m.name.toLowerCase().includes(q) || m.author?.toLowerCase().includes(q) || m.id.toLowerCase().includes(q));
+    return disabledMods.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        m.author?.toLowerCase().includes(q) ||
+        m.id.toLowerCase().includes(q),
+    );
   }, [disabledMods, searchQuery]);
 
-  function stateText(mod: InstalledMod) {
-    switch (mod.state) {
-      case "enabled":
-        return { label: t("library.enabledStatus"), tone: "success" as const };
-      case "disabled":
-        return { label: t("library.disabledStatus"), tone: "neutral" as const };
-      case "update_available":
-        return { label: t("library.updateAvailable"), tone: "warning" as const };
-      case "conflict":
-      case "broken":
-        return { label: t("library.needsAttention"), tone: "danger" as const };
-      default:
-        return { label: t("library.unknownStatus"), tone: "neutral" as const };
-    }
-  }
+  // ── Import flows ──────────────────────────────────────────────────────
 
-  async function handleImport() {
+  /** Single file import (legacy) */
+  async function handleImportSingle() {
     if (isPickingFileRef.current || busyId) return;
     isPickingFileRef.current = true;
     setBusyId("picking_file");
+    setShowImportMenu(false);
     try {
       const archivePath = await pickArchiveFile();
-      if (!archivePath) {
-        return;
-      }
-      setAskEnableAfterImport(archivePath);
+      if (!archivePath) return;
+      void proceedWithBatchImport([archivePath], batchEnableNow);
     } finally {
       isPickingFileRef.current = false;
       setBusyId((prev) => (prev === "picking_file" ? null : prev));
     }
   }
 
-  async function proceedWithImport(archivePath: string, enableNow: boolean) {
-    setAskEnableAfterImport(null);
-    setBusyId("install");
+  /** Multi-file import */
+  async function handleImportFiles() {
+    if (isPickingFileRef.current || busyId) return;
+    isPickingFileRef.current = true;
+    setBusyId("picking_file");
+    setShowImportMenu(false);
     try {
-      const preview = await previewInstallArchive(archivePath, enableNow);
-      setPendingArchivePath(archivePath);
-      setPendingEnableNow(enableNow);
-      setInstallPreview(preview);
+      const files = await pickArchiveFiles();
+      if (!files || files.length === 0) return;
+      void proceedWithBatchImport(files, batchEnableNow);
+    } finally {
+      isPickingFileRef.current = false;
+      setBusyId((prev) => (prev === "picking_file" ? null : prev));
+    }
+  }
+
+  /** Folder import */
+  async function handleImportFolder() {
+    if (isPickingFileRef.current || busyId) return;
+    isPickingFileRef.current = true;
+    setBusyId("picking_file");
+    setShowImportMenu(false);
+    try {
+      const folder = await pickImportFolder();
+      if (!folder) return;
+      void proceedWithBatchImport([folder], batchEnableNow);
+    } finally {
+      isPickingFileRef.current = false;
+      setBusyId((prev) => (prev === "picking_file" ? null : prev));
+    }
+  }
+
+  /** Scan paths and show batch preview */
+  async function proceedWithBatchImport(paths: string[], enableNow: boolean) {
+    setBusyId("scanning");
+    setIsBusy(true);
+    setStatus(t("library.scanning"));
+    try {
+      const preview = await processImportTargets(paths, enableNow);
+      setBatchPaths(paths);
+      setBatchEnableNow(enableNow);
+      setBatchPreview(preview);
+
+      // Auto-select: ready mods are checked, conflict/error/unsupported are not
+      const autoSelected = new Set<string>();
+      preview.discoveredMods.forEach((mod, idx) => {
+        if (mod.status === "ready") {
+          autoSelected.add(`${mod.modId}::${idx}`);
+        }
+      });
+      setSelectedModIds(autoSelected);
+
       setStatus(t("library.generatedPreview"));
     } catch (error) {
       setStatus(formatErrorMsg(error));
     } finally {
       setBusyId(null);
+      setIsBusy(false);
     }
   }
 
-  async function confirmInstall() {
-    if (!pendingArchivePath || !installPreview) {
-      return;
+  /** Toggle selection of a mod in the batch preview */
+  function toggleModSelection(mod: DiscoveredMod, idx: number) {
+    // Error and unsupported mods cannot be selected
+    if (mod.status === "error" || mod.status === "unsupported_format") return;
+    const key = `${mod.modId}::${idx}`;
+    setSelectedModIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  const selectedCount = selectedModIds.size;
+
+  /** Confirm batch install */
+  async function confirmBatchInstall() {
+    if (!batchPreview || batchPaths.length === 0 || selectedCount === 0) return;
+
+    // Extract the actual mod IDs from the selected set (keys are "modId::idx")
+    const selectedIds = batchPreview.discoveredMods
+      .filter((mod, idx) => selectedModIds.has(`${mod.modId}::${idx}`))
+      .map((mod) => mod.modId);
+
+    // Check if any selected mod has conflicts
+    const hasConflictsInSelected = batchPreview.discoveredMods.some(
+      (mod, idx) => selectedModIds.has(`${mod.modId}::${idx}`) && mod.status === "conflict",
+    );
+    setBatchInstalling(true);
+    setBusyId("batch_install");
+    setIsBusy(true);
+    setBatchProgress({ current: 0, total: selectedCount, name: "" });
+
+    try {
+      const result = await batchInstallMods(batchPaths, batchEnableNow, hasConflictsInSelected, selectedIds);
+      setBatchPreview(null);
+      setBatchPaths([]);
+      setSelectedModIds(new Set());
+
+      if (result.failureCount === 0) {
+        // All succeeded → toast notification
+        setSuccessToast({
+          message: t("library.batchAllSuccess", { count: result.successCount }),
+          visible: true,
+        });
+      } else {
+        // Has failures → show dialog for user to review errors
+        setBatchResult(result);
+      }
+      await reload();
+    } catch (error) {
+      setStatus(formatErrorMsg(error));
+    } finally {
+      setBusyId(null);
+      setBatchInstalling(false);
+      setIsBusy(false);
     }
+  }
+
+  // Legacy single-file preview confirm
+  async function confirmInstall() {
+    if (!pendingArchivePath || !installPreview) return;
 
     setBusyId("install");
     try {
@@ -203,9 +370,7 @@ export function LibraryPage() {
   }
 
   async function confirmUninstall() {
-    if (!pendingUninstall) {
-      return;
-    }
+    if (!pendingUninstall) return;
 
     setBusyId(pendingUninstall.id);
     setStatus(`${t("library.uninstall")} ${pendingUninstall.name}`);
@@ -221,25 +386,64 @@ export function LibraryPage() {
     }
   }
 
+  // ── Status Icon for discovered mods ───────────────────────────────────
+
+  function DiscoveredModStatusIcon({ mod }: { mod: DiscoveredMod }) {
+    switch (mod.status) {
+      case "ready":
+        return <CheckCircle2 size={16} style={{ color: "var(--color-success)" }} />;
+      case "conflict":
+        return <AlertTriangle size={16} style={{ color: "var(--color-warning)" }} />;
+      case "unsupported_format":
+        return <AlertCircle size={16} style={{ color: "var(--color-muted)" }} />;
+      case "error":
+        return <XCircle size={16} style={{ color: "var(--color-danger)" }} />;
+      default:
+        return null;
+    }
+  }
+
+  function discoveredStatusLabel(mod: DiscoveredMod): string {
+    switch (mod.status) {
+      case "ready":
+        return t("library.batchStatusReady");
+      case "conflict":
+        return t("library.batchStatusConflict");
+      case "unsupported_format":
+        return t("library.batchStatusUnsupported");
+      case "error":
+        return t("library.batchStatusError");
+      default:
+        return "";
+    }
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────
+
   return (
     <section className="library-page">
       <header className="library-header">
         <div className="library-header__left">
           <h1 className="library-header__title">{t("library.title")}</h1>
           <div className="library-header__meta">
-            <span className={`library-header__status-dot ${status === t("library.ready") ? 'is-ready' : 'is-busy'}`}></span>
-            <span>{t("library.enabled")}: {enabledMods.length} · {t("library.disabled")}: {disabledMods.length}</span>
+            <span
+              className={`library-header__status-dot ${status === t("library.ready") ? "is-ready" : "is-busy"}`}
+            ></span>
+            <span>
+              {t("library.enabled")}: {enabledMods.length} · {t("library.disabled")}:{" "}
+              {disabledMods.length}
+            </span>
             {status !== t("library.ready") && (
               <>
                 <span style={{ margin: "0 6px", opacity: 0.3 }}>|</span>
-                <span 
-                  className="library-header__status-text" 
-                  style={{ 
-                    color: "var(--accent)", 
-                    whiteSpace: "nowrap", 
-                    overflow: "hidden", 
-                    textOverflow: "ellipsis", 
-                    maxWidth: "500px" 
+                <span
+                  className="library-header__status-text"
+                  style={{
+                    color: "var(--accent)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    maxWidth: "500px",
                   }}
                   title={status}
                 >
@@ -252,7 +456,16 @@ export function LibraryPage() {
 
         <div className="library-header__right">
           <div className="search-field">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
@@ -269,15 +482,55 @@ export function LibraryPage() {
           >
             {t("library.openFolder")}
           </button>
-          <button
-            className="button button--primary"
-            disabled={busyId !== null || askEnableAfterImport !== null}
-            onClick={() => void handleImport()}
-            title={t("library.dropHintTooltip")}
-            type="button"
-          >
-            {t("library.importZip")}
-          </button>
+
+          {/* Split import button with dropdown */}
+          <div className="split-button-group" ref={importMenuRef}>
+            <button
+              className="button button--primary split-button__main"
+              disabled={busyId !== null}
+              onClick={() => void handleImportSingle()}
+              title={t("library.dropHintTooltip")}
+              type="button"
+            >
+              {busyId === "scanning" ? (
+                <>
+                  <Loader2 size={14} className="spin-icon" />
+                  {t("library.scanning")}
+                </>
+              ) : (
+                t("library.importZip")
+              )}
+            </button>
+            <button
+              className="button button--primary split-button__toggle"
+              disabled={busyId !== null}
+              onClick={() => setShowImportMenu((prev) => !prev)}
+              type="button"
+              aria-label="More import options"
+            >
+              <ChevronDown size={14} />
+            </button>
+            {showImportMenu && (
+              <div className="split-button__menu">
+                <button
+                  className="split-button__menu-item"
+                  onClick={() => void handleImportFiles()}
+                  type="button"
+                >
+                  <Package size={14} />
+                  {t("library.importFiles")}
+                </button>
+                <button
+                  className="split-button__menu-item"
+                  onClick={() => void handleImportFolder()}
+                  type="button"
+                >
+                  <FolderSearch size={14} />
+                  {t("library.importFolder")}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -286,7 +539,9 @@ export function LibraryPage() {
           <div className="mod-list" ref={listRef}>
             {filteredEnabled.length === 0 && filteredDisabled.length === 0 ? (
               <div className="mod-list__empty">
-                <strong>{searchQuery ? t("library.noSearchResults") : t("library.emptyEnabled")}</strong>
+                <strong>
+                  {searchQuery ? t("library.noSearchResults") : t("library.emptyEnabled")}
+                </strong>
                 <span>{searchQuery ? "" : t("library.emptyEnabledHelp")}</span>
               </div>
             ) : (
@@ -302,16 +557,18 @@ export function LibraryPage() {
                           <span className="mod-card__name">{mod.name}</span>
                           <span className="mod-card__version">{mod.version ?? "v1.0"}</span>
                         </div>
-                        <div className="mod-card__author">{mod.author || t("library.unknownAuthor")}</div>
+                        <div className="mod-card__author">
+                          {mod.author || t("library.unknownAuthor")}
+                        </div>
                       </div>
                     </div>
                     <div className="mod-card__right">
                       <label className="toggle-switch" title={t("library.enabledStatus")}>
-                        <input 
-                           type="checkbox" 
-                           checked={true} 
-                           onChange={() => void handleToggle(mod)} 
-                           disabled={busyId === mod.id}
+                        <input
+                          type="checkbox"
+                          checked={true}
+                          onChange={() => void handleToggle(mod)}
+                          disabled={busyId === mod.id}
                         />
                         <span className="toggle-slider"></span>
                       </label>
@@ -348,16 +605,18 @@ export function LibraryPage() {
                           <span className="mod-card__name">{mod.name}</span>
                           <span className="mod-card__version">{mod.version ?? "v1.0"}</span>
                         </div>
-                        <div className="mod-card__author">{mod.author || t("library.unknownAuthor")}</div>
+                        <div className="mod-card__author">
+                          {mod.author || t("library.unknownAuthor")}
+                        </div>
                       </div>
                     </div>
                     <div className="mod-card__right">
                       <label className="toggle-switch" title={t("library.disabledStatus")}>
-                        <input 
-                           type="checkbox" 
-                           checked={false} 
-                           onChange={() => void handleToggle(mod)} 
-                           disabled={busyId === mod.id}
+                        <input
+                          type="checkbox"
+                          checked={false}
+                          onChange={() => void handleToggle(mod)}
+                          disabled={busyId === mod.id}
                         />
                         <span className="toggle-slider"></span>
                       </label>
@@ -389,29 +648,149 @@ export function LibraryPage() {
         </div>
       </div>
 
+      {/* ── Batch Preview Dialog ── */}
       <ConfirmDialog
-        cancelLabel={t("library.installOnly")}
-        confirmLabel={t("library.installAndEnable")}
-        dismissLabel={t("common.cancel")}
-        description={t("library.enableAfterImport")}
-        onDismiss={() => {
-          setAskEnableAfterImport(null);
+        cancelLabel={t("common.cancel")}
+        confirmLabel={
+          batchInstalling
+            ? t("library.batchInstalling", {
+                current: batchProgress.current,
+                total: batchProgress.total,
+                name: batchProgress.name,
+              })
+            : t("library.batchInstallSelected", { count: selectedCount })
+        }
+        description={
+          batchPreview
+            ? t("library.batchPreviewDesc", {
+                archives: batchPreview.totalTargetsScanned,
+                mods: batchPreview.discoveredMods.length,
+              })
+            : ""
+        }
+        onCancel={() => {
+          setBatchPreview(null);
+          setBatchPaths([]);
+          setSelectedModIds(new Set());
           setStatus(t("library.importCancelled"));
         }}
-        onCancel={() => {
-          if (askEnableAfterImport) {
-            void proceedWithImport(askEnableAfterImport, false);
-          }
-        }}
-        onConfirm={() => {
-          if (askEnableAfterImport) {
-            void proceedWithImport(askEnableAfterImport, true);
-          }
-        }}
-        open={askEnableAfterImport !== null}
-        title={t("library.importZip")}
-      />
+        onConfirm={() => void confirmBatchInstall()}
+        open={batchPreview !== null}
+        title={t("library.batchPreviewTitle")}
+      >
+        {/* Enable-after-install toggle */}
+        <label className="batch-preview-toggle">
+          <span>{t("library.enableAfterImport")}</span>
+          <input
+            type="checkbox"
+            className="batch-preview-toggle__switch"
+            checked={batchEnableNow}
+            onChange={(e) => setBatchEnableNow(e.target.checked)}
+          />
+        </label>
 
+        <div className="batch-preview-list">
+          {batchPreview?.discoveredMods.map((mod, idx) => {
+            const key = `${mod.modId}::${idx}`;
+            const isDisabled = mod.status === "error" || mod.status === "unsupported_format";
+            const isChecked = selectedModIds.has(key);
+            return (
+              <label
+                className={`batch-preview-item batch-preview-item--${mod.status}${
+                  isChecked ? " is-selected" : ""
+                }${isDisabled ? " is-disabled" : ""}`}
+                key={key}
+              >
+                <div className="batch-preview-item__header">
+                  <input
+                    type="checkbox"
+                    className="batch-preview-item__checkbox"
+                    checked={isChecked}
+                    disabled={isDisabled}
+                    onChange={() => toggleModSelection(mod, idx)}
+                  />
+                  <DiscoveredModStatusIcon mod={mod} />
+                  <div className="batch-preview-item__info">
+                    <strong>
+                      {mod.name}
+                      {mod.version ? ` (${mod.version})` : ""}
+                    </strong>
+                    {mod.author && (
+                      <span className="batch-preview-item__author">{mod.author}</span>
+                    )}
+                  </div>
+                  <span className="batch-preview-item__status-label">
+                    {discoveredStatusLabel(mod)}
+                  </span>
+                </div>
+                {mod.sourceArchive && (
+                  <div className="batch-preview-item__source" title={mod.sourceArchive}>
+                    {mod.sourceType === "folder" ? (
+                      <FolderOpen size={12} style={{ flexShrink: 0 }} />
+                    ) : (
+                      <Package size={12} style={{ flexShrink: 0 }} />
+                    )}
+                    <span className={`batch-preview-item__source-badge batch-preview-item__source-badge--${mod.sourceType}`}>
+                      {mod.sourceType === "folder"
+                        ? t("library.batchSourceFolder")
+                        : t("library.batchSourceArchive")}
+                    </span>
+                    {mod.sourceArchive}
+                  </div>
+                )}
+                {mod.conflicts.length > 0 && (
+                  <div className="batch-preview-item__conflicts">
+                    {mod.conflicts.map((c, i) => (
+                      <span key={i}>{c}</span>
+                    ))}
+                  </div>
+                )}
+                {mod.statusMessage && mod.status !== "ready" && (
+                  <div className="batch-preview-item__message">{mod.statusMessage}</div>
+                )}
+              </label>
+            );
+          })}
+        </div>
+      </ConfirmDialog>
+
+      {/* ── Batch Result Dialog ── */}
+      <ConfirmDialog
+        cancelLabel={t("common.cancel")}
+        confirmLabel={t("common.confirm")}
+        description={
+          batchResult
+            ? t("library.batchResultSummary", {
+                success: batchResult.successCount,
+                fail: batchResult.failureCount,
+              })
+            : ""
+        }
+        onCancel={() => setBatchResult(null)}
+        onConfirm={() => setBatchResult(null)}
+        open={batchResult !== null}
+        title={t("library.batchResultTitle")}
+      >
+        {batchResult && batchResult.failureCount > 0 && (
+          <div className="batch-preview-list">
+            {batchResult.results
+              .filter((r) => !r.success)
+              .map((r, idx) => (
+                <article className="batch-preview-item batch-preview-item--error" key={idx}>
+                  <div className="batch-preview-item__header">
+                    <XCircle size={16} style={{ color: "var(--color-danger)" }} />
+                    <strong>{r.name}</strong>
+                  </div>
+                  {r.errorMessage && (
+                    <div className="batch-preview-item__message">{r.errorMessage}</div>
+                  )}
+                </article>
+              ))}
+          </div>
+        )}
+      </ConfirmDialog>
+
+      {/* ── Legacy single-file preview ── */}
       <ConfirmDialog
         cancelLabel={t("common.cancel")}
         confirmLabel={t("library.startInstall")}
@@ -440,6 +819,7 @@ export function LibraryPage() {
         </div>
       </ConfirmDialog>
 
+      {/* ── Uninstall Confirm ── */}
       <ConfirmDialog
         cancelLabel={t("common.cancel")}
         confirmLabel={t("library.uninstall")}
@@ -454,6 +834,51 @@ export function LibraryPage() {
         title={t("library.confirmUninstallTitle")}
         tone="danger"
       />
+
+      {/* ── Scanning overlay ── */}
+      {busyId === "scanning" && (
+        <div className="batch-overlay">
+          <div className="batch-overlay__content">
+            <Loader2 size={32} className="spin-icon" />
+            <p>{t("library.scanning")}</p>
+            <div className="batch-overlay__shimmer" />
+          </div>
+        </div>
+      )}
+
+      {/* ── Batch install progress overlay ── */}
+      {batchInstalling && (
+        <div className="batch-overlay">
+          <div className="batch-overlay__content">
+            <Loader2 size={32} className="spin-icon" />
+            <p>
+              {t("library.batchInstalling", {
+                current: batchProgress.current,
+                total: batchProgress.total,
+                name: batchProgress.name,
+              })}
+            </p>
+            <div className="batch-overlay__bar">
+              <div
+                className="batch-overlay__bar-fill"
+                style={{
+                  width: batchProgress.total > 0
+                    ? `${(batchProgress.current / batchProgress.total) * 100}%`
+                    : "0%",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Success Toast (auto-dismiss) ── */}
+      {successToast && (
+        <div className={`success-toast ${successToast.visible ? "is-entering" : "is-leaving"}`}>
+          <CheckCircle2 size={20} />
+          <span>{successToast.message}</span>
+        </div>
+      )}
     </section>
   );
 }

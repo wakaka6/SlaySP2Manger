@@ -10,6 +10,9 @@ pub enum AppError {
     ModConflict(String),
     #[error("invalid archive: {0}")]
     InvalidArchive(String),
+    #[error("unsupported format ({0}): {1}")]
+    UnsupportedFormat(String, String),
     #[error("io error: {0}")]
     Io(String),
 }
+

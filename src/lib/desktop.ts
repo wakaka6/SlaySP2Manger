@@ -238,6 +238,81 @@ export async function pickArchiveFile(): Promise<string | null> {
   return invoke<string | null>("pick_archive_file");
 }
 
+export async function pickArchiveFiles(): Promise<string[]> {
+  return invoke<string[]>("pick_archive_files");
+}
+
+export async function pickImportFolder(): Promise<string | null> {
+  return invoke<string | null>("pick_import_folder");
+}
+
+// ── Batch Import Types ────────────────────────────────────────────────
+
+export type DiscoveredModStatus = "ready" | "conflict" | "unsupported_format" | "error";
+export type DiscoveredModSourceType = "folder" | "archive";
+
+export type DiscoveredMod = {
+  modId: string;
+  name: string;
+  version: string | null;
+  author: string | null;
+  folderName: string;
+  targetDir: string;
+  sourceArchive: string;
+  sourceType: DiscoveredModSourceType;
+  status: DiscoveredModStatus;
+  conflicts: string[];
+  statusMessage: string | null;
+};
+
+export type BatchImportPreview = {
+  discoveredMods: DiscoveredMod[];
+  totalTargetsScanned: number;
+  readyCount: number;
+  conflictCount: number;
+  unsupportedCount: number;
+  errorCount: number;
+};
+
+export type BatchInstallItemResult = {
+  modId: string;
+  name: string;
+  success: boolean;
+  errorMessage: string | null;
+};
+
+export type BatchInstallResult = {
+  successCount: number;
+  failureCount: number;
+  results: BatchInstallItemResult[];
+};
+
+export async function processImportTargets(
+  paths: string[],
+  enableAfterInstall: boolean,
+): Promise<BatchImportPreview> {
+  return invoke<BatchImportPreview>("process_import_targets", {
+    paths,
+    enableAfterInstall,
+  });
+}
+
+export async function batchInstallMods(
+  paths: string[],
+  enableAfterInstall: boolean,
+  replaceExisting: boolean,
+  selectedModIds: string[],
+): Promise<BatchInstallResult> {
+  const result = await invoke<BatchInstallResult>("batch_install_mods", {
+    paths,
+    enableAfterInstall,
+    replaceExisting,
+    selectedModIds,
+  });
+  invalidate("installed_mods", "disabled_mods", "app_bootstrap");
+  return result;
+}
+
 export async function updateGameRootDir(gameRootDir: string) {
   await invoke("update_game_root_dir", { gameRootDir });
   invalidate("app_bootstrap", "installed_mods", "disabled_mods", "save_slots", "save_backups");

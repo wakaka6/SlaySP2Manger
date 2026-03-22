@@ -210,6 +210,23 @@ export type MessageKey =
   | "library.unknownAuthor"
   | "library.dropTitle"
   | "library.dropSubtitle"
+  | "library.importFiles"
+  | "library.importFolder"
+  | "library.scanning"
+  | "library.batchPreviewTitle"
+  | "library.batchPreviewDesc"
+  | "library.batchInstallSelected"
+  | "library.batchInstalling"
+  | "library.batchResultTitle"
+  | "library.batchResultSummary"
+  | "library.batchSource"
+  | "library.batchSourceFolder"
+  | "library.batchSourceArchive"
+  | "library.batchStatusReady"
+  | "library.batchStatusConflict"
+  | "library.batchStatusUnsupported"
+  | "library.batchStatusError"
+  | "library.batchAllSuccess"
   | "error.gameNotFound"
   | "error.modNotFound"
   | "error.modConflict"
@@ -486,6 +503,23 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.unknownAuthor": "Unknown Author",
     "library.dropTitle": "Drop to Import",
     "library.dropSubtitle": "Release the file to start installing the mod archive.",
+    "library.importFiles": "Import Multiple Files",
+    "library.importFolder": "Import Folder (Auto-scan)",
+    "library.scanning": "Scanning...",
+    "library.batchPreviewTitle": "Batch Import Preview",
+    "library.batchPreviewDesc": "Scanned {archives} archive(s), discovered {mods} mod(s). Check the ones you want to install.",
+    "library.batchInstallSelected": "Install Selected ({count})",
+    "library.batchInstalling": "Installing {current}/{total}: {name}",
+    "library.batchResultTitle": "Import Results",
+    "library.batchResultSummary": "{success} mod(s) installed successfully, {fail} failed.",
+    "library.batchSource": "Source",
+    "library.batchSourceFolder": "Folder",
+    "library.batchSourceArchive": "Archive",
+    "library.batchStatusReady": "Ready",
+    "library.batchStatusConflict": "Conflict (will overwrite)",
+    "library.batchStatusUnsupported": "Unsupported format",
+    "library.batchStatusError": "Error",
+    "library.batchAllSuccess": "All {count} mod(s) imported successfully! ✨",
     "error.gameNotFound": "Game directory not found. Please check your settings.",
     "error.modNotFound": "Mod could not be found.",
     "error.modConflict": "Installation failed because the folder '{name}' already exists in your mods directory. Please delete the old version first.",
@@ -759,6 +793,23 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.unknownAuthor": "未知作者",
     "library.dropTitle": "拖放导入",
     "library.dropSubtitle": "松开文件即可开始安装模组包。",
+    "library.importFiles": "批量导入文件",
+    "library.importFolder": "导入文件夹 (自动扫描)",
+    "library.scanning": "正在扫描...",
+    "library.batchPreviewTitle": "批量导入预览",
+    "library.batchPreviewDesc": "已扫描 {archives} 个压缩包，发现 {mods} 个模组。勾选要安装的模组：",
+    "library.batchInstallSelected": "安装选中的 ({count})",
+    "library.batchInstalling": "正在安装第 {current}/{total} 个: {name}",
+    "library.batchResultTitle": "导入结果",
+    "library.batchResultSummary": "成功安装 {success} 个模组，{fail} 个失败。",
+    "library.batchSource": "来源",
+    "library.batchSourceFolder": "已解压文件夹",
+    "library.batchSourceArchive": "压缩包",
+    "library.batchStatusReady": "就绪",
+    "library.batchStatusConflict": "冲突 (将覆盖)",
+    "library.batchStatusUnsupported": "不支持的格式",
+    "library.batchStatusError": "错误",
+    "library.batchAllSuccess": "全部 {count} 个模组导入成功！✨",
     "error.gameNotFound": "找不到游戏目录，请在设置中指定。",
     "error.modNotFound": "指定的模组文件找不到了。",
     "error.modConflict": "安装中止！模组文件夹「{name}」已存在，请先删除旧版。",
