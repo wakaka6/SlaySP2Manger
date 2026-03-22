@@ -44,11 +44,13 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci --ignore-scripts
 
-      # ── Tauri build (creates MSI + GitHub Release) ────────────────────────
+      # ── Tauri build (creates MSI + .sig + GitHub Release) ──────────────────
       - name: Build Tauri application
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tauriScript: npx tauri
           tagName: ${{ inputs.tag || github.ref_name }}
@@ -61,6 +63,7 @@ jobs:
             | 文件 / File | 说明 / Description |
             |---|---|
             | `.msi` | 安装包，双击安装 / Installer, double-click to install |
+            | `.msi.sig` | 更新签名 / Update signature for auto-updater |
             | `.zip` (portable) | 便携版，解压即用，无需安装 / Portable, extract and run |
 
             ---
@@ -68,7 +71,7 @@ jobs:
             **Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ inputs.tag || github.ref_name }}
           releaseDraft: false
           prerelease: false
-          includeUpdaterJson: false
+          includeUpdaterJson: true
           args: --target x86_64-pc-windows-msvc
 
       # ── Portable ZIP ──────────────────────────────────────────────────────
