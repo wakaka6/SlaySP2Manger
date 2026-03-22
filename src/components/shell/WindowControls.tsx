@@ -17,14 +17,6 @@ export function WindowControls() {
   return (
     <div className="window-controls">
       <button
-        className="window-controls__btn window-controls__btn--close"
-        onClick={() => appWindow.close()}
-        type="button"
-        aria-label="Close"
-      >
-        <X size={8} strokeWidth={3} />
-      </button>
-      <button
         className="window-controls__btn window-controls__btn--minimize"
         onClick={() => appWindow.minimize()}
         type="button"
@@ -42,6 +34,14 @@ export function WindowControls() {
         aria-label="Maximize"
       >
         {isMaximized ? <Copy size={8} strokeWidth={2.5} /> : <Square size={7} strokeWidth={3} />}
+      </button>
+      <button
+        className="window-controls__btn window-controls__btn--close"
+        onClick={() => appWindow.close()}
+        type="button"
+        aria-label="Close"
+      >
+        <X size={8} strokeWidth={3} />
       </button>
     </div>
   );

@@ -299,15 +299,48 @@ This is useful for maintaining parallel vanilla and modded playthroughs.
 
 ### Q: Where should mod files be placed?
 
-**A:** Mod files (`.dll` and `.pck`) should be placed directly in the `mods` folder inside the game's root directory:
+**A:** Each mod should have its own subfolder inside the `mods` folder in the game's root directory:
 ```
 <GameDirectory>/mods/
-  ├── mod_name.dll
-  ├── mod_name.pck
-  └── mod_manifest.json  (optional)
+  ├── ModA/
+  │   ├── ModA.dll
+  │   ├── ModA.pck
+  │   └── ModA.json          ← manifest (required)
+  └── ModB/
+      ├── ModB.dll
+      ├── ModB.pck
+      └── mod_manifest.json   ← manifest (required)
 ```
 
-**Do NOT** create sub-folders for each mod unless the mod specifically requires it. SlaySP2Manager handles all of this automatically.
+Each mod **must** have its own subfolder — do not mix files from different mods in the same directory.
+
+**About the manifest file:**
+
+Every mod folder **must** contain a manifest JSON file for SlaySP2Manager to recognize it as a valid mod. The manifest must include the following **four required fields**:
+
+```json
+{
+  "id": "my_mod_id",
+  "name": "My Mod Name",
+  "has_dll": true,
+  "has_pck": true,
+  "version": "1.0.0",
+  "author": "Author Name"
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | ✅ Yes | A unique identifier for the mod (non-empty) |
+| `name` | ✅ Yes | Display name of the mod (non-empty) |
+| `has_dll` | ✅ Yes | Whether the mod includes a `.dll` file |
+| `has_pck` | ✅ Yes | Whether the mod includes a `.pck` file |
+| `version` | Optional | Version string |
+| `author` | Optional | Author name |
+
+> **💡 Note:** The manifest filename is flexible — it can be `<FolderName>.json`, `mod_manifest.json`, or any other `.json` file in the mod folder. SlaySP2Manager will automatically scan and detect it.
+
+SlaySP2Manager handles all of this automatically when you install mods through the app.
 
 ---
 
