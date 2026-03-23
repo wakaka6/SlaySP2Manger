@@ -57,22 +57,29 @@ jobs:
             const fs = require('fs');
             const tag = process.env.TAG_NAME || '';
             const version = tag.startsWith('v') ? tag.slice(1) : tag;
-            const lines = fs.readFileSync('CHANGELOG.md', 'utf8').split('\n');
-            let capture = false;
-            const notes = [];
-            for (const line of lines) {
-              if (line.trim().startsWith('## [')) {
-                if (capture) break;
-                if (line.includes('[' + version + ']')) {
-                  capture = true;
-                  continue;
+            function extractNotes(filename) {
+              if (!fs.existsSync(filename)) return '';
+              const lines = fs.readFileSync(filename, 'utf8').split('\n');
+              let capture = false;
+              const notes = [];
+              for (const line of lines) {
+                if (line.trim().startsWith('## [')) {
+                  if (capture) break;
+                  if (line.includes('[' + version + ']')) {
+                    capture = true;
+                    continue;
+                  }
                 }
+                if (capture) notes.push(line);
               }
-              if (capture) notes.push(line);
+              return notes.join('\n').trim();
             }
-            const finalNotes = notes.join('\n').trim();
+            const zhNotes = extractNotes('CHANGELOG.md');
+            const enNotes = extractNotes('CHANGELOG.en.md');
+            let combined = zhNotes;
+            if (enNotes) combined += '\n\n---\n\n### English Release Notes\n\n' + enNotes;
             const eof = 'EOF_' + Date.now();
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'NOTES<<' + eof + '\n' + finalNotes + '\n' + eof + '\n', 'utf8');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'NOTES<<' + eof + '\n' + combined + '\n' + eof + '\n', 'utf8');
           "
 
       # ── Tauri build (creates MSI + .sig + GitHub Release) ──────────────────
