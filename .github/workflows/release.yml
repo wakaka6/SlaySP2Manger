@@ -44,6 +44,36 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci --ignore-scripts
 
+      # ── Extract Release Notes ─────────────────────────────────────────────
+      - name: Extract Release Notes
+        id: extract
+        shell: bash
+        env:
+          TAG_NAME: ${{ inputs.tag || github.ref_name }}
+        run: |
+          node -e "
+            const fs = require('fs');
+            const tag = process.env.TAG_NAME || '';
+            const version = tag.startsWith('v') ? tag.slice(1) : tag;
+            const lines = fs.readFileSync('CHANGELOG.md', 'utf8').split('\n');
+            let capture = false;
+            const notes = [];
+            for (const line of lines) {
+              if (line.trim().startsWith('## [')) {
+                if (capture) break;
+                if (line.includes('[' + version + ']')) {
+                  capture = true;
+                  continue;
+                }
+              }
+              if (capture) notes.push(line);
+            }
+            fs.writeFileSync('RELEASE_NOTES.md', notes.join('\n').trim());
+          "
+          echo "NOTES<<EOF" >> $GITHUB_OUTPUT
+          cat RELEASE_NOTES.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       # ── Tauri build (creates MSI + .sig + GitHub Release) ──────────────────
       - name: Build Tauri application
         uses: tauri-apps/tauri-action@v0
@@ -65,6 +95,12 @@ jobs:
 
             安装后应用将自动检查更新。
             The app will check for updates automatically after installation.
+
+            ---
+
+            ### 更新内容 / Release Notes
+
+            ${{ steps.extract.outputs.NOTES }}
 
             ---
 
