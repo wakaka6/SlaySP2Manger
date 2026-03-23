@@ -44,6 +44,12 @@ impl ModService {
         ))
     }
 
+    /// Returns the number of currently enabled mods (folders inside mods/).
+    pub fn count_enabled(&self) -> Result<usize, AppError> {
+        let game = self.resolve_game()?;
+        Ok(scan_mod_directory(Path::new(&game.mods_dir), InstalledModState::Enabled).len())
+    }
+
     pub fn enable(&self, mod_id: &str) -> Result<InstalledMod, AppError> {
         let game = self.resolve_game()?;
         move_mod(

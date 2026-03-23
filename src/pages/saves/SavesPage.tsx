@@ -2,11 +2,11 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { PageHeader } from "../../components/common/PageHeader";
 import { useI18n } from "../../i18n/I18nProvider";
+import type { MessageKey } from "../../i18n/messages";
 import {
   createSaveBackup,
   listSaveBackups,
   listSaveSlots,
-  previewSaveTransfer,
   restoreSaveBackup,
   transferSave,
   openPathInExplorer,
@@ -20,9 +20,8 @@ import {
   type SaveSlot,
   type SaveSlotRef,
   type SaveSyncPair,
-  type SaveTransferPreview,
 } from "../../lib/desktop";
-import { DatabaseBackup, ArchiveRestore, Trash2, FolderOpen, RefreshCw, Link2, X } from "lucide-react";
+import { DatabaseBackup, ArchiveRestore, Trash2, FolderOpen, RefreshCw, Link2, X, Shield, UserPen, ChevronDown, ArrowRight } from "lucide-react";
 
 function slotRef(slot: SaveSlot): SaveSlotRef {
   return { steamUserId: slot.steamUserId, kind: slot.kind, slotIndex: slot.slotIndex };
@@ -35,6 +34,34 @@ function formatTime(value: string | null, emptyText: string) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
+function relativeTime(
+  value: string | null,
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string,
+) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diff < 60) return t("saves.timeJustNow");
+  if (diff < 3600) return t("saves.timeMinutesAgo", { count: Math.floor(diff / 60) });
+  if (diff < 86400) return t("saves.timeHoursAgo", { count: Math.floor(diff / 3600) });
+  return t("saves.timeDaysAgo", { count: Math.floor(diff / 86400) });
+}
+
+type ReasonKey =
+  | "saves.reasonManual"
+  | "saves.reasonAutoTransfer"
+  | "saves.reasonAutoSync"
+  | "saves.reasonAutoPathSwitch"
+  | "saves.reasonUnknown";
+
+const REASON_MAP: Record<string, ReasonKey> = {
+  manual_backup: "saves.reasonManual",
+  auto_before_transfer: "saves.reasonAutoTransfer",
+  auto_before_sync: "saves.reasonAutoSync",
+  auto_before_path_switch: "saves.reasonAutoPathSwitch",
+};
+
 // ── Line data ────────────────────────────────────────────────────────────
 type LineCoord = { x1: number; y1: number; x2: number; y2: number };
 
@@ -45,12 +72,26 @@ export function SavesPage() {
   const [status, setStatus] = useState(t("saves.ready"));
   const [selectedSource, setSelectedSource] = useState<SaveSlot | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<SaveSlot | null>(null);
-  const [transferPreview, setTransferPreview] = useState<SaveTransferPreview | null>(null);
+  const [transferOpen, setTransferOpen] = useState<{ sourceKind: SaveKind; targetKind: SaveKind } | null>(null);
   const [pendingRestore, setPendingRestore] = useState<SaveBackupEntry | null>(null);
   const [autoSync, setAutoSync] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncPairs, setSyncPairs] = useState<SaveSyncPair[]>([]);
   const [linkingFrom, setLinkingFrom] = useState<number | null>(null); // vanilla slot index
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  // Group backups by kind + slotIndex
+  const groupedBackups = useMemo(() => {
+    const groups = new Map<string, { kind: SaveKind; slotIndex: number; items: SaveBackupEntry[] }>();
+    for (const b of backups) {
+      const key = `${b.kind}_${b.slotIndex}`;
+      if (!groups.has(key)) {
+        groups.set(key, { kind: b.kind, slotIndex: b.slotIndex, items: [] });
+      }
+      groups.get(key)!.items.push(b);
+    }
+    return Array.from(groups.entries());
+  }, [backups]);
 
   // refs for card positions
   const layoutRef = useRef<HTMLDivElement>(null);
@@ -235,22 +276,19 @@ export function SavesPage() {
     }
   }
 
-  async function prepareTransfer(sourceKind: SaveKind, targetKind: SaveKind) {
-    const source = slots.find((s) => s.kind === sourceKind && s.hasData) ?? null;
-    const target =
-      slots.find((s) => s.kind === targetKind && s.slotIndex === source?.slotIndex) ??
-      slots.find((s) => s.kind === targetKind) ??
-      null;
-    if (!source || !target) { setStatus(t("saves.transferMissing")); return; }
-    setSelectedSource(source);
-    setSelectedTarget(target);
-    try {
-      const preview = await previewSaveTransfer(slotRef(source), slotRef(target));
-      setTransferPreview(preview);
-      setStatus(t("saves.previewCreated"));
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : t("saves.previewFailed"));
+  function openTransfer(sourceKind: SaveKind, targetKind: SaveKind) {
+    const sourceSlots = slots.filter((s) => s.kind === sourceKind);
+    const targetSlots = slots.filter((s) => s.kind === targetKind);
+    if (sourceSlots.length === 0 || targetSlots.length === 0) {
+      setStatus(t("saves.transferMissing"));
+      return;
     }
+    const defaultSource = sourceSlots.find((s) => s.hasData) ?? sourceSlots[0];
+    const defaultTarget =
+      targetSlots.find((s) => s.slotIndex === defaultSource.slotIndex) ?? targetSlots[0];
+    setSelectedSource(defaultSource);
+    setSelectedTarget(defaultTarget);
+    setTransferOpen({ sourceKind, targetKind });
   }
 
   async function confirmTransfer() {
@@ -259,7 +297,7 @@ export function SavesPage() {
     isActionRunningRef.current = true;
     try {
       const backup = await transferSave(slotRef(selectedSource), slotRef(selectedTarget));
-      setTransferPreview(null);
+      setTransferOpen(null);
       setStatus(backup ? t("saves.transferDoneWithBackup") : t("saves.transferDone"));
       await reload();
     } catch (error) {
@@ -356,6 +394,14 @@ export function SavesPage() {
         <div className="save-card__bottom">
           <button
             className="icon-button"
+            onClick={(e) => { e.stopPropagation(); void openPathInExplorer(slot.path); }}
+            type="button"
+            title={t("saves.openFolder")}
+          >
+            <FolderOpen size={16} />
+          </button>
+          <button
+            className="icon-button"
             disabled={!slot.hasData}
             onClick={(e) => { e.stopPropagation(); void handleManualBackup(slot); }}
             type="button"
@@ -444,7 +490,7 @@ export function SavesPage() {
         <section className="saves-section saves-section--vanilla">
           <div className="saves-section__header">
             <h2>{t("saves.vanillaTitle")}</h2>
-            <button className="button button--secondary button--sm" onClick={() => void prepareTransfer("vanilla", "modded")} type="button">
+            <button className="button button--secondary button--sm" onClick={() => openTransfer("vanilla", "modded")} type="button">
               {t("saves.copyToModded")} &rarr;
             </button>
           </div>
@@ -458,7 +504,7 @@ export function SavesPage() {
         <section className="saves-section saves-section--modded">
           <div className="saves-section__header">
             <h2 style={{ color: "var(--accent)" }}>{t("saves.moddedTitle")}</h2>
-            <button className="button button--secondary button--sm" onClick={() => void prepareTransfer("modded", "vanilla")} type="button">
+            <button className="button button--secondary button--sm" onClick={() => openTransfer("modded", "vanilla")} type="button">
               &larr; {t("saves.copyToVanilla")}
             </button>
           </div>
@@ -476,45 +522,165 @@ export function SavesPage() {
           <h2>{t("saves.backups")}</h2>
           <span className="panel__meta">{backups.length}</span>
         </div>
-        <div className="activity-list">
+        <div className="backup-timeline">
           {backups.length === 0 ? (
             <div className="activity-item"><strong>{t("saves.noBackups")}</strong><span>{t("saves.noBackupsHelp")}</span></div>
-          ) : backups.map((backup) => (
-            <article className="activity-item" key={backup.id}>
-              <div className="activity-item__head">
-                <strong>{backupLabel(backup)}</strong>
-                <span>{formatTime(backup.createdAt, t("saves.noModified"))}</span>
+          ) : groupedBackups.map(([groupKey, group]) => {
+            const isExpanded = expandedGroups.has(groupKey);
+            const kindLabel = group.kind === "vanilla" ? t("saves.vanilla") : t("saves.modded");
+            const latestTime = group.items[0]?.createdAt;
+            return (
+              <div className="backup-group" key={groupKey}>
+                <button
+                  className="backup-group__header"
+                  onClick={() => {
+                    setExpandedGroups((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(groupKey)) {
+                        next.delete(groupKey);
+                      } else {
+                        next.add(groupKey);
+                      }
+                      return next;
+                    });
+                  }}
+                  type="button"
+                >
+                  <ChevronDown
+                    size={14}
+                    className={`backup-group__chevron ${!isExpanded ? "backup-group__chevron--collapsed" : ""}`}
+                  />
+                  <span className={`backup-row__kind ${group.kind === "vanilla" ? "backup-row__kind--vanilla" : "backup-row__kind--modded"}`}>
+                    {kindLabel}
+                  </span>
+                  <span className="backup-group__title">
+                    {t("saves.slotLabel", { slot: group.slotIndex, state: "" }).replace(" - ", "").trim()}
+                  </span>
+                  <span className="backup-group__latest">
+                    {relativeTime(latestTime, t)}
+                  </span>
+                  <span className="backup-group__count">{group.items.length}</span>
+                </button>
+                {isExpanded && (
+                  <div className="backup-group__body">
+                    {group.items.map((backup) => {
+                      const isManual = backup.reason === "manual_backup";
+                      const reasonKey = REASON_MAP[backup.reason] ?? "saves.reasonUnknown";
+                      return (
+                        <div
+                          className={`backup-row ${isManual ? "backup-row--manual" : "backup-row--auto"}`}
+                          key={backup.id}
+                        >
+                          <div className="backup-row__info">
+                            <span className="backup-row__reason">
+                              {isManual
+                                ? <UserPen size={12} />
+                                : <Shield size={12} />}
+                              {t(reasonKey as Parameters<typeof t>[0])}
+                            </span>
+                          </div>
+                          <div className="backup-row__right">
+                            <span className="backup-row__time" title={formatTime(backup.createdAt, "")}>
+                              {isManual
+                                ? formatTime(backup.createdAt, "")
+                                : relativeTime(backup.createdAt, t)}
+                            </span>
+                            <div className="backup-row__actions">
+                              <button className="icon-button" onClick={() => void openPathInExplorer(backup.backupPath)} title={t("saves.openFolder")} type="button"><FolderOpen size={14} /></button>
+                              <button className="icon-button" onClick={() => setPendingRestore(backup)} title={t("saves.restore")} type="button"><ArchiveRestore size={14} /></button>
+                              <button className="icon-button icon-button--danger" onClick={() => void handleDeleteBackup(backup.id)} title={t("saves.delete")} type="button"><Trash2 size={14} /></button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <div className="activity-item__body" style={{ marginTop: "8px", fontSize: "13px", color: "var(--text-muted)" }}>
-                <div style={{ wordBreak: "break-all" }}>{backup.backupPath}</div>
-                <div style={{ marginTop: "4px", fontStyle: "italic" }}>{backup.reason}</div>
-              </div>
-              <div className="action-row" style={{ marginTop: "16px" }}>
-                <button className="icon-button" onClick={() => void openPathInExplorer(backup.backupPath)} title={t("saves.openFolder")} type="button"><FolderOpen size={16} /></button>
-                <button className="icon-button" onClick={() => setPendingRestore(backup)} title={t("saves.restore")} type="button"><ArchiveRestore size={16} /></button>
-                <button className="icon-button icon-button--danger" onClick={() => void handleDeleteBackup(backup.id)} title={t("saves.delete")} type="button"><Trash2 size={16} /></button>
-              </div>
-            </article>
-          ))}
+            );
+          })}
         </div>
       </section>
 
       {/* ── Dialogs ───────────────────────────────────── */}
-      <ConfirmDialog
-        cancelLabel={t("common.cancel")} confirmLabel={t("common.confirm")}
-        description={transferPreview?.summary}
-        onCancel={() => setTransferPreview(null)} onConfirm={() => void confirmTransfer()}
-        open={transferPreview !== null} title={t("saves.confirmTransfer")}
-      >
-        <div className="preview-list">
-          {selectedSource ? <article className="preview-item"><strong>{t("saves.source")} - {selectedSource.kind === "vanilla" ? t("saves.vanilla") : t("saves.modded")}</strong><span>{selectedSource.path}</span></article> : null}
-          {selectedTarget ? <article className="preview-item"><strong>{t("saves.target")} - {selectedTarget.kind === "vanilla" ? t("saves.vanilla") : t("saves.modded")}</strong><span>{selectedTarget.path}</span></article> : null}
-        </div>
-      </ConfirmDialog>
+      {(() => {
+        const isLinked = selectedSource && selectedTarget && syncPairs.some((p) =>
+          (p.vanillaSlot === selectedSource.slotIndex && p.moddedSlot === selectedTarget.slotIndex && selectedSource.kind === "vanilla") ||
+          (p.moddedSlot === selectedSource.slotIndex && p.vanillaSlot === selectedTarget.slotIndex && selectedSource.kind === "modded")
+        );
+        const sourceLabel = transferOpen?.sourceKind === "vanilla" ? t("saves.vanilla") : t("saves.modded");
+        const targetLabel = transferOpen?.targetKind === "vanilla" ? t("saves.vanilla") : t("saves.modded");
+
+        return (
+          <ConfirmDialog
+            cancelLabel={t("common.cancel")} confirmLabel={t("common.confirm")}
+            description={t("saves.transferDesc")}
+            onCancel={() => setTransferOpen(null)} onConfirm={() => void confirmTransfer()}
+            open={transferOpen !== null} 
+            title={transferOpen ? t("saves.transferTitle", { source: sourceLabel, target: targetLabel }) : t("saves.confirmTransfer")}
+          >
+            {transferOpen && (
+              <div className="transfer-picker">
+                <div className="transfer-picker__column">
+                  <span className="transfer-picker__label">{t("saves.source")}</span>
+                  {slots.filter((s) => s.kind === transferOpen.sourceKind).map((slot) => (
+                    <button
+                      key={slot.slotIndex}
+                      className={`transfer-picker__item ${selectedSource?.slotIndex === slot.slotIndex && selectedSource?.kind === slot.kind ? "is-selected" : ""} ${!slot.hasData ? "is-empty" : ""}`}
+                      onClick={() => slot.hasData && setSelectedSource(slot)}
+                      disabled={!slot.hasData}
+                      type="button"
+                    >
+                      <strong>{t("saves.slotLabelShort", { slot: slot.slotIndex })}</strong>
+                      <span className="transfer-picker__meta">
+                        {slot.hasData
+                          ? formatTime(slot.lastModifiedAt, t("saves.noModified"))
+                          : t("saves.stateEmpty")}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div className="transfer-picker__arrow">
+                  <ArrowRight size={20} />
+                </div>
+                <div className="transfer-picker__column">
+                  <span className="transfer-picker__label">{t("saves.target")}</span>
+                  {slots.filter((s) => s.kind === transferOpen.targetKind).map((slot) => (
+                    <button
+                      key={slot.slotIndex}
+                      className={`transfer-picker__item ${selectedTarget?.slotIndex === slot.slotIndex && selectedTarget?.kind === slot.kind ? "is-selected" : ""}`}
+                      onClick={() => setSelectedTarget(slot)}
+                      type="button"
+                    >
+                      <strong>{t("saves.slotLabelShort", { slot: slot.slotIndex })}</strong>
+                      <span className="transfer-picker__meta">
+                        {slot.hasData
+                          ? formatTime(slot.lastModifiedAt, t("saves.noModified"))
+                          : t("saves.stateEmpty")}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {selectedTarget?.hasData && (
+              <p className="transfer-flow__note">{t("saves.transferBackupNote")}</p>
+            )}
+            {isLinked && (
+              <p className="transfer-flow__note" style={{ color: "var(--color-warning)", marginTop: "8px" }}>
+                {t("saves.transferLinkedWarning")}
+              </p>
+            )}
+          </ConfirmDialog>
+        );
+      })()}
 
       <ConfirmDialog
         cancelLabel={t("common.cancel")} confirmLabel={t("common.confirm")}
-        description={pendingRestore ? backupLabel(pendingRestore) : undefined}
+        description={pendingRestore ? t("saves.confirmRestoreDesc", {
+          kind: pendingRestore.kind === "vanilla" ? t("saves.vanilla") : t("saves.modded"),
+          slot: pendingRestore.slotIndex,
+        }) : undefined}
         onCancel={() => setPendingRestore(null)} onConfirm={() => void confirmRestore()}
         open={pendingRestore !== null} title={t("saves.confirmRestore")} tone="danger"
       />

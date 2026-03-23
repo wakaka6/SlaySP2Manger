@@ -1,4 +1,5 @@
 use chrono::Utc;
+use serde::Serialize;
 use tauri::State;
 use uuid::Uuid;
 
@@ -18,6 +19,79 @@ use crate::services::mod_service::ModService;
 use crate::services::profile_service::ProfileService;
 use crate::services::save_service::SaveService;
 use crate::utils::http::http_client;
+
+// ── Save Guard types ────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveGuardInfo {
+    pub path_switched: bool,
+    pub direction: Option<String>,
+    pub had_pairs: bool,
+    pub saves_synced: usize,
+    pub backups_created: usize,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModToggleResult {
+    pub mod_item: InstalledMod,
+    pub save_guard: SaveGuardInfo,
+}
+
+/// Run save guard logic when mods/ transitions between empty and non-empty.
+/// `before_count`: number of enabled mods before the operation.
+/// `after_count`: expected number of enabled mods after the operation.
+fn run_save_guard(before_count: usize, after_count: usize, settings: &AppSettings) -> SaveGuardInfo {
+    let was_empty = before_count == 0;
+    let will_be_empty = after_count == 0;
+
+    // No path switch — nothing to do
+    if was_empty == will_be_empty {
+        return SaveGuardInfo::default();
+    }
+
+    let direction = if was_empty {
+        "vanilla_to_modded"
+    } else {
+        "modded_to_vanilla"
+    };
+
+    let pairs = &settings.save_sync_pairs;
+    let had_pairs = !pairs.is_empty();
+    let mut backups_created: usize = 0;
+    let mut saves_synced: usize = 0;
+    let mut error: Option<String> = None;
+
+    let save_svc = SaveService::new();
+
+    // Always try to back up all slots
+    match save_svc.backup_all_slots("auto_before_path_switch") {
+        Ok(count) => backups_created = count,
+        Err(e) => error = Some(format!("Backup failed: {}", e)),
+    }
+
+    // Sync using user-configured pairs (if any)
+    if had_pairs && error.is_none() {
+        match save_svc.sync_by_pairs(pairs, direction) {
+            Ok(result) => saves_synced = result.synced_count,
+            Err(e) => error = Some(format!("Sync failed: {}", e)),
+        }
+    }
+
+    // Prune old auto-backups (keep N most recent per kind+slot)
+    let _ = save_svc.prune_auto_backups(settings.auto_backup_keep_count);
+
+    SaveGuardInfo {
+        path_switched: true,
+        direction: Some(direction.to_string()),
+        had_pairs,
+        saves_synced,
+        backups_created,
+        error,
+    }
+}
 
 #[tauri::command]
 pub fn get_app_bootstrap(state: State<'_, AppState>) -> Result<AppBootstrapDto, String> {
@@ -61,6 +135,7 @@ pub fn get_app_bootstrap(state: State<'_, AppState>) -> Result<AppBootstrapDto, 
         nexus_is_premium: settings.nexus_is_premium,
         nexus_user_name: settings.nexus_user_name,
         proxy_url: settings.proxy_url,
+        auto_backup_keep_count: settings.auto_backup_keep_count,
     })
 }
 
@@ -186,14 +261,17 @@ pub fn list_disabled_mods(state: State<'_, AppState>) -> Result<Vec<InstalledMod
 }
 
 #[tauri::command]
-pub fn enable_mod(mod_id: String, state: State<'_, AppState>) -> Result<InstalledMod, String> {
+pub fn enable_mod(mod_id: String, state: State<'_, AppState>) -> Result<ModToggleResult, String> {
     let settings = state
         .settings
         .read()
         .map_err(|_| "failed to read app settings".to_string())?
         .clone();
 
-    let service = ModService::new(settings);
+    let service = ModService::new(settings.clone());
+    let before_count = service.count_enabled().map_err(|e| e.to_string())?;
+    let save_guard = run_save_guard(before_count, before_count + 1, &settings);
+
     let updated = service.enable(&mod_id).map_err(|error| error.to_string())?;
     push_activity(
         &state,
@@ -201,18 +279,21 @@ pub fn enable_mod(mod_id: String, state: State<'_, AppState>) -> Result<Installe
         format!("Enabled {}", updated.name),
         Some(updated.install_dir.clone()),
     )?;
-    Ok(updated)
+    Ok(ModToggleResult { mod_item: updated, save_guard })
 }
 
 #[tauri::command]
-pub fn disable_mod(mod_id: String, state: State<'_, AppState>) -> Result<InstalledMod, String> {
+pub fn disable_mod(mod_id: String, state: State<'_, AppState>) -> Result<ModToggleResult, String> {
     let settings = state
         .settings
         .read()
         .map_err(|_| "failed to read app settings".to_string())?
         .clone();
 
-    let service = ModService::new(settings);
+    let service = ModService::new(settings.clone());
+    let before_count = service.count_enabled().map_err(|e| e.to_string())?;
+    let save_guard = run_save_guard(before_count, before_count.saturating_sub(1), &settings);
+
     let updated = service.disable(&mod_id).map_err(|error| error.to_string())?;
     push_activity(
         &state,
@@ -220,7 +301,7 @@ pub fn disable_mod(mod_id: String, state: State<'_, AppState>) -> Result<Install
         format!("Disabled {}", updated.name),
         Some(updated.install_dir.clone()),
     )?;
-    Ok(updated)
+    Ok(ModToggleResult { mod_item: updated, save_guard })
 }
 
 #[tauri::command]
@@ -231,7 +312,15 @@ pub fn uninstall_mod(mod_id: String, state: State<'_, AppState>) -> Result<Strin
         .map_err(|_| "failed to read app settings".to_string())?
         .clone();
 
-    let service = ModService::new(settings);
+    let service = ModService::new(settings.clone());
+
+    // Check if the mod being uninstalled is enabled (affects mods/ count)
+    let enabled_mods = service.list_installed().map_err(|e| e.to_string())?;
+    let is_enabled = enabled_mods.iter().any(|m| m.id.eq_ignore_ascii_case(&mod_id));
+    let before_count = enabled_mods.len();
+    let after_count = if is_enabled { before_count.saturating_sub(1) } else { before_count };
+    let _save_guard = run_save_guard(before_count, after_count, &settings);
+
     let removed = service.uninstall(&mod_id).map_err(|error| error.to_string())?;
     push_activity(&state, "mods", format!("Uninstalled {}", removed), None)?;
     Ok(removed)
@@ -250,7 +339,16 @@ pub fn install_archive(
         .map_err(|_| "failed to read app settings".to_string())?
         .clone();
 
-    let service = ModService::new(settings);
+    let service = ModService::new(settings.clone());
+
+    // Guard: if enabling and currently no mods, path will switch
+    if enable_after_install {
+        let before_count = service.count_enabled().map_err(|e| e.to_string())?;
+        if before_count == 0 {
+            let _ = run_save_guard(0, 1, &settings);
+        }
+    }
+
     let installed = service
         .install_archive(&archive_path, enable_after_install, replace_existing)
         .map_err(|error| error.to_string())?;
@@ -339,7 +437,16 @@ pub fn batch_install_mods(
         .map_err(|_| "failed to read app settings".to_string())?
         .clone();
 
-    let service = ModService::new(settings);
+    let service = ModService::new(settings.clone());
+
+    // Guard: if enabling and currently no mods, path will switch
+    if enable_after_install {
+        let before_count = service.count_enabled().map_err(|e| e.to_string())?;
+        if before_count == 0 {
+            let _ = run_save_guard(0, 1, &settings);
+        }
+    }
+
     let result = service
         .batch_install(&paths, enable_after_install, replace_existing, &selected_mod_ids)
         .map_err(|error| error.to_string())?;
@@ -509,14 +616,19 @@ pub fn download_and_install_mod(
     let bytes = response.bytes().map_err(|e| format!("Failed to read response: {}", e))?;
     std::fs::write(&file_path, &bytes).map_err(|e| format!("Failed to save file: {}", e))?;
 
-    // 3. Install using existing ModService logic
+    // 3. Guard: download always enables, check path switch
     let settings = state
         .settings
         .read()
         .map_err(|_| "failed to read app settings".to_string())?
         .clone();
 
-    let service = ModService::new(settings);
+    let service = ModService::new(settings.clone());
+    let before_count = service.count_enabled().map_err(|e| e.to_string())?;
+    if before_count == 0 {
+        let _ = run_save_guard(0, 1, &settings);
+    }
+
     let installed = service
         .install_archive(file_path.to_str().unwrap_or_default(), true, true)
         .map_err(|e| e.to_string())?;
@@ -620,6 +732,23 @@ pub fn apply_profile(
         .read()
         .map_err(|_| "failed to read app settings".to_string())?
         .clone();
+
+    // Pre-compute path switch: how many mods will be enabled after apply?
+    let mod_service = ModService::new(settings_snapshot.clone());
+    let before_count = mod_service.count_enabled().map_err(|e| e.to_string())?;
+
+    let profile = ProfileService.get(&profile_id)?;
+    let all_enabled = mod_service.list_installed().map_err(|e| e.to_string())?;
+    let all_disabled = mod_service.list_disabled().map_err(|e| e.to_string())?;
+    let all_known: std::collections::HashSet<String> = all_enabled.iter()
+        .chain(all_disabled.iter())
+        .map(|m| m.id.to_lowercase())
+        .collect();
+    let after_count = profile.mod_ids.iter()
+        .filter(|id| all_known.contains(&id.to_lowercase()))
+        .count();
+
+    let _save_guard = run_save_guard(before_count, after_count, &settings_snapshot);
 
     let result = ProfileService.apply(&profile_id, settings_snapshot)?;
 
@@ -923,7 +1052,8 @@ pub fn sync_saves(state: State<'_, AppState>) -> Result<SaveSyncResult, String> 
         .save_sync_pairs
         .clone();
 
-    let result = SaveService::new().sync_saves(&pairs)?;
+    let svc = SaveService::new();
+    let result = svc.sync_saves(&pairs)?;
     if result.synced_count > 0 {
         push_activity(
             &state,
@@ -931,6 +1061,9 @@ pub fn sync_saves(state: State<'_, AppState>) -> Result<SaveSyncResult, String> 
             format!("Synced {} save slot(s)", result.synced_count),
             None,
         )?;
+        // Prune old auto-backups after sync
+        let keep = state.settings.read().map(|s| s.auto_backup_keep_count).unwrap_or(5);
+        let _ = svc.prune_auto_backups(keep);
     }
     Ok(result)
 }
@@ -968,6 +1101,26 @@ pub fn update_proxy_url(
     };
 
     settings_repo::save_settings(&settings)?;
+    Ok(settings.clone())
+}
+
+#[tauri::command]
+pub fn update_auto_backup_keep_count(
+    count: usize,
+    state: State<'_, AppState>,
+) -> Result<AppSettings, String> {
+    let clamped = count.clamp(1, 50);
+    let mut settings = state
+        .settings
+        .write()
+        .map_err(|_| "failed to write app settings".to_string())?;
+
+    settings.auto_backup_keep_count = clamped;
+    settings_repo::save_settings(&settings)?;
+
+    // Immediately prune to new limit
+    let _ = SaveService::new().prune_auto_backups(clamped);
+
     Ok(settings.clone())
 }
 

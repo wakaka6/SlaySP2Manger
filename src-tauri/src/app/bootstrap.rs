@@ -18,4 +18,5 @@ pub struct AppBootstrapDto {
     pub nexus_is_premium: bool,
     pub nexus_user_name: Option<String>,
     pub proxy_url: Option<String>,
+    pub auto_backup_keep_count: usize,
 }

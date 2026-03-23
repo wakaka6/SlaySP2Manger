@@ -86,20 +86,23 @@ impl SaveService {
         source: SaveSlotRef,
         target: SaveSlotRef,
     ) -> Result<Option<SaveBackupEntry>, String> {
-        let source_path = slot_path(&source)?;
-        let target_path = slot_path(&target)?;
+        let source_saves = slot_path(&source)?;
+        let target_saves = slot_path(&target)?;
 
-        if !source_path.join("progress.save").exists() {
+        if !source_saves.join("progress.save").exists() {
             return Err("source slot does not contain a save".to_string());
         }
 
-        let backup = if target_path.join("progress.save").exists() {
+        let backup = if target_saves.join("progress.save").exists() {
             Some(create_backup_from_slot(&target, "auto_before_transfer")?)
         } else {
             None
         };
 
-        replace_directory_contents(&source_path, &target_path)?;
+        // Copy at profile level to include replay/ and other sibling directories
+        let source_profile = profile_dir_path(&source)?;
+        let target_profile = profile_dir_path(&target)?;
+        replace_directory_contents(&source_profile, &target_profile)?;
         Ok(backup)
     }
 
@@ -205,17 +208,19 @@ impl SaveService {
                 )
             };
 
-            let source_path = slot_path(&source_ref)?;
-            let target_path = slot_path(&target_ref)?;
+            let target_saves = slot_path(&target_ref)?;
 
-            let backup_created = if target_path.join("progress.save").exists() {
+            let backup_created = if target_saves.join("progress.save").exists() {
                 create_backup_from_slot(&target_ref, "auto_before_sync")?;
                 true
             } else {
                 false
             };
 
-            replace_directory_contents(&source_path, &target_path)?;
+            // Copy at profile level to include replay/ and other sibling directories
+            let source_profile = profile_dir_path(&source_ref)?;
+            let target_profile = profile_dir_path(&target_ref)?;
+            replace_directory_contents(&source_profile, &target_profile)?;
 
             details.push(SaveSyncDetail {
                 slot_index: pair.vanilla_slot,
@@ -241,10 +246,204 @@ impl SaveService {
             slot_index: backup.slot_index,
         };
 
-        let target = slot_path(&slot)?;
+        let target_profile = profile_dir_path(&slot)?;
         let backup_path = PathBuf::from(&backup.backup_path);
-        replace_directory_contents(&backup_path, &target)?;
+        replace_directory_contents(&backup_path, &target_profile)?;
         Ok(())
+    }
+
+    /// Backup all slots that have data (both vanilla and modded).
+    /// Returns the number of backups created.
+    pub fn backup_all_slots(&self, reason: &str) -> Result<usize, String> {
+        let slots = self.list_slots()?;
+        let mut count = 0;
+
+        for slot in &slots {
+            if !slot.has_data {
+                continue;
+            }
+            let slot_ref = SaveSlotRef {
+                steam_user_id: slot.steam_user_id.clone(),
+                kind: slot.kind.clone(),
+                slot_index: slot.slot_index,
+            };
+            create_backup_from_slot(&slot_ref, reason)?;
+            count += 1;
+        }
+
+        Ok(count)
+    }
+
+    /// Remove old auto-backups, keeping only the most recent `keep` per kind+slot.
+    /// Manual backups (reason == "manual_backup") are never pruned.
+    pub fn prune_auto_backups(&self, keep: usize) -> Result<usize, String> {
+        let backups = self.list_backups()?; // already sorted newest-first
+        let mut groups: std::collections::HashMap<String, Vec<&SaveBackupEntry>> =
+            std::collections::HashMap::new();
+
+        for b in &backups {
+            if b.reason == "manual_backup" || b.reason == "backup" {
+                continue; // never prune manual backups
+            }
+            let key = format!("{}_{}", match b.kind { SaveKind::Vanilla => "v", SaveKind::Modded => "m" }, b.slot_index);
+            groups.entry(key).or_default().push(b);
+        }
+
+        let mut removed = 0;
+        for (_key, entries) in &groups {
+            if entries.len() <= keep {
+                continue;
+            }
+            for old in &entries[keep..] {
+                let path = PathBuf::from(&old.backup_path);
+                if path.exists() {
+                    let _ = fs::remove_dir_all(&path);
+                    removed += 1;
+                }
+            }
+        }
+
+        Ok(removed)
+    }
+
+    /// Directional sync using user-configured pairs.
+    ///
+    /// `direction` determines source/target mapping:
+    /// - `"modded_to_vanilla"` — source = modded, target = vanilla
+    /// - `"vanilla_to_modded"` — source = vanilla, target = modded
+    ///
+    /// For each pair: backs up both sides first, then copies source→target
+    /// only if source has data AND is newer than target (or target is empty).
+    pub fn sync_by_pairs(
+        &self,
+        pairs: &[SaveSyncPair],
+        direction: &str,
+    ) -> Result<SaveSyncResult, String> {
+        if pairs.is_empty() {
+            return Ok(SaveSyncResult {
+                synced_count: 0,
+                details: Vec::new(),
+            });
+        }
+
+        let slots = self.list_slots()?;
+        let uid = match slots.first() {
+            Some(s) => s.steam_user_id.clone(),
+            None => {
+                return Ok(SaveSyncResult {
+                    synced_count: 0,
+                    details: Vec::new(),
+                })
+            }
+        };
+
+        let mut details = Vec::new();
+
+        for pair in pairs {
+            let vanilla = slots.iter().find(|s| {
+                s.steam_user_id == uid
+                    && s.kind == SaveKind::Vanilla
+                    && s.slot_index == pair.vanilla_slot
+            });
+            let modded = slots.iter().find(|s| {
+                s.steam_user_id == uid
+                    && s.kind == SaveKind::Modded
+                    && s.slot_index == pair.modded_slot
+            });
+
+            let (vanilla, modded) = match (vanilla, modded) {
+                (Some(v), Some(m)) => (v, m),
+                _ => continue,
+            };
+
+            // Back up both sides first (if they have data)
+            if vanilla.has_data {
+                let _ = create_backup_from_slot(
+                    &SaveSlotRef {
+                        steam_user_id: uid.clone(),
+                        kind: SaveKind::Vanilla,
+                        slot_index: pair.vanilla_slot,
+                    },
+                    "auto_before_path_switch",
+                );
+            }
+            if modded.has_data {
+                let _ = create_backup_from_slot(
+                    &SaveSlotRef {
+                        steam_user_id: uid.clone(),
+                        kind: SaveKind::Modded,
+                        slot_index: pair.modded_slot,
+                    },
+                    "auto_before_path_switch",
+                );
+            }
+
+            // Determine source/target based on direction
+            let (source, target, source_ref, target_ref) = if direction == "modded_to_vanilla" {
+                (
+                    modded,
+                    vanilla,
+                    SaveSlotRef {
+                        steam_user_id: uid.clone(),
+                        kind: SaveKind::Modded,
+                        slot_index: pair.modded_slot,
+                    },
+                    SaveSlotRef {
+                        steam_user_id: uid.clone(),
+                        kind: SaveKind::Vanilla,
+                        slot_index: pair.vanilla_slot,
+                    },
+                )
+            } else {
+                (
+                    vanilla,
+                    modded,
+                    SaveSlotRef {
+                        steam_user_id: uid.clone(),
+                        kind: SaveKind::Vanilla,
+                        slot_index: pair.vanilla_slot,
+                    },
+                    SaveSlotRef {
+                        steam_user_id: uid.clone(),
+                        kind: SaveKind::Modded,
+                        slot_index: pair.modded_slot,
+                    },
+                )
+            };
+
+            // Skip if source has no data
+            if !source.has_data {
+                continue;
+            }
+
+            // Compare timestamps: only copy if source is newer (or target is empty)
+            let should_copy = if !target.has_data {
+                true
+            } else {
+                let s_time = source.last_modified_at.as_deref().unwrap_or("");
+                let t_time = target.last_modified_at.as_deref().unwrap_or("");
+                s_time > t_time
+            };
+
+            if should_copy {
+                // Copy at profile level to include replay/ and other sibling directories
+                let source_profile = profile_dir_path(&source_ref)?;
+                let target_profile = profile_dir_path(&target_ref)?;
+                replace_directory_contents(&source_profile, &target_profile)?;
+
+                details.push(SaveSyncDetail {
+                    slot_index: pair.vanilla_slot,
+                    direction: direction.to_string(),
+                    backup_created: true,
+                });
+            }
+        }
+
+        let synced_count = details.len();
+        Ok(SaveSyncResult {
+            synced_count,
+            details,
+        })
     }
 }
 
@@ -261,18 +460,23 @@ fn backups_root() -> Result<PathBuf, String> {
         .join("saves"))
 }
 
+/// Returns profileN/saves/ — used for checking progress.save existence.
 fn slot_path(slot: &SaveSlotRef) -> Result<PathBuf, String> {
+    Ok(profile_dir_path(slot)?.join("saves"))
+}
+
+/// Returns profileN/ — used for copy/backup/sync operations
+/// so that replay/ and other sibling directories are included.
+fn profile_dir_path(slot: &SaveSlotRef) -> Result<PathBuf, String> {
     let root = save_root()?;
     Ok(match slot.kind {
         SaveKind::Vanilla => root
             .join(&slot.steam_user_id)
-            .join(format!("profile{}", slot.slot_index))
-            .join("saves"),
+            .join(format!("profile{}", slot.slot_index)),
         SaveKind::Modded => root
             .join(&slot.steam_user_id)
             .join("modded")
-            .join(format!("profile{}", slot.slot_index))
-            .join("saves"),
+            .join(format!("profile{}", slot.slot_index)),
     })
 }
 
@@ -312,7 +516,8 @@ fn scan_slot(base: &Path, steam_user_id: &str, kind: SaveKind, slot_index: u8) -
 }
 
 fn create_backup_from_slot(slot: &SaveSlotRef, reason: &str) -> Result<SaveBackupEntry, String> {
-    let source = slot_path(slot)?;
+    // Backup at profile level to include replay/ and other sibling directories
+    let source = profile_dir_path(slot)?;
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S").to_string();
     let kind_code = match slot.kind {
         SaveKind::Vanilla => "vanilla",
@@ -382,7 +587,21 @@ fn parse_backup_folder_name(folder_name: &str, path: &Path) -> Option<SaveBackup
 
     let steam_user_id = parts[1].to_string();
     let slot_index = parts[2].parse::<u8>().ok()?;
-    let created_at = format!("{}_{}", parts[3], parts[4]);
+    // Convert YYYYMMDD_HHMMSS to RFC3339 so frontend can parse it correctly
+    let date_part = parts[3];
+    let time_part = parts[4];
+    if date_part.len() < 8 || time_part.len() < 6 {
+        return None;
+    }
+    let created_at = format!(
+        "{}-{}-{}T{}:{}:{}+00:00",
+        &date_part[..4],
+        &date_part[4..6],
+        &date_part[6..8],
+        &time_part[..2],
+        &time_part[2..4],
+        &time_part[4..6]
+    );
     let reason = if parts.len() > 5 {
         parts[5..].join("_")
     } else {

@@ -28,6 +28,8 @@ pub struct AppSettings {
     pub nexus_user_name: Option<String>,
     #[serde(default)]
     pub proxy_url: Option<String>,
+    #[serde(default = "default_auto_backup_keep_count")]
+    pub auto_backup_keep_count: usize,
 }
 
 impl Default for AppSettings {
@@ -43,6 +45,7 @@ impl Default for AppSettings {
             nexus_is_premium: false,
             nexus_user_name: None,
             proxy_url: None,
+            auto_backup_keep_count: default_auto_backup_keep_count(),
         }
     }
 }
@@ -72,4 +75,8 @@ fn default_active_profile_name() -> String {
 
 fn default_locale() -> String {
     "zh-CN".to_string()
+}
+
+fn default_auto_backup_keep_count() -> usize {
+    5
 }

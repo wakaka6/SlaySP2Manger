@@ -51,6 +51,7 @@ use app::commands::{
     download_and_install_mod,
     open_url_in_browser,
     update_proxy_url,
+    update_auto_backup_keep_count,
     test_proxy,
 };
 use app::state::AppState;
@@ -104,6 +105,7 @@ pub fn run() {
             process_import_targets,
             batch_install_mods,
             update_proxy_url,
+            update_auto_backup_keep_count,
             test_proxy
         ])
         .run(tauri::generate_context!())

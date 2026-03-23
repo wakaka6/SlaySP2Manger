@@ -48,6 +48,7 @@ export type AppBootstrap = {
   nexusIsPremium: boolean;
   nexusUserName: string | null;
   proxyUrl: string | null;
+  autoBackupKeepCount: number;
 };
 
 export type InstalledMod = {
@@ -106,6 +107,20 @@ export type GameInstall = {
   disabledModsDir: string;
   detectedBy: "config" | "steam_default" | "steam_library" | "common_path";
   isValid: boolean;
+};
+
+export type SaveGuardInfo = {
+  pathSwitched: boolean;
+  direction: string | null;
+  hadPairs: boolean;
+  savesSynced: number;
+  backupsCreated: number;
+  error: string | null;
+};
+
+export type ModToggleResult = {
+  modItem: InstalledMod;
+  saveGuard: SaveGuardInfo;
 };
 
 export type RemoteMod = {
@@ -192,15 +207,15 @@ export async function listActivityLogs(): Promise<ActivityLog[]> {
   return cached("activity_logs", () => invoke<ActivityLog[]>("list_activity_logs"));
 }
 
-export async function enableMod(modId: string) {
-  const result = await invoke<InstalledMod>("enable_mod", { modId });
-  invalidate("installed_mods", "disabled_mods", "app_bootstrap");
+export async function enableMod(modId: string): Promise<ModToggleResult> {
+  const result = await invoke<ModToggleResult>("enable_mod", { modId });
+  invalidate("installed_mods", "disabled_mods", "app_bootstrap", "save_slots", "save_backups");
   return result;
 }
 
-export async function disableMod(modId: string) {
-  const result = await invoke<InstalledMod>("disable_mod", { modId });
-  invalidate("installed_mods", "disabled_mods", "app_bootstrap");
+export async function disableMod(modId: string): Promise<ModToggleResult> {
+  const result = await invoke<ModToggleResult>("disable_mod", { modId });
+  invalidate("installed_mods", "disabled_mods", "app_bootstrap", "save_slots", "save_backups");
   return result;
 }
 
@@ -488,4 +503,9 @@ export async function updateProxyUrl(proxyUrl: string) {
 
 export async function testProxy(proxyUrl: string) {
   return invoke<string>("test_proxy", { proxyUrl });
+}
+
+export async function updateAutoBackupKeepCount(count: number) {
+  await invoke<void>("update_auto_backup_keep_count", { count });
+  invalidate("app_bootstrap", "save_backups");
 }
