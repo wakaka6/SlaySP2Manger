@@ -86,6 +86,8 @@ export function AppShell() {
         items={navItems}
         onNavigate={navigate}
         collapsed={sidebarCollapsed}
+        activeProfileName={appState?.activeProfileName ?? ""}
+        appVersion={appState?.appVersion ?? ""}
         onToggle={() => {
           setSidebarCollapsed((v) => {
             const next = !v;

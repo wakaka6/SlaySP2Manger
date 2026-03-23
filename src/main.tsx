@@ -6,6 +6,7 @@ import { I18nProvider } from "./i18n/I18nProvider";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import { DownloadProvider } from "./contexts/DownloadContext";
 import { DropZoneProvider } from "./contexts/DropZoneContext";
+import { UpdateProvider } from "./contexts/UpdateContext";
 import "./styles/global.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -13,9 +14,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <ThemeProvider>
       <I18nProvider>
         <DropZoneProvider>
-          <DownloadProvider>
-            <RouterProvider router={router} />
-          </DownloadProvider>
+          <UpdateProvider>
+            <DownloadProvider>
+              <RouterProvider router={router} />
+            </DownloadProvider>
+          </UpdateProvider>
         </DropZoneProvider>
       </I18nProvider>
     </ThemeProvider>

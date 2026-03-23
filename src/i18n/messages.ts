@@ -8,6 +8,7 @@ export type MessageKey =
   | "nav.settings"
   | "nav.system"
   | "nav.launchGame"
+  | "nav.currentProfile"
   | "settings.title"
   | "settings.description"
   | "settings.gameDirectory"
@@ -67,6 +68,9 @@ export type MessageKey =
   | "settings.proxyTestSuccess"
   | "settings.proxyTestFail"
   | "settings.proxyCleared"
+  | "settings.autoBackupTitle"
+  | "settings.autoBackupHelp"
+  | "settings.autoBackupSaved"
   | "welcome.title"
   | "welcome.subtitle"
   | "welcome.step1"
@@ -82,6 +86,10 @@ export type MessageKey =
   | "updater.install"
   | "updater.later"
   | "updater.restarting"
+  | "updater.newVersion"
+  | "updater.upToDate"
+  | "updater.checkNow"
+  | "settings.aboutTitle"
   | "profiles.title"
   | "profiles.description"
   | "profiles.new"
@@ -252,6 +260,12 @@ export type MessageKey =
   | "library.batchStatusUnsupported"
   | "library.batchStatusError"
   | "library.batchAllSuccess"
+  | "library.saveGuardSynced"
+  | "library.saveGuardBackedUp"
+  | "library.saveGuardWarnTitle"
+  | "library.saveGuardWarnBody"
+  | "library.saveGuardGoToPair"
+  | "library.saveGuardContinue"
   | "error.gameNotFound"
   | "error.modNotFound"
   | "error.modConflict"
@@ -291,9 +305,15 @@ export type MessageKey =
   | "saves.restoreFailed"
   | "saves.transferMissing"
   | "saves.confirmTransfer"
+  | "saves.transferTitle"
+  | "saves.transferLinkedWarning"
   | "saves.confirmRestore"
   | "saves.source"
   | "saves.target"
+  | "saves.transferDesc"
+  | "saves.transferBackupNote"
+  | "saves.confirmRestoreDesc"
+  | "saves.slotLabelShort"
   | "saves.stateData"
   | "saves.stateEmpty"
   | "saves.deleteBackupDone"
@@ -312,6 +332,15 @@ export type MessageKey =
   | "saves.linkSelectModded"
   | "saves.linkCreated"
   | "saves.linkRemoved"
+  | "saves.reasonManual"
+  | "saves.reasonAutoTransfer"
+  | "saves.reasonAutoSync"
+  | "saves.reasonAutoPathSwitch"
+  | "saves.reasonUnknown"
+  | "saves.timeJustNow"
+  | "saves.timeMinutesAgo"
+  | "saves.timeHoursAgo"
+  | "saves.timeDaysAgo"
   | "common.cancel"
   | "common.confirm";
 
@@ -326,6 +355,7 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "nav.settings": "Settings",
     "nav.system": "System",
     "nav.launchGame": "Launch Game",
+    "nav.currentProfile": "Current Profile",
     "settings.title": "Settings",
     "settings.description": "Configure the game directory, disabled mods folder, Nexus credentials, and application language.",
     "settings.gameDirectory": "Game Directory",
@@ -386,6 +416,9 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "settings.proxyTestSuccess": "Proxy connection successful!",
     "settings.proxyTestFail": "Proxy test failed: {error}",
     "settings.proxyCleared": "Proxy settings cleared.",
+    "settings.autoBackupTitle": "Auto-Backup Limit",
+    "settings.autoBackupHelp": "Maximum auto-backups to keep per save slot. Manual backups are always kept.",
+    "settings.autoBackupSaved": "Auto-backup limit saved.",
 
     "welcome.title": "Welcome to SlaySP2Manager",
     "welcome.subtitle": "To get started, please locate your Slay the Spire 2 installation folder.",
@@ -403,6 +436,10 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "updater.install": "Update Now",
     "updater.later": "Later",
     "updater.restarting": "Restarting…",
+    "updater.newVersion": "New version available",
+    "updater.upToDate": "You're up to date",
+    "updater.checkNow": "Check for Updates",
+    "settings.aboutTitle": "About",
 
     "profiles.title": "Profiles",
     "profiles.description": "Save a set of mod states as a reusable configuration and apply it to the game.",
@@ -574,6 +611,12 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.batchStatusUnsupported": "Unsupported format",
     "library.batchStatusError": "Error",
     "library.batchAllSuccess": "All {count} mod(s) imported successfully! ✨",
+    "library.saveGuardSynced": "🛡️ Saves auto-protected: backed up {backups} slot(s), synced {synced} slot(s)",
+    "library.saveGuardBackedUp": "🛡️ Saves backed up ({backups} slot(s)) — no sync pairs configured",
+    "library.saveGuardWarnTitle": "Save Path Will Change",
+    "library.saveGuardWarnBody": "This will switch the game from {from} to {to} saves. You have no sync pairs configured, so progress cannot be auto-synced. Your saves have been backed up.",
+    "library.saveGuardGoToPair": "Set Up Pairing",
+    "library.saveGuardContinue": "OK",
     "error.gameNotFound": "Game directory not found. Please check your settings.",
     "error.modNotFound": "Mod could not be found.",
     "error.modConflict": "Installation failed because the folder '{name}' already exists in your mods directory. Please delete the old version first.",
@@ -593,9 +636,9 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.moddedTitle": "Modded Saves",
     "saves.backup": "Backup",
     "saves.restore": "Restore",
-    "saves.backups": "Backups",
-    "saves.noBackups": "No backups yet.",
-    "saves.noBackupsHelp": "Backups will appear here after manual backup or sync operations.",
+    "saves.backups": "Save History",
+    "saves.noBackups": "No history yet.",
+    "saves.noBackupsHelp": "Your save snapshots will appear here — we'll keep them safe for you.",
     "saves.copyToModded": "Copy to Modded",
     "saves.copyToVanilla": "Copy to Vanilla",
     "saves.files": "Files: {count}",
@@ -612,10 +655,16 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.restoreDone": "Backup restored.",
     "saves.restoreFailed": "Restore failed.",
     "saves.transferMissing": "No valid source or target slot was found.",
-    "saves.confirmTransfer": "Confirm Save Transfer",
+    "saves.confirmTransfer": "Confirm Save Copy",
+    "saves.transferTitle": "Copy Save: {source} ➔ {target}",
+    "saves.transferLinkedWarning": "⚠️ These slots are synced. This will overwrite the target.",
     "saves.confirmRestore": "Confirm Restore",
-    "saves.source": "Source",
-    "saves.target": "Target",
+    "saves.source": "From",
+    "saves.target": "To",
+    "saves.transferDesc": "Your save data will be copied to the target slot.",
+    "saves.transferBackupNote": "The target slot has existing data — it will be backed up automatically before overwriting. 🛡️",
+    "saves.confirmRestoreDesc": "This will restore the backup to {kind} Slot {slot}. Current data will be backed up automatically.",
+    "saves.slotLabelShort": "Slot {slot}",
     "saves.stateData": "data",
     "saves.stateEmpty": "empty",
     "saves.deleteBackupDone": "Backup deleted.",
@@ -634,6 +683,15 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.linkSelectModded": "Select a modded card to pair with",
     "saves.linkCreated": "Linked vanilla slot {v} ↔ modded slot {m}",
     "saves.linkRemoved": "Link removed",
+    "saves.reasonManual": "Saved by you",
+    "saves.reasonAutoTransfer": "Auto-saved before copying",
+    "saves.reasonAutoSync": "Auto-saved before syncing",
+    "saves.reasonAutoPathSwitch": "Auto-saved before switching mods",
+    "saves.reasonUnknown": "Auto-saved",
+    "saves.timeJustNow": "Just now",
+    "saves.timeMinutesAgo": "{count}m ago",
+    "saves.timeHoursAgo": "{count}h ago",
+    "saves.timeDaysAgo": "{count}d ago",
     "common.cancel": "Cancel",
     "common.confirm": "Confirm",
   },
@@ -645,6 +703,7 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "nav.settings": "设置",
     "nav.system": "系统",
     "nav.launchGame": "启动游戏",
+    "nav.currentProfile": "当前预设",
     "settings.title": "设置",
     "settings.description": "配置游戏目录、禁用模组目录、Nexus 凭证及应用语言。",
     "settings.gameDirectory": "游戏目录",
@@ -705,6 +764,9 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "settings.proxyTestSuccess": "代理连接成功！",
     "settings.proxyTestFail": "代理测试失败: {error}",
     "settings.proxyCleared": "代理设置已清除。",
+    "settings.autoBackupTitle": "自动备份数量",
+    "settings.autoBackupHelp": "每个存档槽位最多保留的自动备份数。手动备份不受限制。",
+    "settings.autoBackupSaved": "自动备份数量已保存。",
 
     "welcome.title": "欢迎使用 SlaySP2Manager",
     "welcome.subtitle": "初次使用请先配置《杀戮尖塔 2》的游戏安装目录。",
@@ -722,6 +784,10 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "updater.install": "立即更新",
     "updater.later": "稍后再说",
     "updater.restarting": "正在重启…",
+    "updater.newVersion": "发现新版本",
+    "updater.upToDate": "已是最新版本",
+    "updater.checkNow": "检查更新",
+    "settings.aboutTitle": "关于",
 
     "profiles.title": "模组预设",
     "profiles.description": "把一组模组状态保存成可复用预设，并一键应用到当前游戏目录。",
@@ -893,6 +959,12 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.batchStatusUnsupported": "不支持的格式",
     "library.batchStatusError": "错误",
     "library.batchAllSuccess": "全部 {count} 个模组导入成功！✨",
+    "library.saveGuardSynced": "🛡️ 存档已自动保护：备份了 {backups} 个槽位，同步了 {synced} 个槽位",
+    "library.saveGuardBackedUp": "🛡️ 已备份存档（{backups} 个槽位）— 未配置存档配对",
+    "library.saveGuardWarnTitle": "存档路径即将切换",
+    "library.saveGuardWarnBody": "此操作将使游戏从 {from} 存档切换到 {to} 存档。你尚未配置存档配对，无法自动同步进度。存档已自动备份。",
+    "library.saveGuardGoToPair": "前往配对设置",
+    "library.saveGuardContinue": "好的",
     "error.gameNotFound": "找不到游戏目录，请在设置中指定。",
     "error.modNotFound": "指定的模组文件找不到了。",
     "error.modConflict": "安装中止！模组文件夹「{name}」已存在，请先删除旧版。",
@@ -912,9 +984,9 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.moddedTitle": "独立模组环境 (Modded)",
     "saves.backup": "备份",
     "saves.restore": "恢复",
-    "saves.backups": "备份列表",
-    "saves.noBackups": "暂无备份",
-    "saves.noBackupsHelp": "自动或手动备份的存档会显示在这。",
+    "saves.backups": "存档历史",
+    "saves.noBackups": "还没有历史记录",
+    "saves.noBackupsHelp": "你的存档快照会安全地保留在这里。",
     "saves.copyToModded": "复制到模组存档",
     "saves.copyToVanilla": "复制到原版存档",
     "saves.files": "文件 {count} 个",
@@ -932,9 +1004,15 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.restoreFailed": "恢复失败",
     "saves.transferMissing": "未找到源槽位或目标槽位",
     "saves.confirmTransfer": "确认复制存档",
+    "saves.transferTitle": "复制存档：{source} ➔ {target}",
+    "saves.transferLinkedWarning": "⚠️ 这些槽位已绑定同步，即将覆盖目标并触发备份。",
     "saves.confirmRestore": "确认恢复",
-    "saves.source": "源",
-    "saves.target": "目标",
+    "saves.source": "从",
+    "saves.target": "到",
+    "saves.transferDesc": "存档数据将被复制到目标槽位。",
+    "saves.transferBackupNote": "目标槽位已有数据，我们会先自动备份，不用担心 🛡️",
+    "saves.confirmRestoreDesc": "这将把备份恢复到 {kind} 槽位 {slot}，当前数据会自动备份。",
+    "saves.slotLabelShort": "槽位 {slot}",
     "saves.stateData": "有数据",
     "saves.stateEmpty": "空",
     "saves.deleteBackupDone": "已删除",
@@ -953,6 +1031,15 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.linkSelectModded": "选择一个模组卡片进行配对",
     "saves.linkCreated": "已关联原版槽位 {v} ↔ 模组槽位 {m}",
     "saves.linkRemoved": "已取消关联",
+    "saves.reasonManual": "你手动保存的",
+    "saves.reasonAutoTransfer": "复制存档时自动保存",
+    "saves.reasonAutoSync": "同步时自动保存",
+    "saves.reasonAutoPathSwitch": "切换模组时自动保存",
+    "saves.reasonUnknown": "自动保存",
+    "saves.timeJustNow": "刚刚",
+    "saves.timeMinutesAgo": "{count}分钟前",
+    "saves.timeHoursAgo": "{count}小时前",
+    "saves.timeDaysAgo": "{count}天前",
     "common.cancel": "取消",
     "common.confirm": "确认",
   },
