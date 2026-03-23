@@ -68,11 +68,10 @@ jobs:
               }
               if (capture) notes.push(line);
             }
-            fs.writeFileSync('RELEASE_NOTES.md', notes.join('\n').trim());
+            const finalNotes = notes.join('\n').trim();
+            const eof = 'EOF_' + Date.now();
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'NOTES<<' + eof + '\n' + finalNotes + '\n' + eof + '\n', 'utf8');
           "
-          echo "NOTES<<EOF" >> $GITHUB_OUTPUT
-          cat RELEASE_NOTES.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
 
       # ── Tauri build (creates MSI + .sig + GitHub Release) ──────────────────
       - name: Build Tauri application
