@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { useI18n } from "../../i18n/I18nProvider";
@@ -22,6 +23,7 @@ import {
   type BatchInstallResult,
   type DiscoveredMod,
   type InstalledMod,
+  type SaveGuardInfo,
   uninstallMod,
 } from "../../lib/desktop";
 import {
@@ -52,6 +54,7 @@ function formatTime(value: string) {
 
 export function LibraryPage() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const { pendingDropPaths, setPendingDropPaths, setIsBusy } = useDropZone();
   const [enabledMods, setEnabledMods] = useState<InstalledMod[]>([]);
   const [disabledMods, setDisabledMods] = useState<InstalledMod[]>([]);
@@ -74,6 +77,7 @@ export function LibraryPage() {
   const [successToast, setSuccessToast] = useState<{ message: string; visible: boolean } | null>(null);
 
   const [pendingUninstall, setPendingUninstall] = useState<InstalledMod | null>(null);
+  const [pendingSaveGuardInfo, setPendingSaveGuardInfo] = useState<SaveGuardInfo | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showImportMenu, setShowImportMenu] = useState(false);
   const [listRef] = useAutoAnimate<HTMLDivElement>();
@@ -105,6 +109,13 @@ export function LibraryPage() {
 
   useEffect(() => {
     void reload();
+  }, [reload]);
+
+  // Reload when profile switch or other external mutation changes mod states
+  useEffect(() => {
+    const handler = () => void reload();
+    window.addEventListener("slaymgr:mods-changed", handler);
+    return () => window.removeEventListener("slaymgr:mods-changed", handler);
   }, [reload]);
 
   // Handle files dropped via drag-and-drop (with re-entry guard)
@@ -355,12 +366,37 @@ export function LibraryPage() {
     setBusyId(mod.id);
     setStatus(mod.name);
     try {
-      if (mod.state === "disabled") {
-        await enableMod(mod.id);
+      const result = mod.state === "disabled"
+        ? await enableMod(mod.id)
+        : await disableMod(mod.id);
+
+      const guard = result.saveGuard;
+      if (guard.pathSwitched) {
+        if (guard.hadPairs) {
+          // Auto-protected: show success toast
+          if (guard.error) {
+            setStatus(`⚠️ ${guard.error}`);
+          } else {
+            setStatus(t("library.saveGuardSynced", {
+              backups: String(guard.backupsCreated),
+              synced: String(guard.savesSynced),
+            }));
+          }
+        } else {
+          // No pairs: show backed-up notice + hint
+          if (guard.error) {
+            setStatus(`⚠️ ${guard.error}`);
+          } else {
+            setStatus(t("library.saveGuardBackedUp", {
+              backups: String(guard.backupsCreated),
+            }));
+            // Show the warning dialog
+            setPendingSaveGuardInfo(guard);
+          }
+        }
       } else {
-        await disableMod(mod.id);
+        setStatus(t("library.ready"));
       }
-      setStatus(t("library.ready"));
       await reload();
     } catch (error) {
       setStatus(formatErrorMsg(error));
@@ -832,6 +868,25 @@ export function LibraryPage() {
         onConfirm={() => void confirmUninstall()}
         open={pendingUninstall !== null}
         title={t("library.confirmUninstallTitle")}
+        tone="danger"
+      />
+
+      {/* ── Save Guard Warning ── */}
+      <ConfirmDialog
+        cancelLabel={t("library.saveGuardGoToPair")}
+        confirmLabel={t("common.confirm")}
+        description={
+          pendingSaveGuardInfo
+            ? t("library.saveGuardWarnBody", {
+                from: pendingSaveGuardInfo.direction === "modded_to_vanilla" ? t("saves.modded") : t("saves.vanilla"),
+                to: pendingSaveGuardInfo.direction === "modded_to_vanilla" ? t("saves.vanilla") : t("saves.modded"),
+              })
+            : undefined
+        }
+        onCancel={() => { setPendingSaveGuardInfo(null); navigate("/saves"); }}
+        onConfirm={() => setPendingSaveGuardInfo(null)}
+        open={pendingSaveGuardInfo !== null}
+        title={t("library.saveGuardWarnTitle")}
         tone="danger"
       />
 

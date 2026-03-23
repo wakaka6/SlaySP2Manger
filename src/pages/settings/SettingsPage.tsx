@@ -9,8 +9,10 @@ import {
   updateNexusApiKey,
   openUrlInBrowser,
   updateProxyUrl,
+  updateAutoBackupKeepCount,
   testProxy,
 } from "../../lib/desktop";
+import { useUpdate } from "../../contexts/UpdateContext";
 import { useTheme, type ThemeMode } from "../../theme/ThemeProvider";
 import {
   Eye,
@@ -25,6 +27,10 @@ import {
   Languages,
   Palette,
   Key,
+  DatabaseBackup,
+  Info,
+  Download,
+  RefreshCw,
 } from "lucide-react";
 
 export function SettingsPage() {
@@ -47,6 +53,9 @@ export function SettingsPage() {
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const apiKeyInputRef = useRef<HTMLInputElement>(null);
   const isActionRunningRef = useRef(false);
+  const [autoBackupKeep, setAutoBackupKeep] = useState(5);
+  const [appVersion, setAppVersion] = useState("");
+  const { phase: updatePhase, availableVersion, errorMessage: updateError, checkForUpdates, installUpdate } = useUpdate();
 
   useEffect(() => {
     void getAppBootstrap().then((bootstrap) => {
@@ -59,6 +68,8 @@ export function SettingsPage() {
       if (bootstrap.proxyUrl) {
         setProxyUrl(bootstrap.proxyUrl);
       }
+      setAutoBackupKeep(bootstrap.autoBackupKeepCount ?? 5);
+      setAppVersion(bootstrap.appVersion ?? "");
       setApiKeyLoaded(true);
       setLocale(bootstrap.locale === "en-US" ? "en-US" : "zh-CN");
     });
@@ -271,6 +282,31 @@ export function SettingsPage() {
                 ? t("settings.currentAppearanceLight")
                 : t("settings.currentAppearanceDark")}
             </span>
+          </div>
+        </div>
+
+        {/* ── Auto-Backup Limit ── */}
+        <div className="st-section">
+          <div className="st-section__head">
+            <DatabaseBackup size={18} />
+            <h2>{t("settings.autoBackupTitle")}</h2>
+          </div>
+          <div className="st-section__body">
+            <select
+              className="input"
+              value={autoBackupKeep}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setAutoBackupKeep(v);
+                void updateAutoBackupKeepCount(v).then(() => setSaved(t("settings.autoBackupSaved")));
+              }}
+            >
+              <option value={3}>3</option>
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+            </select>
+            <span className="st-hint">{t("settings.autoBackupHelp")}</span>
           </div>
         </div>
 
@@ -509,6 +545,60 @@ export function SettingsPage() {
                 {t("settings.nexusAccount")} →
               </a>
             </p>
+          </div>
+        </div>
+
+        {/* ── About ── */}
+        <div className="st-section st-section--wide">
+          <div className="st-section__head">
+            <Info size={18} />
+            <h2>{t("settings.aboutTitle")}</h2>
+          </div>
+          <div className="st-section__body">
+            <div className="st-about">
+              <div className="st-about__version">
+                <span className="st-about__version-label">SlaySP2Manager</span>
+                <span className="st-about__version-tag">v{appVersion}</span>
+                {updatePhase === "available" && (
+                  <span className="st-about__update-badge">
+                    {t("updater.newVersion")}: v{availableVersion}
+                  </span>
+                )}
+                {updatePhase === "upToDate" && (
+                  <span className="st-about__up-to-date">
+                    <CheckCircle size={13} />
+                    {t("updater.upToDate")}
+                  </span>
+                )}
+              </div>
+              <div className="st-actions">
+                {updatePhase === "available" ? (
+                  <button
+                    className="button button--primary"
+                    type="button"
+                    onClick={installUpdate}
+                  >
+                    <Download size={14} />
+                    {t("updater.install")}
+                  </button>
+                ) : (
+                  <button
+                    className="button button--secondary"
+                    type="button"
+                    disabled={updatePhase === "checking"}
+                    onClick={checkForUpdates}
+                  >
+                    {updatePhase === "checking"
+                      ? <Loader2 size={14} className="spin-icon" />
+                      : <RefreshCw size={14} />}
+                    {t("updater.checkNow")}
+                  </button>
+                )}
+              </div>
+              {updatePhase === "error" && updateError && (
+                <span className="st-hint" style={{ color: "var(--danger)" }}>{updateError}</span>
+              )}
+            </div>
           </div>
         </div>
       </div>
