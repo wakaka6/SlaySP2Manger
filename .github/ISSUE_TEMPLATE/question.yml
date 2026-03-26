@@ -1,0 +1,17 @@
+name: 🙋 Question | 问题咨询
+description: Ask a question or help with using SlaySP2Manager | 关于使用 SlaySP2Manager 的提问或求助
+labels: ["question"]
+body:
+  - type: textarea
+    id: details
+    attributes:
+      label: Clear description of your question | 请清晰地描述你的问题
+      description: What are you trying to do, and where are you stuck? | 你想做什么？你在哪里被卡住了？
+      placeholder: I want to... but I don't know how to...
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context | 其他信息
+      description: Any other information or screenshots. | 任何其他信息或截图。

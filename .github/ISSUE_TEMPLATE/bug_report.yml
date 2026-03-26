@@ -1,0 +1,62 @@
+name: 🐛 Bug Report | Bug 报告
+description: Report a bug to help us improve. | 报告一个 Bug 以帮助我们改进。
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你反馈 Bug！ | Thanks for reporting a bug!
+  - type: input
+    id: version
+    attributes:
+      label: Software Version | 软件版本
+      description: What version of SlaySP2Manager are you using? | 你正在使用的是哪个版本的 SlaySP2Manager？
+      placeholder: e.g. v1.0.5
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System | 操作系统
+      options:
+        - Windows 11
+        - Windows 10
+        - Windows Server
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description | 问题描述
+      description: A clear and concise description of what the bug is. | 请对该 Bug 进行清晰且简要的描述。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce | 复现步骤
+      description: Steps to reproduce the behavior. | 请详细列出复现该问题的具体步骤。
+      placeholder: |
+        1. Open the app
+        2. Click on 'Library'
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior | 预期行为
+      description: What you expected to happen. | 你期望发生什么？
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots | 截图
+      description: If applicable, add screenshots to help explain your problem. | 如果有的话，请添加截图以帮助解释你的问题。
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Error Messages | 日志 / 错误信息
+      description: Paste any relevant logs or error messages here. | 请将相关的日志或错误信息粘贴在这里。
+      render: shell

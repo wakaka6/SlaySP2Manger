@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions | 讨论
+    url: https://github.com/wakaka6/SlaySP2Manger/discussions
+    about: Question or support for using SlaySP2Manager | 使用 SlaySP2Manager 的常见问题或支持
+  - name: 📖 Wiki | 使用文档
+    url: https://github.com/wakaka6/SlaySP2Manger/wiki
+    about: Read the documentation and FAQ | 阅读使用文档和常见问题
