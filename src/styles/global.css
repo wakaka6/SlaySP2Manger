@@ -1362,6 +1362,38 @@ button:disabled {
   color: var(--text-dim);
 }
 
+/* ── Enter Hint Badge (shared by Library & Discover) ──────────── */
+.search-field__enter-hint {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--surface-faint-strong);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 500;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  pointer-events: none;
+  animation: fadeIn 0.15s ease;
+  white-space: nowrap;
+}
+
+/* Adjust padding for library search input to make room for badge */
+.search-field input {
+  padding-right: 70px;
+}
+
+/* Discover toolbar search needs position:relative for the badge */
+.discover-toolbar2__search {
+  position: relative;
+}
+
 /* Layout */
 .library-layout {
   flex: 1;
@@ -1568,6 +1600,110 @@ button:disabled {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ── Mod Note / Alias ────────────────────────────────────────────── */
+.mod-card__note {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  padding: 2px 0;
+  min-height: 20px;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.mod-card__note:not(.mod-card__note--editing) {
+  opacity: 0;
+}
+
+.mod-card:hover .mod-card__note:not(.mod-card__note--editing),
+.mod-card__note.has-note:not(.mod-card__note--editing) {
+  opacity: 1;
+}
+
+.mod-card__note.has-note:not(.mod-card__note--editing) {
+  opacity: 0.85;
+}
+
+.mod-card__note-placeholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+  border-bottom: 1px dashed transparent;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.mod-card__note:hover .mod-card__note-placeholder {
+  color: var(--text-muted);
+  border-bottom-color: var(--border-subtle);
+}
+
+.mod-card__note-text {
+  font-size: 12px;
+  color: var(--accent-ink);
+  font-weight: 500;
+  background: var(--accent-soft);
+  padding: 1px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+  border: 1px solid transparent;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.mod-card__note:hover .mod-card__note-text {
+  border-color: var(--accent-border);
+}
+
+.mod-card__note--editing {
+  position: relative;
+  opacity: 1;
+}
+
+.mod-card__note-input {
+  width: 260px;
+  height: 26px;
+  padding: 0 24px 0 8px;
+  border: 1px solid var(--accent-border-strong);
+  border-radius: 4px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.mod-card__note-input::placeholder {
+  color: var(--text-dim);
+}
+
+.mod-card__note-clear {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.mod-card__note-clear:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .mod-card__right {

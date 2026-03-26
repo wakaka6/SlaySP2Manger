@@ -76,7 +76,7 @@ export function DiscoverPage() {
   ];
 
   const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [committedQuery, setCommittedQuery] = useState("");
   const [sortBy, setSortBy] = useState("latest_added");
   const [results, setResults] = useState<RemoteMod[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -99,10 +99,7 @@ export function DiscoverPage() {
     getAppBootstrap().then((b) => setIsPremium(b.nexusIsPremium)).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedQuery(query), 400);
-    return () => clearTimeout(handler);
-  }, [query]);
+
 
   // ── Main search effect — optimized for non-blocking UX ──
   useEffect(() => {
@@ -117,7 +114,7 @@ export function DiscoverPage() {
     }
     setErrorState(null);
 
-    searchRemoteMods(debouncedQuery, sortBy, 0, PAGE_SIZE)
+    searchRemoteMods(committedQuery, sortBy, 0, PAGE_SIZE)
       .then((result) => {
         // Stale response — a newer request was fired
         if (reqId !== requestIdRef.current) return;
@@ -146,13 +143,13 @@ export function DiscoverPage() {
     return () => {
       // We don't need to do anything because reqId check handles staleness
     };
-  }, [debouncedQuery, sortBy]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [committedQuery, sortBy]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadMore = useCallback(async () => {
     if (isLoadingMore || results.length >= totalCount) return;
     setIsLoadingMore(true);
     try {
-      const result = await searchRemoteMods(debouncedQuery, sortBy, results.length, PAGE_SIZE);
+      const result = await searchRemoteMods(committedQuery, sortBy, results.length, PAGE_SIZE);
       startTransition(() => {
         setResults((prev) => [...prev, ...result.items]);
         setTotalCount(result.totalCount);
@@ -162,7 +159,7 @@ export function DiscoverPage() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [debouncedQuery, sortBy, results.length, totalCount, isLoadingMore]);
+  }, [committedQuery, sortBy, results.length, totalCount, isLoadingMore]);
 
   // Infinite scroll
   useEffect(() => {
@@ -316,10 +313,19 @@ export function DiscoverPage() {
           <Search size={15} className="discover-toolbar2__icon" />
           <input
             className="discover-toolbar2__input"
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (!e.target.value.trim()) setCommittedQuery("");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") setCommittedQuery(query);
+            }}
             placeholder={t("discover.searchPlaceholder")}
             value={query}
           />
+          {query && query !== committedQuery && (
+            <span className="search-field__enter-hint">Enter ↵</span>
+          )}
         </div>
         <div className="discover-toolbar2__right">
           <div className="discover-toolbar2__sorts">

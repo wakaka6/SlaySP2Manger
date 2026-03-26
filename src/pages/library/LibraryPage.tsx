@@ -37,7 +37,37 @@ import {
   XCircle,
   AlertCircle,
   Loader2,
+  Pencil,
+  X,
 } from "lucide-react";
+
+// ── Mod Notes (localStorage) ────────────────────────────────────────
+const MOD_NOTES_STORAGE_KEY = "slaysp2_mod_notes";
+
+function loadModNotes(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(MOD_NOTES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveModNotes(notes: Record<string, string>) {
+  localStorage.setItem(MOD_NOTES_STORAGE_KEY, JSON.stringify(notes));
+}
+
+function setModNote(modId: string, note: string): Record<string, string> {
+  const notes = loadModNotes();
+  const trimmed = note.trim();
+  if (trimmed) {
+    notes[modId] = trimmed;
+  } else {
+    delete notes[modId];
+  }
+  saveModNotes(notes);
+  return notes;
+}
 
 function formatTime(value: string) {
   const date = new Date(value);
@@ -78,11 +108,44 @@ export function LibraryPage() {
 
   const [pendingUninstall, setPendingUninstall] = useState<InstalledMod | null>(null);
   const [pendingSaveGuardInfo, setPendingSaveGuardInfo] = useState<SaveGuardInfo | null>(null);
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showImportMenu, setShowImportMenu] = useState(false);
   const [listRef] = useAutoAnimate<HTMLDivElement>();
   const isPickingFileRef = useRef(false);
   const importMenuRef = useRef<HTMLDivElement>(null);
+
+  // Mod notes state
+  const [modNotes, setModNotes] = useState<Record<string, string>>(loadModNotes);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteValue, setEditingNoteValue] = useState("");
+  const noteInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus note input when editing starts
+  useEffect(() => {
+    if (editingNoteId && noteInputRef.current) {
+      noteInputRef.current.focus();
+    }
+  }, [editingNoteId]);
+
+  function startEditNote(modId: string) {
+    setEditingNoteId(modId);
+    setEditingNoteValue(modNotes[modId] ?? "");
+  }
+
+  function commitNote(modId: string) {
+    const updated = setModNote(modId, editingNoteValue);
+    setModNotes(updated);
+    setEditingNoteId(null);
+    setEditingNoteValue("");
+  }
+
+  function clearNote(modId: string) {
+    const updated = setModNote(modId, "");
+    setModNotes(updated);
+    setEditingNoteId(null);
+    setEditingNoteValue("");
+  }
 
   const formatErrorMsg = useCallback(
     (err: unknown): string => {
@@ -184,9 +247,10 @@ export function LibraryPage() {
       (m) =>
         m.name.toLowerCase().includes(q) ||
         m.author?.toLowerCase().includes(q) ||
-        m.id.toLowerCase().includes(q),
+        m.id.toLowerCase().includes(q) ||
+        modNotes[m.id]?.toLowerCase().includes(q),
     );
-  }, [enabledMods, searchQuery]);
+  }, [enabledMods, searchQuery, modNotes]);
 
   const filteredDisabled = useMemo(() => {
     if (!searchQuery.trim()) return disabledMods;
@@ -195,9 +259,10 @@ export function LibraryPage() {
       (m) =>
         m.name.toLowerCase().includes(q) ||
         m.author?.toLowerCase().includes(q) ||
-        m.id.toLowerCase().includes(q),
+        m.id.toLowerCase().includes(q) ||
+        modNotes[m.id]?.toLowerCase().includes(q),
     );
-  }, [disabledMods, searchQuery]);
+  }, [disabledMods, searchQuery, modNotes]);
 
   // ── Import flows ──────────────────────────────────────────────────────
 
@@ -506,10 +571,19 @@ export function LibraryPage() {
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
             <input
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchInput(e.target.value);
+                if (!e.target.value.trim()) setSearchQuery("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") setSearchQuery(searchInput);
+              }}
               placeholder={t("library.searchPlaceholder")}
-              value={searchQuery}
+              value={searchInput}
             />
+            {searchInput && searchInput !== searchQuery && (
+              <span className="search-field__enter-hint">Enter ↵</span>
+            )}
           </div>
           <button
             className="button button--secondary"
@@ -596,6 +670,48 @@ export function LibraryPage() {
                         <div className="mod-card__author">
                           {mod.author || t("library.unknownAuthor")}
                         </div>
+                        {/* ── Mod Note ── */}
+                        {editingNoteId === mod.id ? (
+                          <div className="mod-card__note mod-card__note--editing">
+                            <input
+                              ref={noteInputRef}
+                              className="mod-card__note-input"
+                              value={editingNoteValue}
+                              onChange={(e) => setEditingNoteValue(e.target.value)}
+                              onBlur={() => commitNote(mod.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") commitNote(mod.id);
+                                if (e.key === "Escape") { setEditingNoteId(null); setEditingNoteValue(""); }
+                              }}
+                              placeholder={t("library.notePlaceholder")}
+                              maxLength={80}
+                            />
+                            {editingNoteValue.trim() && (
+                              <button
+                                className="mod-card__note-clear"
+                                onMouseDown={(e) => { e.preventDefault(); clearNote(mod.id); }}
+                                title={t("library.noteClear")}
+                              >
+                                <X size={12} />
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div
+                            className={`mod-card__note ${modNotes[mod.id] ? "has-note" : ""}`}
+                            onClick={(e) => { e.stopPropagation(); startEditNote(mod.id); }}
+                            title={t("library.noteTooltip")}
+                          >
+                            {modNotes[mod.id] ? (
+                              <span className="mod-card__note-text">{modNotes[mod.id]}</span>
+                            ) : (
+                              <span className="mod-card__note-placeholder">
+                                <Pencil size={11} />
+                                {t("library.notePlaceholder")}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="mod-card__right">
@@ -644,6 +760,48 @@ export function LibraryPage() {
                         <div className="mod-card__author">
                           {mod.author || t("library.unknownAuthor")}
                         </div>
+                        {/* ── Mod Note ── */}
+                        {editingNoteId === mod.id ? (
+                          <div className="mod-card__note mod-card__note--editing">
+                            <input
+                              ref={noteInputRef}
+                              className="mod-card__note-input"
+                              value={editingNoteValue}
+                              onChange={(e) => setEditingNoteValue(e.target.value)}
+                              onBlur={() => commitNote(mod.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") commitNote(mod.id);
+                                if (e.key === "Escape") { setEditingNoteId(null); setEditingNoteValue(""); }
+                              }}
+                              placeholder={t("library.notePlaceholder")}
+                              maxLength={80}
+                            />
+                            {editingNoteValue.trim() && (
+                              <button
+                                className="mod-card__note-clear"
+                                onMouseDown={(e) => { e.preventDefault(); clearNote(mod.id); }}
+                                title={t("library.noteClear")}
+                              >
+                                <X size={12} />
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div
+                            className={`mod-card__note ${modNotes[mod.id] ? "has-note" : ""}`}
+                            onClick={(e) => { e.stopPropagation(); startEditNote(mod.id); }}
+                            title={t("library.noteTooltip")}
+                          >
+                            {modNotes[mod.id] ? (
+                              <span className="mod-card__note-text">{modNotes[mod.id]}</span>
+                            ) : (
+                              <span className="mod-card__note-placeholder">
+                                <Pencil size={11} />
+                                {t("library.notePlaceholder")}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="mod-card__right">

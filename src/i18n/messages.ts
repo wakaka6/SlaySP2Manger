@@ -266,6 +266,10 @@ export type MessageKey =
   | "library.saveGuardWarnBody"
   | "library.saveGuardGoToPair"
   | "library.saveGuardContinue"
+  | "library.notePlaceholder"
+  | "library.noteTooltip"
+  | "library.noteClear"
+  | "library.noteSaved"
   | "error.gameNotFound"
   | "error.modNotFound"
   | "error.modConflict"
@@ -617,6 +621,10 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.saveGuardWarnBody": "This will switch the game from {from} to {to} saves. You have no sync pairs configured, so progress cannot be auto-synced. Your saves have been backed up.",
     "library.saveGuardGoToPair": "Set Up Pairing",
     "library.saveGuardContinue": "OK",
+    "library.notePlaceholder": "Add a note / alias...",
+    "library.noteTooltip": "Click to add a note or alias for this mod",
+    "library.noteClear": "Clear note",
+    "library.noteSaved": "Note saved",
     "error.gameNotFound": "Game directory not found. Please check your settings.",
     "error.modNotFound": "Mod could not be found.",
     "error.modConflict": "Installation failed because the folder '{name}' already exists in your mods directory. Please delete the old version first.",
@@ -965,6 +973,10 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.saveGuardWarnBody": "此操作将使游戏从 {from} 存档切换到 {to} 存档。你尚未配置存档配对，无法自动同步进度。存档已自动备份。",
     "library.saveGuardGoToPair": "前往配对设置",
     "library.saveGuardContinue": "好的",
+    "library.notePlaceholder": "添加备注 / 别名...",
+    "library.noteTooltip": "点击为此模组添加备注或别名",
+    "library.noteClear": "清除备注",
+    "library.noteSaved": "备注已保存",
     "error.gameNotFound": "找不到游戏目录，请在设置中指定。",
     "error.modNotFound": "指定的模组文件找不到了。",
     "error.modConflict": "安装中止！模组文件夹「{name}」已存在，请先删除旧版。",
