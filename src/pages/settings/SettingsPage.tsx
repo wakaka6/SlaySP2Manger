@@ -42,6 +42,7 @@ export function SettingsPage() {
   const [apiKey, setApiKey] = useState("");
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [apiKeySaved, setApiKeySaved] = useState(false);
+  const [apiError, setApiError] = useState("");
   const [apiKeyLoaded, setApiKeyLoaded] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [proxyUrl, setProxyUrl] = useState("");
@@ -111,7 +112,6 @@ export function SettingsPage() {
   async function handleLocaleChange(nextLocale: "zh-CN" | "en-US") {
     setLocale(nextLocale);
     await updateAppLocale(nextLocale);
-    setSaved(t("settings.savedLanguage"));
   }
 
   function handleThemeChange(nextThemeMode: ThemeMode) {
@@ -123,12 +123,13 @@ export function SettingsPage() {
     if (isActionRunningRef.current) return;
     isActionRunningRef.current = true;
     try {
+      setApiError("");
       await updateNexusApiKey(keyToSave);
       setApiKeySaved(true);
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
       savedTimerRef.current = setTimeout(() => setApiKeySaved(false), 3000);
     } catch (e) {
-      setSaved(String(e));
+      setApiError(String(e));
     } finally {
       isActionRunningRef.current = false;
     }
@@ -510,6 +511,11 @@ export function SettingsPage() {
                 <span className="st-inline-msg st-inline-msg--success">
                   <CheckCircle size={14} />
                   {t("settings.apiKeySaved")}
+                </span>
+              )}
+              {apiError && (
+                <span className="st-inline-msg st-inline-msg--error">
+                  {apiError}
                 </span>
               )}
             </div>
