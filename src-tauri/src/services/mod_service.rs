@@ -320,7 +320,8 @@ impl ModService {
                 if resolution == Some("rename") {
                     let mut uuid_str = Uuid::new_v4().to_string();
                     uuid_str.truncate(8);
-                    let new_id = format!("{}_{}", mapped.id, uuid_str);
+                    let safe_id = mapped.id.trim().replace(" ", "_");
+                    let new_id = format!("{}_{}", safe_id, uuid_str);
                     
                     if let Err(e) = crate::integrations::manifest::rewrite_manifest_id(mod_dir, &new_id) {
                         results.push(BatchInstallItemResult {
