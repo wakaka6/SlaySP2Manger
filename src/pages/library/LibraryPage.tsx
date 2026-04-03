@@ -942,12 +942,12 @@ export function LibraryPage() {
                     ))}
                     {mod.status === "conflict" && isChecked && (
                        <div className="batch-preview-item__resolution" style={{ display: 'flex', gap: '8px', flexDirection: 'column', marginTop: '12px', fontSize: '0.9em', color: 'var(--color-fg-muted)' }}>
-                          <label onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                             <input type="radio" name={`res-${key}`} checked={batchConflictResolutions[mod.modId] === 'replace'} onChange={() => setBatchConflictResolutions(prev => ({...prev, [mod.modId]: 'replace'}))} />
+                           <label onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                             <input type="radio" name={`res-${key}`} checked={batchConflictResolutions[mod.modId] !== 'rename'} onChange={() => setBatchConflictResolutions(prev => ({...prev, [mod.modId]: 'replace'}))} />
                              <span>{t("library.conflictReplace")}</span>
                           </label>
                           <label onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                             <input type="radio" name={`res-${key}`} checked={batchConflictResolutions[mod.modId] !== 'replace'} onChange={() => setBatchConflictResolutions(prev => ({...prev, [mod.modId]: 'rename'}))} />
+                             <input type="radio" name={`res-${key}`} checked={batchConflictResolutions[mod.modId] === 'rename'} onChange={() => setBatchConflictResolutions(prev => ({...prev, [mod.modId]: 'rename'}))} />
                              <span>{t("library.conflictRename")}</span>
                           </label>
                        </div>
