@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PageHeader } from "../../components/common/PageHeader";
+import { CustomSelect } from "../../components/CustomSelect";
 import { useI18n } from "../../i18n/I18nProvider";
 import {
   detectGameInstall,
@@ -241,18 +242,14 @@ export function SettingsPage() {
             <h2>{t("settings.language")}</h2>
           </div>
           <div className="st-section__body">
-            <select
-              className="input"
-              onChange={(event) =>
-                void handleLocaleChange(
-                  event.target.value as "zh-CN" | "en-US",
-                )
-              }
+            <CustomSelect
               value={locale}
-            >
-              <option value="zh-CN">{t("settings.languageZh")}</option>
-              <option value="en-US">{t("settings.languageEn")}</option>
-            </select>
+              onChange={(v: string | number) => void handleLocaleChange(v as "zh-CN" | "en-US")}
+              options={[
+                { value: "zh-CN", label: t("settings.languageZh") },
+                { value: "en-US", label: t("settings.languageEn") },
+              ]}
+            />
           </div>
         </div>
 
@@ -262,17 +259,15 @@ export function SettingsPage() {
             <h2>{t("settings.theme")}</h2>
           </div>
           <div className="st-section__body">
-            <select
-              className="input"
-              onChange={(event) =>
-                handleThemeChange(event.target.value as ThemeMode)
-              }
+            <CustomSelect
               value={themeMode}
-            >
-              <option value="system">{t("settings.themeSystem")}</option>
-              <option value="light">{t("settings.themeLight")}</option>
-              <option value="dark">{t("settings.themeDark")}</option>
-            </select>
+              onChange={(v: string | number) => handleThemeChange(v as ThemeMode)}
+              options={[
+                { value: "system", label: t("settings.themeSystem") },
+                { value: "light", label: t("settings.themeLight") },
+                { value: "dark", label: t("settings.themeDark") },
+              ]}
+            />
           </div>
         </div>
 
@@ -283,20 +278,20 @@ export function SettingsPage() {
             <h2>{t("settings.autoBackupTitle")}</h2>
           </div>
           <div className="st-section__body">
-            <select
-              className="input"
+            <CustomSelect
               value={autoBackupKeep}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setAutoBackupKeep(v);
-                void updateAutoBackupKeepCount(v);
+              onChange={(v: string | number) => {
+                const count = Number(v);
+                setAutoBackupKeep(count);
+                void updateAutoBackupKeepCount(count);
               }}
-            >
-              <option value={3}>3</option>
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-            </select>
+              options={[
+                { value: 3, label: "3" },
+                { value: 5, label: "5" },
+                { value: 10, label: "10" },
+                { value: 20, label: "20" },
+              ]}
+            />
           </div>
         </div>
 
