@@ -95,3 +95,36 @@ pub fn read_manifest(mod_dir: &Path) -> Option<ModManifest> {
     let text = fs::read_to_string(manifest_path).ok()?;
     try_parse_manifest(&text)
 }
+
+/// Rewrites the `id` field in the manifest to a new value, and renames the file if
+/// it was named `<old_id>.json`.
+pub fn rewrite_manifest_id(mod_dir: &Path, new_id: &str) -> std::io::Result<()> {
+    let manifest_path = find_manifest_path(mod_dir).ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Manifest file not found for rewrite",
+        )
+    })?;
+
+    let text = fs::read_to_string(&manifest_path)?;
+    let mut val: Value = serde_json::from_str(&text)?;
+
+    if let Value::Object(ref mut map) = val {
+        map.insert("id".to_string(), Value::String(new_id.to_string()));
+    }
+
+    let out_text = serde_json::to_string_pretty(&val)?;
+    fs::write(&manifest_path, out_text)?;
+
+    // If the file was named after the old folder name/ID, rename it
+    if let Some(stem) = manifest_path.file_stem().and_then(|s| s.to_str()) {
+        if stem != "mod_manifest" {
+            let new_path = mod_dir.join(format!("{}.json", new_id));
+            if new_path != manifest_path {
+                fs::rename(manifest_path, new_path)?;
+            }
+        }
+    }
+
+    Ok(())
+}

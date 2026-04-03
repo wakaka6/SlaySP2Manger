@@ -325,12 +325,14 @@ export async function batchInstallMods(
   enableAfterInstall: boolean,
   replaceExisting: boolean,
   selectedModIds: string[],
+  conflictResolutions: Record<string, string>,
 ): Promise<BatchInstallResult> {
   const result = await invoke<BatchInstallResult>("batch_install_mods", {
     paths,
     enableAfterInstall,
     replaceExisting,
     selectedModIds,
+    conflictResolutions,
   });
   invalidate("installed_mods", "disabled_mods", "app_bootstrap");
   return result;
@@ -412,6 +414,27 @@ export async function updateSaveSyncPairs(pairs: SaveSyncPair[]) {
 
 export async function syncSaves(): Promise<SaveSyncResult> {
   const result = await invoke<SaveSyncResult>("sync_saves");
+  invalidate("save_slots", "save_backups");
+  return result;
+}
+
+export type CloudSaveStatusDto = {
+  isAvailable: boolean;
+  cloudPath: string | null;
+};
+
+export async function getCloudSaveStatus(): Promise<CloudSaveStatusDto> {
+  return invoke<CloudSaveStatusDto>("get_cloud_save_status");
+}
+
+export async function ascendToCloudFull() {
+  const result = await invoke<void>("ascend_to_cloud_full");
+  invalidate("save_slots", "save_backups");
+  return result;
+}
+
+export async function descendFromCloudFull() {
+  const result = await invoke<void>("descend_from_cloud_full");
   invalidate("save_slots", "save_backups");
   return result;
 }

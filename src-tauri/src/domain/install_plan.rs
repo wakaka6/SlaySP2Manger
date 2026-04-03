@@ -62,6 +62,8 @@ pub struct DiscoveredMod {
     pub conflicts: Vec<String>,
     /// Human-readable message for unsupported or error states.
     pub status_message: Option<String>,
+    /// The user's chosen conflict resolution strategy ("replace" | "rename").
+    pub resolve_strategy: Option<String>,
 }
 
 /// Batch preview: the result of scanning multiple import targets.

@@ -72,6 +72,12 @@ Installing mods for Slay the Spire 2 is messy — and we've been there:
 - **Auto-backup before every risky action** — no silent overwrites
 - **Backup list & restore** — browse past backups and restore with one click
 
+### ☁️ Steam Cloud Sync
+- **Auto-discovers** the current Steam account's cloud save directory — zero manual configuration
+- One-click **Upload to Cloud** (Local → Cloud) or **Download to Local** (Cloud → Local), syncing both vanilla and modded saves
+- **Full backup created automatically** before every cloud operation to ensure data safety
+- Quickly **open the cloud save folder** in your file manager for manual inspection
+
 ### ⚙️ Settings & Diagnostics
 - Auto-detects your game directory on first launch
 - Configure download directory and Nexus API key

@@ -15,13 +15,17 @@ import {
   toggleSaveAutoSync,
   updateSaveSyncPairs,
   syncSaves,
+  getCloudSaveStatus,
+  ascendToCloudFull,
+  descendFromCloudFull,
+  type CloudSaveStatusDto,
   type SaveBackupEntry,
   type SaveKind,
   type SaveSlot,
   type SaveSlotRef,
   type SaveSyncPair,
 } from "../../lib/desktop";
-import { DatabaseBackup, ArchiveRestore, Trash2, FolderOpen, RefreshCw, Link2, X, Shield, UserPen, ChevronDown, ArrowRight } from "lucide-react";
+import { DatabaseBackup, ArchiveRestore, Trash2, FolderOpen, RefreshCw, Link2, X, Shield, UserPen, ChevronDown, ArrowRight, CloudUpload, CloudDownload, Cloud, Activity } from "lucide-react";
 
 function slotRef(slot: SaveSlot): SaveSlotRef {
   return { steamUserId: slot.steamUserId, kind: slot.kind, slotIndex: slot.slotIndex };
@@ -80,6 +84,10 @@ export function SavesPage() {
   const [linkingFrom, setLinkingFrom] = useState<number | null>(null); // vanilla slot index
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
+  // Cloud Integration
+  const [cloudStatus, setCloudStatus] = useState<CloudSaveStatusDto | null>(null);
+  const [isCloudSyncing, setIsCloudSyncing] = useState<"ascend" | "descend" | null>(null);
+
   // Group backups by kind + slotIndex
   const groupedBackups = useMemo(() => {
     const groups = new Map<string, { kind: SaveKind; slotIndex: number; items: SaveBackupEntry[] }>();
@@ -113,6 +121,10 @@ export function SavesPage() {
         void handleSync(true);
       }
     }).catch(() => {});
+    
+    // Fetch Cloud Status
+    getCloudSaveStatus().then(setCloudStatus).catch(() => {});
+    
     void reload();
   }, []);
 
@@ -133,10 +145,10 @@ export function SavesPage() {
 
       newLines.push({
         key: `${pair.vanillaSlot}-${pair.moddedSlot}`,
-        x1: vRect.left + vRect.width / 2 - rect.left,
-        y1: vRect.bottom - rect.top,
-        x2: mRect.left + mRect.width / 2 - rect.left,
-        y2: mRect.top - rect.top,
+        x1: vRect.right - rect.left,
+        y1: vRect.top + vRect.height / 2 - rect.top,
+        x2: mRect.left - rect.left,
+        y2: mRect.top + mRect.height / 2 - rect.top,
       });
     }
     setLines(newLines);
@@ -291,6 +303,32 @@ export function SavesPage() {
     setTransferOpen({ sourceKind, targetKind });
   }
 
+  // ── Cloud Handlers ────────────────────────────────────────────────
+  async function handleCloudAction(action: "ascend" | "descend") {
+    if (isActionRunningRef.current || !cloudStatus?.isAvailable) return;
+    isActionRunningRef.current = true;
+    setIsCloudSyncing(action);
+    setStatus(action === "ascend" ? t("saves.cloudAscending") : t("saves.cloudDescending"));
+    try {
+      if (action === "ascend") {
+        await ascendToCloudFull();
+      } else {
+        await descendFromCloudFull();
+      }
+      setStatus(action === "ascend" ? t("saves.cloudAscendDone") : t("saves.cloudDescendDone"));
+      await reload();
+    } catch (error) {
+      let errMsg = typeof error === "string" ? error : (error instanceof Error ? error.message : "Unknown error");
+      if (errMsg.startsWith("error.")) {
+        errMsg = t(errMsg as any);
+      }
+      setStatus(errMsg || (action === "ascend" ? t("saves.cloudAscendFailed") : t("saves.cloudDescendFailed")));
+    } finally {
+      setIsCloudSyncing(null);
+      isActionRunningRef.current = false;
+    }
+  }
+
   async function confirmTransfer() {
     if (isActionRunningRef.current) return;
     if (!selectedSource || !selectedTarget) return;
@@ -359,11 +397,11 @@ export function SavesPage() {
     const isLinkTarget = kind === "modded" && linkingFrom !== null;
 
     const classes = [
-      "save-card",
-      `save-card--${kind}`,
-      linked ? "save-card--linked" : "",
-      isLinkSource ? "save-card--link-source" : "",
-      isLinkTarget ? "save-card--link-target" : "",
+      "obsidian-node",
+      `obsidian-node--${kind}`,
+      linked ? "obsidian-node--linked" : "",
+      isLinkSource ? "obsidian-node--link-source" : "",
+      isLinkTarget ? "obsidian-node--link-target" : "",
     ].filter(Boolean).join(" ");
 
     function handleClick() {
@@ -379,11 +417,11 @@ export function SavesPage() {
         onClick={handleClick}
         style={{ cursor: linkingFrom !== null || kind === "vanilla" ? "pointer" : undefined }}
       >
-        <div className="save-card__top">
+        <div className="obsidian-node__top">
           <strong>{slotLabel(slot)}</strong>
           {linked && <Link2 size={13} className="save-card__link-icon" />}
         </div>
-        <div className="save-card__mid">
+        <div className="obsidian-node__mid">
           <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
             {formatTime(slot.lastModifiedAt, t("saves.noModified"))}
           </span>
@@ -391,7 +429,7 @@ export function SavesPage() {
             {t("saves.files", { count: slot.fileCount })}
           </span>
         </div>
-        <div className="save-card__bottom">
+        <div className="obsidian-node__bottom">
           <button
             className="icon-button"
             onClick={(e) => { e.stopPropagation(); void openPathInExplorer(slot.path); }}
@@ -417,28 +455,9 @@ export function SavesPage() {
   return (
     <section className="page">
       <PageHeader description={t("saves.description")} title={t("saves.title")} />
-      <div className="status-line">{status}</div>
-
-      {/* ── Sync bar ──────────────────────────────────── */}
-      <div className="saves-sync-bar">
-        <label className="saves-sync-toggle">
-          <input type="checkbox" checked={autoSync} onChange={(e) => void handleToggleSync(e.target.checked)} />
-          <span>{t("saves.autoSyncLabel")}</span>
-        </label>
-        <span className="saves-sync-bar__hint">
-          {syncPairs.length > 0
-            ? t("saves.pairCount", { count: syncPairs.length })
-            : t("saves.pairNone")}
-        </span>
-        <button
-          className="icon-button"
-          disabled={isSyncing || syncPairs.length === 0}
-          onClick={() => void handleSync(false)}
-          title={t("saves.syncNow")}
-          type="button"
-        >
-          <RefreshCw size={15} className={isSyncing ? "spin-icon" : ""} />
-        </button>
+      <div className="status-line" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Activity size={14} className="text-accent" />
+        {status}
       </div>
 
       {/* ── Linking hint ──────────────────────────────── */}
@@ -452,24 +471,40 @@ export function SavesPage() {
         </div>
       )}
 
-      {/* ── Saves layout with SVG lines ───────────────── */}
+      {/* ── Loom of Destiny Layout ───────────────── */}
       <div className="saves-layout" ref={layoutRef}>
-        {/* SVG overlay for connection lines */}
-        {lines.length > 0 && (
+        {/* SVG connection lines overlay */}
+        {(lines.length > 0 || isCloudSyncing) && (
           <svg className="saves-lines-svg" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 1 }}>
+            {/* SVG filter for particle glow */}
+            <defs>
+              <filter id="particleGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="2" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
             {lines.map((line) => {
               const midY = (line.y1 + line.y2) / 2;
+              const pathD = `M${line.x1},${line.y1} C${line.x1 + 30},${line.y1} ${line.x2 - 30},${line.y2} ${line.x2},${line.y2}`;
               return (
                 <g key={line.key}>
+                  {/* Base connection line */}
                   <path
-                    d={`M${line.x1},${line.y1} C${line.x1},${midY} ${line.x2},${midY} ${line.x2},${line.y2}`}
-                    fill="none"
-                    stroke="var(--accent)"
-                    strokeWidth="2"
-                    strokeDasharray="6 4"
-                    opacity="0.5"
+                    d={pathD}
+                    className={`energy-path ${isSyncing ? 'energy-path--active' : 'energy-path--linked'}`}
                   />
-                  {/* Remove button at midpoint */}
+                  {/* Forward particles (left → right) */}
+                  <path d={pathD} className="energy-particle-track" filter="url(#particleGlow)" />
+                  <path d={pathD} className="energy-particle-track energy-particle-track--b" filter="url(#particleGlow)" />
+                  <path d={pathD} className="energy-particle-track energy-particle-track--c" />
+                  {/* Reverse particles (right → left) */}
+                  <path d={pathD} className="energy-particle-track energy-particle-track--rev" filter="url(#particleGlow)" />
+                  <path d={pathD} className="energy-particle-track energy-particle-track--rev-b" filter="url(#particleGlow)" />
+                  <path d={pathD} className="energy-particle-track energy-particle-track--rev-c" />
+                  {/* Delete button at midpoint */}
                   <g
                     style={{ pointerEvents: "all", cursor: "pointer" }}
                     onClick={() => {
@@ -477,9 +512,9 @@ export function SavesPage() {
                       if (pair) void removePair(pair.vanillaSlot, pair.moddedSlot);
                     }}
                   >
-                    <circle cx={(line.x1 + line.x2) / 2} cy={midY} r="10" fill="var(--bg-panel)" stroke="var(--accent)" strokeWidth="1.5" opacity="0.9" />
-                    <line x1={(line.x1 + line.x2) / 2 - 3.5} y1={midY - 3.5} x2={(line.x1 + line.x2) / 2 + 3.5} y2={midY + 3.5} stroke="var(--accent)" strokeWidth="1.5" />
-                    <line x1={(line.x1 + line.x2) / 2 + 3.5} y1={midY - 3.5} x2={(line.x1 + line.x2) / 2 - 3.5} y2={midY + 3.5} stroke="var(--accent)" strokeWidth="1.5" />
+                    <circle cx={(line.x1 + line.x2) / 2} cy={(line.y1 + line.y2) / 2} r="9" fill="var(--bg-app)" stroke="var(--accent)" strokeWidth="1" opacity="0.8" />
+                    <line x1={(line.x1 + line.x2) / 2 - 3} y1={(line.y1 + line.y2) / 2 - 3} x2={(line.x1 + line.x2) / 2 + 3} y2={(line.y1 + line.y2) / 2 + 3} stroke="var(--accent)" strokeWidth="1.5" />
+                    <line x1={(line.x1 + line.x2) / 2 + 3} y1={(line.y1 + line.y2) / 2 - 3} x2={(line.x1 + line.x2) / 2 - 3} y2={(line.y1 + line.y2) / 2 + 3} stroke="var(--accent)" strokeWidth="1.5" />
                   </g>
                 </g>
               );
@@ -487,39 +522,105 @@ export function SavesPage() {
           </svg>
         )}
 
-        <section className="saves-section saves-section--vanilla">
-          <div className="saves-section__header">
-            <h2>{t("saves.vanillaTitle")}</h2>
-            <button className="button button--secondary button--sm" onClick={() => openTransfer("vanilla", "modded")} type="button">
-              {t("saves.copyToModded")} &rarr;
-            </button>
-          </div>
-          <div className="saves-grid">
-            {vanillaSlots.length === 0 ? (
-              <article className="activity-item"><strong>{t("saves.noVanilla")}</strong><span>{t("saves.noVanillaHelp")}</span></article>
-            ) : vanillaSlots.map(renderCard)}
-          </div>
-        </section>
+         <div className="saves-trinity">
+          {/* ── 1. The Cloud Sanctuary (Top Middle) ── */}
+          <div className="saves-cloud-core">
+              <div className="cloud-core__info">
+                 <div className="cloud-core__title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Cloud size={28} className="text-accent" />
+                    {t("saves.cloudSanctuary")}
+                    {cloudStatus?.isAvailable && cloudStatus.cloudPath && (
+                       <button
+                         className="icon-button"
+                         style={{ marginLeft: '4px' }}
+                         onClick={() => void openPathInExplorer(cloudStatus.cloudPath!)}
+                         type="button"
+                         title={t("saves.openFolder")}
+                       >
+                         <FolderOpen size={16} className="text-secondary hover:text-primary transition-colors" />
+                       </button>
+                    )}
+                 </div>
+                 
+                 {cloudStatus ? (
+                   cloudStatus.isAvailable ? (
+                     <div className="cloud-core__status" title={cloudStatus.cloudPath || ""}>
+                       {t("saves.cloudDetected")}
+                     </div>
+                   ) : (
+                     <div className="cloud-core__status text-error">{t("saves.cloudNotFound")}</div>
+                   )
+                 ) : (
+                    <div className="cloud-core__status">{t("saves.cloudScanning")}</div>
+                 )}
+             </div>
 
-        <section className="saves-section saves-section--modded">
-          <div className="saves-section__header">
-            <h2 style={{ color: "var(--accent)" }}>{t("saves.moddedTitle")}</h2>
-            <button className="button button--secondary button--sm" onClick={() => openTransfer("modded", "vanilla")} type="button">
-              &larr; {t("saves.copyToVanilla")}
-            </button>
+             {cloudStatus?.isAvailable && (
+                 <div className="cloud-core__actions">
+                   <button
+                     className="button button--secondary"
+                     style={{ gap: '10px' }}
+                     disabled={!!isCloudSyncing || isSyncing}
+                     onClick={() => void handleCloudAction("descend")}
+                     type="button">
+                     <CloudDownload size={18} /> 
+                     {t("saves.cloudDescend")}
+                   </button>
+                   <button
+                     className="button button--secondary"
+                     style={{ borderColor: "var(--accent)", color: "var(--accent)", gap: '10px' }}
+                     disabled={!!isCloudSyncing || isSyncing}
+                     onClick={() => void handleCloudAction("ascend")}
+                     type="button">
+                     <CloudUpload size={18} /> 
+                     {t("saves.cloudAscend")}
+                   </button>
+                 </div>
+             )}
           </div>
-          <div className="saves-grid">
-            {moddedSlots.length === 0 ? (
-              <article className="activity-item"><strong>{t("saves.noModded")}</strong><span>{t("saves.noModdedHelp")}</span></article>
-            ) : moddedSlots.map(renderCard)}
-          </div>
-        </section>
+          
+          {/* ── 2. Vanilla Realm (Left) ── */}
+          <section className="saves-section saves-section--vanilla">
+            <div className="saves-section__header">
+              <h2>{t("saves.vanillaTitle")}</h2>
+              <button className="button button--secondary button--sm" onClick={() => openTransfer("vanilla", "modded")} type="button">
+                {t("saves.copyToModded")} &rarr;
+              </button>
+            </div>
+            <div className="saves-grid">
+              {vanillaSlots.length === 0 ? (
+                <article className="activity-item"><strong>{t("saves.noVanilla")}</strong><span>{t("saves.noVanillaHelp")}</span></article>
+              ) : vanillaSlots.map(renderCard)}
+            </div>
+          </section>
+
+          {/* ── 3. Modded Realm (Right) ── */}
+          <section className="saves-section saves-section--modded">
+            <div className="saves-section__header">
+              <h2>{t("saves.moddedTitle")}</h2>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <label className="saves-sync-toggle" style={{ marginRight: '8px' }}>
+                  <input type="checkbox" checked={autoSync} onChange={(e) => void handleToggleSync(e.target.checked)} />
+                  <span>{t("saves.autoSyncLabel")}</span>
+                </label>
+                <button className="button button--secondary button--sm" onClick={() => openTransfer("modded", "vanilla")} type="button">
+                  &larr; {t("saves.copyToVanilla")}
+                </button>
+              </div>
+            </div>
+            <div className="saves-grid">
+              {moddedSlots.length === 0 ? (
+                <article className="activity-item"><strong>{t("saves.noModded")}</strong><span>{t("saves.noModdedHelp")}</span></article>
+              ) : moddedSlots.map(renderCard)}
+            </div>
+          </section>
+        </div>
       </div>
 
-      {/* ── Backups ───────────────────────────────────── */}
-      <section className="panel profile-panel" style={{ marginTop: "16px" }}>
+      {/* ── Visual Time Fragment Backup ────────────────── */}
+      <section className="panel profile-panel" style={{ marginTop: "32px", border: '1px solid color-mix(in srgb, var(--accent) 15%, transparent)', background: 'linear-gradient(to bottom, color-mix(in srgb, var(--bg-panel-soft) 80%, transparent), transparent)' }}>
         <div className="panel__header">
-          <h2>{t("saves.backups")}</h2>
+          <h2>{t("saves.timeFragments")}</h2>
           <span className="panel__meta">{backups.length}</span>
         </div>
         <div className="backup-timeline">

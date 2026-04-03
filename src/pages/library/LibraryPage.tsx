@@ -104,6 +104,7 @@ export function LibraryPage() {
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, name: "" });
   const [batchResult, setBatchResult] = useState<BatchInstallResult | null>(null);
   const [selectedModIds, setSelectedModIds] = useState<Set<string>>(new Set());
+  const [batchConflictResolutions, setBatchConflictResolutions] = useState<Record<string, "replace" | "rename">>({});
   const [successToast, setSuccessToast] = useState<{ message: string; visible: boolean } | null>(null);
 
   const [pendingUninstall, setPendingUninstall] = useState<InstalledMod | null>(null);
@@ -380,10 +381,11 @@ export function LibraryPage() {
     setBatchProgress({ current: 0, total: selectedCount, name: "" });
 
     try {
-      const result = await batchInstallMods(batchPaths, batchEnableNow, hasConflictsInSelected, selectedIds);
+      const result = await batchInstallMods(batchPaths, batchEnableNow, hasConflictsInSelected, selectedIds, batchConflictResolutions);
       setBatchPreview(null);
       setBatchPaths([]);
       setSelectedModIds(new Set());
+      setBatchConflictResolutions({});
 
       if (result.failureCount === 0) {
         // All succeeded → toast notification
@@ -866,6 +868,7 @@ export function LibraryPage() {
           setBatchPreview(null);
           setBatchPaths([]);
           setSelectedModIds(new Set());
+          setBatchConflictResolutions({});
           setStatus(t("library.importCancelled"));
         }}
         onConfirm={() => void confirmBatchInstall()}
@@ -937,6 +940,18 @@ export function LibraryPage() {
                     {mod.conflicts.map((c, i) => (
                       <span key={i}>{c}</span>
                     ))}
+                    {mod.status === "conflict" && isChecked && (
+                       <div className="batch-preview-item__resolution" style={{ display: 'flex', gap: '8px', flexDirection: 'column', marginTop: '12px', fontSize: '0.9em', color: 'var(--color-fg-muted)' }}>
+                          <label onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                             <input type="radio" name={`res-${key}`} checked={batchConflictResolutions[mod.modId] === 'replace'} onChange={() => setBatchConflictResolutions(prev => ({...prev, [mod.modId]: 'replace'}))} />
+                             <span>{t("library.conflictReplace")}</span>
+                          </label>
+                          <label onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                             <input type="radio" name={`res-${key}`} checked={batchConflictResolutions[mod.modId] !== 'replace'} onChange={() => setBatchConflictResolutions(prev => ({...prev, [mod.modId]: 'rename'}))} />
+                             <span>{t("library.conflictRename")}</span>
+                          </label>
+                       </div>
+                    )}
                   </div>
                 )}
                 {mod.statusMessage && mod.status !== "ready" && (

@@ -53,6 +53,9 @@ use app::commands::{
     update_proxy_url,
     update_auto_backup_keep_count,
     test_proxy,
+    get_cloud_save_status,
+    ascend_to_cloud_full,
+    descend_from_cloud_full,
 };
 use app::state::AppState;
 
@@ -106,7 +109,10 @@ pub fn run() {
             batch_install_mods,
             update_proxy_url,
             update_auto_backup_keep_count,
-            test_proxy
+            test_proxy,
+            get_cloud_save_status,
+            ascend_to_cloud_full,
+            descend_from_cloud_full
         ])
         .run(tauri::generate_context!())
         .expect("failed to run tauri application");

@@ -209,6 +209,8 @@ export type MessageKey =
   | "library.activity"
   | "library.emptyEnabled"
   | "library.emptyEnabledHelp"
+  | "library.conflictReplace"
+  | "library.conflictRename"
   | "library.emptyDisabled"
   | "library.emptyDisabledHelp"
   | "library.noActivity"
@@ -276,6 +278,9 @@ export type MessageKey =
   | "error.invalidArchive"
   | "error.ioPermission"
   | "error.ioGeneral"
+  | "error.localSaveNotFound"
+  | "error.cloudSaveNotFound"
+  | "error.activeUserNotFound"
   | "saves.title"
   | "saves.description"
   | "saves.ready"
@@ -344,7 +349,21 @@ export type MessageKey =
   | "saves.timeJustNow"
   | "saves.timeMinutesAgo"
   | "saves.timeHoursAgo"
+  | "saves.timeHoursAgo"
   | "saves.timeDaysAgo"
+  | "saves.cloudSanctuary"
+  | "saves.cloudDetected"
+  | "saves.cloudNotFound"
+  | "saves.cloudScanning"
+  | "saves.cloudDescend"
+  | "saves.cloudAscend"
+  | "saves.cloudAscending"
+  | "saves.cloudDescending"
+  | "saves.cloudAscendDone"
+  | "saves.cloudDescendDone"
+  | "saves.cloudAscendFailed"
+  | "saves.cloudDescendFailed"
+  | "saves.timeFragments"
   | "common.cancel"
   | "common.confirm";
 
@@ -564,6 +583,8 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.activity": "Activity",
     "library.emptyEnabled": "No enabled mods.",
     "library.emptyEnabledHelp": "Get started by browsing Discover, or simply drag and drop a ZIP file here.",
+    "library.conflictReplace": "Override existing mod",
+    "library.conflictRename": "Install with new ID (auto-rename)",
     "library.emptyDisabled": "No disabled mods.",
     "library.emptyDisabledHelp": "Mods you disable will appear here.",
     "library.noActivity": "No recent activity.",
@@ -631,6 +652,9 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "error.invalidArchive": "This ZIP archive is invalid or corrupted. It might be missing the Mod data or manifest.",
     "error.ioPermission": "Permission denied. The app cannot read/write files. Please try running as Administrator.",
     "error.ioGeneral": "Failed to read/write files: {detail}",
+    "error.localSaveNotFound": "Local save directory not found. Please launch the game at least once.",
+    "error.cloudSaveNotFound": "Could not locate Steam cloud save directory. Is Steam currently running?",
+    "error.activeUserNotFound": "Could not locate active Steam Account.",
     "saves.title": "Save Management",
     "saves.description": "Back up, restore or sync your save files between vanilla and modded environments.",
     "saves.ready": "Ready",
@@ -700,6 +724,19 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.timeMinutesAgo": "{count}m ago",
     "saves.timeHoursAgo": "{count}h ago",
     "saves.timeDaysAgo": "{count}d ago",
+    "saves.cloudSanctuary": "Steam Cloud Save",
+    "saves.cloudDetected": "Cloud state detected. Full mirroring active.",
+    "saves.cloudNotFound": "Steam Cloud save not found. Is Steam running?",
+    "saves.cloudScanning": "Scanning connection...",
+    "saves.cloudDescend": "Download (Cloud \u2192 Local)",
+    "saves.cloudAscend": "Upload (Local \u2192 Cloud)",
+    "saves.cloudAscending": "Uploading local saves to Steam Cloud...",
+    "saves.cloudDescending": "Downloading saves from Steam Cloud...",
+    "saves.cloudAscendDone": "Cloud upload completed. Local state is synchronized.",
+    "saves.cloudDescendDone": "Cloud download completed. Local state is synchronized.",
+    "saves.cloudAscendFailed": "Failed to upload Steam Cloud data.",
+    "saves.cloudDescendFailed": "Failed to download Steam Cloud data.",
+    "saves.timeFragments": "Save Backups",
     "common.cancel": "Cancel",
     "common.confirm": "Confirm",
   },
@@ -916,6 +953,8 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.activity": "动态",
     "library.emptyEnabled": "暂无启用模组",
     "library.emptyEnabledHelp": "去「发现」页找找，或直接把 ZIP 文件拖进窗口即可。",
+    "library.conflictReplace": "覆盖已有 mod",
+    "library.conflictRename": "重命名安装（自动生成新 ID）",
     "library.emptyDisabled": "暂无禁用模组",
     "library.emptyDisabledHelp": "你禁用的模组会在这里。",
     "library.noActivity": "暂无动态",
@@ -980,9 +1019,12 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "error.gameNotFound": "找不到游戏目录，请在设置中指定。",
     "error.modNotFound": "指定的模组文件找不到了。",
     "error.modConflict": "安装中止！模组文件夹「{name}」已存在，请先删除旧版。",
-    "error.invalidArchive": "无效压缩包：里面缺失必要文件，或文件已损坏。",
-    "error.ioPermission": "权限不足，无法读写文件。请尝试使用管理员权限运行。",
-    "error.ioGeneral": "读写错误: {detail}",
+    "error.invalidArchive": "提供的 ZIP 压缩包格式错误或已损坏，可能缺少模组数据或 Manifest 文件。",
+    "error.ioPermission": "权限被拒绝，应用无法写入游戏目录。如果失败请尝试以管理员身份运行应用。",
+    "error.ioGeneral": "文件读写异常: {detail}",
+    "error.localSaveNotFound": "未找到本地存档目录，请至少运行一次游戏以生成初始存档。",
+    "error.cloudSaveNotFound": "未找到 Steam 云存档目录，请确认 Steam 是否处于运行状态。",
+    "error.activeUserNotFound": "未能检测到当前激活的 Steam 账号。",
     "saves.title": "存档管理",
     "saves.description": "在原版与模组环境之间备份、恢复或同步存档。",
     "saves.ready": "就绪",
@@ -1052,6 +1094,19 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.timeMinutesAgo": "{count}分钟前",
     "saves.timeHoursAgo": "{count}小时前",
     "saves.timeDaysAgo": "{count}天前",
+    "saves.cloudSanctuary": "Steam 云存档",
+    "saves.cloudDetected": "已侦测到云端存档，全量同步待命中。",
+    "saves.cloudNotFound": "未找到 Steam 云存档，请确认 Steam 是否运行。",
+    "saves.cloudScanning": "正在扫描连接...",
+    "saves.cloudDescend": "下载至本地 (云端 \u2192 本地)",
+    "saves.cloudAscend": "上传至云端 (本地 \u2192 云端)",
+    "saves.cloudAscending": "正在将本地存档上传至 Steam Cloud...",
+    "saves.cloudDescending": "正在从 Steam Cloud 下载存档...",
+    "saves.cloudAscendDone": "上传完成，本地存档已同步至云端。",
+    "saves.cloudDescendDone": "下载完成，世界线已同步至本地。",
+    "saves.cloudAscendFailed": "上传至 Steam Cloud 失败。",
+    "saves.cloudDescendFailed": "从 Steam Cloud 下载失败。",
+    "saves.timeFragments": "存档备份",
     "common.cancel": "取消",
     "common.confirm": "确认",
   },

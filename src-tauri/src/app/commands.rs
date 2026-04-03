@@ -139,6 +139,37 @@ pub fn get_app_bootstrap(state: State<'_, AppState>) -> Result<AppBootstrapDto, 
     })
 }
 
+// ── Cloud Save API ─────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CloudSaveStatusDto {
+    pub is_available: bool,
+    pub cloud_path: Option<String>,
+}
+
+#[tauri::command]
+pub fn get_cloud_save_status() -> Result<CloudSaveStatusDto, String> {
+    let cloud_dir = crate::integrations::steam::find_cloud_save_dir();
+    let is_available = cloud_dir.is_some();
+    let cloud_path = cloud_dir.map(|p| p.to_string_lossy().to_string());
+    
+    Ok(CloudSaveStatusDto {
+        is_available,
+        cloud_path,
+    })
+}
+
+#[tauri::command]
+pub async fn ascend_to_cloud_full() -> Result<(), String> {
+    crate::services::save_service::SaveService::new().sync_with_cloud(true)
+}
+
+#[tauri::command]
+pub async fn descend_from_cloud_full() -> Result<(), String> {
+    crate::services::save_service::SaveService::new().sync_with_cloud(false)
+}
+
 #[tauri::command]
 pub fn update_game_root_dir(
     game_root_dir: String,
@@ -429,6 +460,7 @@ pub fn batch_install_mods(
     enable_after_install: bool,
     replace_existing: bool,
     selected_mod_ids: Vec<String>,
+    conflict_resolutions: std::collections::HashMap<String, String>,
     state: State<'_, AppState>,
 ) -> Result<BatchInstallResult, String> {
     let settings = state
@@ -448,7 +480,7 @@ pub fn batch_install_mods(
     }
 
     let result = service
-        .batch_install(&paths, enable_after_install, replace_existing, &selected_mod_ids)
+        .batch_install(&paths, enable_after_install, replace_existing, &selected_mod_ids, &conflict_resolutions)
         .map_err(|error| error.to_string())?;
 
     push_activity(

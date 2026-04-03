@@ -230,3 +230,77 @@ fn common_candidates() -> Vec<(PathBuf, GameDetectSource)> {
 
     result
 }
+
+/// Get the current Steam Account ID for cloud save paths.
+pub fn get_current_steam_account_id() -> Option<u32> {
+    use winreg::enums::*;
+    use winreg::RegKey;
+
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    if let Ok(key) = hkcu.open_subkey("Software\\Valve\\Steam\\ActiveProcess") {
+        if let Ok(active_user) = key.get_value::<u32, _>("ActiveUser") {
+            if active_user > 0 {
+                return Some(active_user);
+            }
+        }
+    }
+
+    // Fallback: parse loginusers.vdf
+    if let Some(steam_root) = read_steam_root_from_registry() {
+        let vdf_path = steam_root.join("config").join("loginusers.vdf");
+        if let Some(account_id) = parse_loginusers_for_account_id(&vdf_path) {
+            return Some(account_id);
+        }
+    }
+
+    None
+}
+
+fn parse_loginusers_for_account_id(vdf_path: &PathBuf) -> Option<u32> {
+    let content = std::fs::read_to_string(vdf_path).ok()?;
+    let mut current_steamid64: Option<String> = None;
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        
+        // Match user root keys which are 17-digit SteamID64s
+        if trimmed.starts_with('"') && trimmed.ends_with('"') && trimmed.len() == 19 {
+            let id = trimmed.trim_matches('"');
+            if id.starts_with("7656") && id.len() == 17 {
+                current_steamid64 = Some(id.to_string());
+            }
+        }
+        
+        // VDF could be formatted with spaces or tabs
+        if trimmed.contains("\"MostRecent\"") && trimmed.contains("\"1\"") {
+            if let Some(ref id_str) = current_steamid64 {
+                if let Ok(id_u64) = id_str.parse::<u64>() {
+                    // SteamID64 to Account ID is id_u64 - 76561197960265728
+                    let account_id = (id_u64 - 76561197960265728) as u32;
+                    return Some(account_id);
+                }
+            }
+        }
+    }
+    
+    None
+}
+
+/// Find the exact userdata path for Slay the Spire 2 cloud saves.
+/// Path: `<Steam root>/userdata/<Account ID>/2868840/remote`
+pub fn find_cloud_save_dir() -> Option<PathBuf> {
+    let steam_root = read_steam_root_from_registry()?;
+    let account_id = get_current_steam_account_id()?;
+    
+    let remote_dir = steam_root
+        .join("userdata")
+        .join(account_id.to_string())
+        .join(STEAM_APP_ID)
+        .join("remote");
+        
+    if remote_dir.exists() {
+        Some(remote_dir)
+    } else {
+        None
+    }
+}

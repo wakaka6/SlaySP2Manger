@@ -256,6 +256,7 @@ impl ModService {
         enable_after_install: bool,
         replace_existing: bool,
         selected_mod_ids: &[String],
+        conflict_resolutions: &std::collections::HashMap<String, String>,
     ) -> Result<BatchInstallResult, AppError> {
         let game = self.resolve_game()?;
 
@@ -305,7 +306,7 @@ impl ModService {
             }
 
             for (mod_dir, _temp_root) in &mod_dirs {
-                let mapped = map_mod_directory(mod_dir.clone(), current_state.clone());
+                let mut mapped = map_mod_directory(mod_dir.clone(), current_state.clone());
 
                 // Skip mods the user didn't select in the preview
                 if !selected_mod_ids.is_empty()
@@ -314,19 +315,41 @@ impl ModService {
                     continue;
                 }
 
+                let resolution = conflict_resolutions.get(&mapped.id).map(|s| s.as_str());
+
+                if resolution == Some("rename") {
+                    let mut uuid_str = Uuid::new_v4().to_string();
+                    uuid_str.truncate(8);
+                    let new_id = format!("{}_{}", mapped.id, uuid_str);
+                    
+                    if let Err(e) = crate::integrations::manifest::rewrite_manifest_id(mod_dir, &new_id) {
+                        results.push(BatchInstallItemResult {
+                            mod_id: mapped.id.clone(),
+                            name: mapped.name.clone(),
+                            success: false,
+                            error_message: Some(format!("重命名失败: {}", e)),
+                        });
+                        continue;
+                    }
+                    
+                    mapped.id = new_id.clone();
+                    mapped.folder_name = new_id;
+                }
+
                 let mod_name = mapped.name.clone();
                 let mod_id = mapped.id.clone();
+                let replace_this_one = replace_existing || resolution == Some("replace");
 
                 let install_result: Result<(), AppError> = (|| {
-                    if replace_existing {
+                    if replace_this_one {
                         remove_existing_conflicts(&game, &mapped)?;
                     }
 
                     let target_dir = target_root.join(&mapped.folder_name);
-                    if target_dir.exists() && !replace_existing {
+                    if target_dir.exists() && !replace_this_one {
                         return Err(AppError::ModConflict(mapped.folder_name.clone()));
                     }
-                    if target_dir.exists() && replace_existing {
+                    if target_dir.exists() && replace_this_one {
                         fs::remove_dir_all(&target_dir)
                             .map_err(|e| AppError::Io(e.to_string()))?;
                     }
@@ -695,6 +718,7 @@ fn recursive_discover_from_dir(
             status,
             conflicts,
             status_message: msg,
+            resolve_strategy: None,
         });
         return;
     }
@@ -773,6 +797,7 @@ fn recursive_discover_from_file(
             status: DiscoveredModStatus::Error,
             conflicts: vec![],
             status_message: Some("无法创建临时目录".to_string()),
+            resolve_strategy: None,
         });
         return;
     }
@@ -807,6 +832,7 @@ fn recursive_discover_from_file(
                 status: DiscoveredModStatus::UnsupportedFormat,
                 conflicts: vec![],
                 status_message: Some(suggestion),
+                resolve_strategy: None,
             });
         }
         Err(e) => {
@@ -822,6 +848,7 @@ fn recursive_discover_from_file(
                 status: DiscoveredModStatus::Error,
                 conflicts: vec![],
                 status_message: Some(e.to_string()),
+                resolve_strategy: None,
             });
         }
     }

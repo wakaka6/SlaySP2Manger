@@ -115,7 +115,6 @@ export function SettingsPage() {
 
   function handleThemeChange(nextThemeMode: ThemeMode) {
     setThemeMode(nextThemeMode);
-    setSaved(t("settings.themeApplied"));
   }
 
   async function handleSaveApiKey(value?: string | unknown) {
@@ -254,7 +253,6 @@ export function SettingsPage() {
               <option value="zh-CN">{t("settings.languageZh")}</option>
               <option value="en-US">{t("settings.languageEn")}</option>
             </select>
-            <span className="st-hint">{t("settings.languageHelp")}</span>
           </div>
         </div>
 
@@ -275,13 +273,6 @@ export function SettingsPage() {
               <option value="light">{t("settings.themeLight")}</option>
               <option value="dark">{t("settings.themeDark")}</option>
             </select>
-            <span className="st-hint">{t("settings.themeHelp")}</span>
-            <span className="st-hint">
-              {t("settings.currentAppearance")}：
-              {resolvedTheme === "light"
-                ? t("settings.currentAppearanceLight")
-                : t("settings.currentAppearanceDark")}
-            </span>
           </div>
         </div>
 
@@ -298,7 +289,7 @@ export function SettingsPage() {
               onChange={(e) => {
                 const v = Number(e.target.value);
                 setAutoBackupKeep(v);
-                void updateAutoBackupKeepCount(v).then(() => setSaved(t("settings.autoBackupSaved")));
+                void updateAutoBackupKeepCount(v);
               }}
             >
               <option value={3}>3</option>
@@ -306,7 +297,6 @@ export function SettingsPage() {
               <option value={10}>10</option>
               <option value={20}>20</option>
             </select>
-            <span className="st-hint">{t("settings.autoBackupHelp")}</span>
           </div>
         </div>
 

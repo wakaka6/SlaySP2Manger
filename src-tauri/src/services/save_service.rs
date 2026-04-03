@@ -445,6 +445,45 @@ impl SaveService {
             details,
         })
     }
+
+    /// Holistic cloud synchronization.
+    /// `ascend`: 
+    ///   - true: Ascend to Cloud (Overwrite Cloud with Local)
+    ///   - false: Descend from Cloud (Overwrite Local with Cloud)
+    /// 
+    /// This performs a FULL sync of the entire local storage (Vanilla + Modded)
+    /// and the Steam Cloud remote directory, treating them as mirrors.
+    /// Will ALWAYS create a full backup of all data-bearing slots before proceeding.
+    pub fn sync_with_cloud(&self, ascend: bool) -> Result<(), String> {
+        let account_id = crate::integrations::steam::get_current_steam_account_id()
+             .ok_or_else(|| "error.activeUserNotFound".to_string())?;
+
+        let steam_id_64 = (account_id as u64) + 76561197960265728;
+
+        let cloud_dir = crate::integrations::steam::find_cloud_save_dir()
+            .ok_or_else(|| "error.cloudSaveNotFound".to_string())?;
+
+        // The correct mapping is APPDATA/SlayTheSpire2/steam/<SteamID64>/ -> Steam/userdata/<Account_ID>/2868840/remote/
+        let local_root = save_root()?.join(steam_id_64.to_string());
+        
+        if ascend && !local_root.exists() {
+            return Err("error.localSaveNotFound".to_string());
+        }
+
+        // Perform auto backups unconditionally before any destructive full-sync.
+        let reason = if ascend { "auto_before_cloud_ascend" } else { "auto_before_cloud_descend" };
+        let _ = self.backup_all_slots(reason);
+
+        if ascend {
+            // Overwrite Cloud with Local
+            replace_directory_contents(&local_root, &cloud_dir)?;
+        } else {
+            // Overwrite Local with Cloud
+            replace_directory_contents(&cloud_dir, &local_root)?;
+        }
+
+        Ok(())
+    }
 }
 
 fn save_root() -> Result<PathBuf, String> {
@@ -566,9 +605,27 @@ fn copy_directory_contents(source: &Path, target: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn clear_directory_contents(dir: &Path) -> Result<(), String> {
+    if !dir.exists() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(dir).map_err(|error| format!("clear_dir read error: {}", error))? {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let path = entry.path();
+        if path.is_dir() {
+            fs::remove_dir_all(&path).map_err(|error| format!("clear_dir remove_dir error: {}", error))?;
+        } else {
+            fs::remove_file(&path).map_err(|error| format!("clear_dir remove_file error: {}", error))?;
+        }
+    }
+    Ok(())
+}
+
 fn replace_directory_contents(source: &Path, target: &Path) -> Result<(), String> {
-    if target.exists() {
-        fs::remove_dir_all(target).map_err(|error| error.to_string())?;
+    if !target.exists() {
+        fs::create_dir_all(target).map_err(|error| error.to_string())?;
+    } else {
+        clear_directory_contents(target)?;
     }
     copy_directory_contents(source, target)
 }

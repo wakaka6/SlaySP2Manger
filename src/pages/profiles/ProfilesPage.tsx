@@ -333,92 +333,62 @@ export function ProfilesPage() {
 
         {/* ── RIGHT: Detail pane */}
         <div className="profiles-detail">
-          {/* Zone 1 - Identity */}
-          <div className="profiles-zone profiles-zone--identity">
-            <div className="profiles-zone__eyebrow">
-              {isCreating ? t("profiles.eyebrowNew") : t("profiles.eyebrowDetail")}
-              {!isCreating && activeProfileName === draft.name && (
-                <span className="p-badge p-badge--live" style={{ marginLeft: 8 }}>
-                  {t("profiles.liveBadge")}
-                </span>
-              )}
-            </div>
-            <input
-              className="profiles-name-input"
-              onChange={(event) => setDraft((c) => ({ ...c, name: event.target.value }))}
-              placeholder={t("profiles.namePlaceholder")}
-              value={draft.name}
-            />
-            <textarea
-              className="profiles-desc-input"
-              onChange={(event) => setDraft((c) => ({ ...c, description: event.target.value }))}
-              placeholder={t("profiles.descriptionPlaceholder")}
-              rows={2}
-              value={draft.description}
-            />
-          </div>
+          {/* Hero: Profile name */}
+          <input
+            className="profiles-name-input"
+            onChange={(event) => setDraft((c) => ({ ...c, name: event.target.value }))}
+            placeholder={t("profiles.namePlaceholder")}
+            value={draft.name}
+          />
+          <textarea
+            className="profiles-desc-input"
+            onChange={(event) => setDraft((c) => ({ ...c, description: event.target.value }))}
+            placeholder={t("profiles.descriptionPlaceholder")}
+            rows={2}
+            value={draft.description}
+          />
 
-          {/* Zone 2 - Primary Actions */}
-          <div className="profiles-zone profiles-zone--actions">
+          {/* Unified toolbar — all actions in one row */}
+          <div className="profiles-toolbar">
             <button
-              className="profiles-apply-btn"
+              className="profiles-toolbar__apply"
               disabled={!draft.id || busyAction !== null}
               onClick={() => void handleApply()}
               type="button"
             >
-              <CheckCircle size={20} />
-              <div className="profiles-apply-btn__text">
-                <span>{t("profiles.applyTitle")}</span>
-                <span className="profiles-apply-btn__sub">{t("profiles.applySub")}</span>
-              </div>
+              <CheckCircle size={14} />
+              <span>{t("profiles.applyTitle")}</span>
             </button>
-            <div className="profiles-action-row">
-              <button
-                className="button button--secondary"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  flex: 1,
-                  justifyContent: "center",
-                }}
-                disabled={busyAction !== null}
-                onClick={() => void handleSave()}
-                type="button"
-              >
-                <Save size={15} />
-                {t("profiles.save")}
-              </button>
-              <button
-                className="button button--secondary"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  flex: 1,
-                  justifyContent: "center",
-                }}
-                disabled={!draft.id || busyAction !== null}
-                onClick={() => void handleExport()}
-                type="button"
-              >
-                <LogOut size={15} />
-                {t("profiles.export")}
-              </button>
-              <button
-                className="icon-button icon-button--danger"
-                disabled={busyAction !== null}
-                onClick={() => void handleDelete()}
-                title={t("profiles.delete")}
-                type="button"
-              >
-                <Trash2 size={15} />
-              </button>
-            </div>
-            {status && status !== t("profiles.loading") && (
-              <div className="profiles-status-toast">{status}</div>
-            )}
+            <div className="profiles-toolbar__spacer" />
+            <button
+              className="profiles-toolbar__action"
+              disabled={busyAction !== null}
+              onClick={() => void handleSave()}
+              title={t("profiles.save")}
+              type="button"
+            >
+              <Save size={15} />
+            </button>
+            <button
+              className="profiles-toolbar__action"
+              disabled={!draft.id || busyAction !== null}
+              onClick={() => void handleExport()}
+              title={t("profiles.export")}
+              type="button"
+            >
+              <LogOut size={15} />
+            </button>
+            <button
+              className="profiles-toolbar__action profiles-toolbar__action--danger"
+              disabled={busyAction !== null}
+              onClick={() => void handleDelete()}
+              title={t("profiles.delete")}
+              type="button"
+            >
+              <Trash2 size={15} />
+            </button>
           </div>
+
 
           {/* Zone 3 - Mod checklist */}
           <div className="profiles-zone profiles-zone--mods">
