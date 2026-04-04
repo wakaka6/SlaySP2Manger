@@ -171,6 +171,9 @@ export function SavesPage() {
   // ── Helpers ────────────────────────────────────────────────────────
   const vanillaSlots = useMemo(() => slots.filter((s) => s.kind === "vanilla"), [slots]);
   const moddedSlots = useMemo(() => slots.filter((s) => s.kind === "modded"), [slots]);
+  const syncPairsHint = syncPairs.length > 0
+    ? t("saves.pairCount", { count: syncPairs.length })
+    : t("saves.pairNone");
 
   function slotLabel(slot: SaveSlot) {
     return t("saves.slotLabel", {
@@ -580,12 +583,37 @@ export function SavesPage() {
           </div>
           
           {/* ── 2. Vanilla Realm (Left) ── */}
+          <div className="saves-sync-bar saves-sync-bar--grid">
+            <label className="saves-sync-toggle">
+              <input
+                type="checkbox"
+                checked={autoSync}
+                disabled={isSyncing || !!isCloudSyncing}
+                onChange={(e) => void handleToggleSync(e.target.checked)}
+              />
+              <span>{t("saves.autoSyncLabel")}</span>
+            </label>
+            <span className="saves-sync-bar__hint">{syncPairsHint}</span>
+            <button
+              className="button button--secondary button--sm saves-sync-bar__action"
+              disabled={isSyncing || !!isCloudSyncing || syncPairs.length === 0}
+              onClick={() => void handleSync(false)}
+              title={syncPairs.length > 0 ? t("saves.syncNow") : t("saves.syncNoPairs")}
+              type="button"
+            >
+              <RefreshCw size={14} className={isSyncing ? "spin-icon" : ""} />
+              {t("saves.syncNow")}
+            </button>
+          </div>
+
           <section className="saves-section saves-section--vanilla">
             <div className="saves-section__header">
               <h2>{t("saves.vanillaTitle")}</h2>
-              <button className="button button--secondary button--sm" onClick={() => openTransfer("vanilla", "modded")} type="button">
-                {t("saves.copyToModded")} &rarr;
-              </button>
+              <div className="saves-section__actions">
+                <button className="button button--secondary button--sm" onClick={() => openTransfer("vanilla", "modded")} type="button">
+                  {t("saves.copyToModded")} &rarr;
+                </button>
+              </div>
             </div>
             <div className="saves-grid">
               {vanillaSlots.length === 0 ? (
@@ -598,11 +626,7 @@ export function SavesPage() {
           <section className="saves-section saves-section--modded">
             <div className="saves-section__header">
               <h2>{t("saves.moddedTitle")}</h2>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <label className="saves-sync-toggle" style={{ marginRight: '8px' }}>
-                  <input type="checkbox" checked={autoSync} onChange={(e) => void handleToggleSync(e.target.checked)} />
-                  <span>{t("saves.autoSyncLabel")}</span>
-                </label>
+              <div className="saves-section__actions">
                 <button className="button button--secondary button--sm" onClick={() => openTransfer("modded", "vanilla")} type="button">
                   &larr; {t("saves.copyToVanilla")}
                 </button>

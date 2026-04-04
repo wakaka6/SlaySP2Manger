@@ -2196,11 +2196,17 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
   margin-top: 12px;
   padding: 10px 14px;
   background: var(--bg-panel);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
+}
+
+.saves-sync-bar--grid {
+  grid-area: sync;
+  margin-top: 0;
 }
 .saves-sync-toggle {
   display: flex;
@@ -2219,8 +2225,13 @@ button:disabled {
 }
 .saves-sync-bar__hint {
   flex: 1;
+  min-width: 160px;
   font-size: 12px;
   color: var(--text-dim);
+}
+
+.saves-sync-bar__action {
+  gap: 8px;
 }
 .saves-link-hint {
   display: flex;
@@ -2258,6 +2269,7 @@ button:disabled {
   display: grid;
   grid-template-areas: 
     "cloud cloud"
+    "sync sync"
     "vanilla modded";
   grid-template-columns: 1fr 1fr;
   gap: 24px 60px;
@@ -2345,6 +2357,8 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   padding: 0 4px;
 }
 
@@ -2363,6 +2377,14 @@ button:disabled {
 
 .saves-section--modded .saves-section__header h2 {
   color: var(--text-muted);
+}
+
+.saves-section__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .saves-grid {
