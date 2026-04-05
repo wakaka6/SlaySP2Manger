@@ -201,13 +201,17 @@ fn common_candidates() -> Vec<(PathBuf, GameDetectSource)> {
 
         // SteamLibrary on drive root
         result.push((
-            PathBuf::from(format!("{d}\\SteamLibrary\\steamapps\\common\\{GAME_FOLDER_NAME}")),
+            PathBuf::from(format!(
+                "{d}\\SteamLibrary\\steamapps\\common\\{GAME_FOLDER_NAME}"
+            )),
             GameDetectSource::SteamLibrary,
         ));
 
         // Games/SteamLibrary
         result.push((
-            PathBuf::from(format!("{d}\\Games\\SteamLibrary\\steamapps\\common\\{GAME_FOLDER_NAME}")),
+            PathBuf::from(format!(
+                "{d}\\Games\\SteamLibrary\\steamapps\\common\\{GAME_FOLDER_NAME}"
+            )),
             GameDetectSource::SteamLibrary,
         ));
 
@@ -262,7 +266,7 @@ fn parse_loginusers_for_account_id(vdf_path: &PathBuf) -> Option<u32> {
 
     for line in content.lines() {
         let trimmed = line.trim();
-        
+
         // Match user root keys which are 17-digit SteamID64s
         if trimmed.starts_with('"') && trimmed.ends_with('"') && trimmed.len() == 19 {
             let id = trimmed.trim_matches('"');
@@ -270,7 +274,7 @@ fn parse_loginusers_for_account_id(vdf_path: &PathBuf) -> Option<u32> {
                 current_steamid64 = Some(id.to_string());
             }
         }
-        
+
         // VDF could be formatted with spaces or tabs
         if trimmed.contains("\"MostRecent\"") && trimmed.contains("\"1\"") {
             if let Some(ref id_str) = current_steamid64 {
@@ -282,22 +286,32 @@ fn parse_loginusers_for_account_id(vdf_path: &PathBuf) -> Option<u32> {
             }
         }
     }
-    
+
     None
+}
+
+/// Find the exact userdata app directory for Slay the Spire 2 cloud saves.
+/// Path: `<Steam root>/userdata/<Account ID>/2868840`
+pub fn find_cloud_app_dir() -> Option<PathBuf> {
+    let steam_root = read_steam_root_from_registry()?;
+    let account_id = get_current_steam_account_id()?;
+
+    let app_dir = steam_root
+        .join("userdata")
+        .join(account_id.to_string())
+        .join(STEAM_APP_ID);
+
+    if app_dir.exists() {
+        Some(app_dir)
+    } else {
+        None
+    }
 }
 
 /// Find the exact userdata path for Slay the Spire 2 cloud saves.
 /// Path: `<Steam root>/userdata/<Account ID>/2868840/remote`
 pub fn find_cloud_save_dir() -> Option<PathBuf> {
-    let steam_root = read_steam_root_from_registry()?;
-    let account_id = get_current_steam_account_id()?;
-    
-    let remote_dir = steam_root
-        .join("userdata")
-        .join(account_id.to_string())
-        .join(STEAM_APP_ID)
-        .join("remote");
-        
+    let remote_dir = find_cloud_app_dir()?.join("remote");
     if remote_dir.exists() {
         Some(remote_dir)
     } else {

@@ -15,4 +15,3 @@ pub enum AppError {
     #[error("io error: {0}")]
     Io(String),
 }
-

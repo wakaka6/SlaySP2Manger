@@ -1,5 +1,6 @@
 import { useI18n } from "../../i18n/I18nProvider";
 import { type ReactNode, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -53,7 +54,11 @@ export function ConfirmDialog({
     return null;
   }
 
-  return (
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
     <div className="dialog-overlay" role="presentation">
       <div aria-label={title} aria-modal="true" className="dialog-card" role="dialog">
         <div className="dialog-card__header">
@@ -89,6 +94,7 @@ export function ConfirmDialog({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

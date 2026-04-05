@@ -10,7 +10,11 @@ use crate::domain::install_plan::{ArchiveInstallPreview, BatchImportPreview, Bat
 use crate::domain::mod_entity::InstalledMod;
 use crate::domain::profile::{ApplyProfileResult, ModProfile};
 use crate::domain::remote_mod::RemoteModSearchResult;
-use crate::domain::save::{SaveBackupEntry, SaveSlot, SaveSlotRef, SaveSyncPair, SaveSyncResult, SaveTransferPreview};
+use crate::domain::save::{
+    BackupArtifactCleanupResult, BackupArtifactStatus, CloudSaveDiffDetail, CloudSaveDiffEntry,
+    CloudSaveDiffSide, CloudSaveStatus, SaveBackupEntry, SaveSlot, SaveSlotRef, SaveSyncPair,
+    SaveSyncResult, SaveTransferPreview,
+};
 use crate::domain::task::ActivityLogEntry;
 use crate::integrations::settings_repo;
 use crate::services::discover_service::DiscoverService;
@@ -43,7 +47,11 @@ pub struct ModToggleResult {
 /// Run save guard logic when mods/ transitions between empty and non-empty.
 /// `before_count`: number of enabled mods before the operation.
 /// `after_count`: expected number of enabled mods after the operation.
-fn run_save_guard(before_count: usize, after_count: usize, settings: &AppSettings) -> SaveGuardInfo {
+fn run_save_guard(
+    before_count: usize,
+    after_count: usize,
+    settings: &AppSettings,
+) -> SaveGuardInfo {
     let was_empty = before_count == 0;
     let will_be_empty = after_count == 0;
 
@@ -124,7 +132,10 @@ pub fn get_app_bootstrap(state: State<'_, AppState>) -> Result<AppBootstrapDto, 
         app_name: "SlaySP2Manager".to_string(),
         app_version: env!("CARGO_PKG_VERSION").to_string(),
         game_directory: detected_game.as_ref().map(|game| game.root_dir.clone()),
-        game_directory_valid: detected_game.as_ref().map(|game| game.is_valid).unwrap_or(false),
+        game_directory_valid: detected_game
+            .as_ref()
+            .map(|game| game.is_valid)
+            .unwrap_or(false),
         installed_count: installed.len(),
         disabled_count: disabled.len(),
         active_profile_name: settings.active_profile_name,
@@ -141,33 +152,102 @@ pub fn get_app_bootstrap(state: State<'_, AppState>) -> Result<AppBootstrapDto, 
 
 // ── Cloud Save API ─────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CloudSaveStatusDto {
-    pub is_available: bool,
-    pub cloud_path: Option<String>,
+#[tauri::command]
+pub fn get_cloud_save_status() -> Result<CloudSaveStatus, String> {
+    SaveService::new().get_cloud_save_status()
 }
 
 #[tauri::command]
-pub fn get_cloud_save_status() -> Result<CloudSaveStatusDto, String> {
-    let cloud_dir = crate::integrations::steam::find_cloud_save_dir();
-    let is_available = cloud_dir.is_some();
-    let cloud_path = cloud_dir.map(|p| p.to_string_lossy().to_string());
-    
-    Ok(CloudSaveStatusDto {
-        is_available,
-        cloud_path,
-    })
+pub fn list_cloud_save_diff_entries() -> Result<Vec<CloudSaveDiffEntry>, String> {
+    SaveService::new().list_cloud_save_diff_entries()
 }
 
 #[tauri::command]
-pub async fn ascend_to_cloud_full() -> Result<(), String> {
-    crate::services::save_service::SaveService::new().sync_with_cloud(true)
+pub fn get_cloud_save_diff_detail(relative_path: String) -> Result<CloudSaveDiffDetail, String> {
+    SaveService::new().get_cloud_save_diff_detail(&relative_path)
 }
 
 #[tauri::command]
-pub async fn descend_from_cloud_full() -> Result<(), String> {
-    crate::services::save_service::SaveService::new().sync_with_cloud(false)
+pub fn save_cloud_save_diff_content(
+    relative_path: String,
+    target: CloudSaveDiffSide,
+    content: String,
+    state: State<'_, AppState>,
+) -> Result<CloudSaveDiffDetail, String> {
+    let detail = SaveService::new().save_cloud_save_diff_content(
+        &relative_path,
+        target.clone(),
+        &content,
+    )?;
+    push_activity(
+        &state,
+        "saves",
+        format!("Edited cloud diff file {} on {:?}", relative_path, target),
+        Some(relative_path),
+    )?;
+    Ok(detail)
+}
+
+#[tauri::command]
+pub fn copy_cloud_save_diff_side(
+    relative_path: String,
+    source: CloudSaveDiffSide,
+    target: CloudSaveDiffSide,
+    state: State<'_, AppState>,
+) -> Result<CloudSaveDiffDetail, String> {
+    let detail = SaveService::new().copy_cloud_save_diff_side(
+        &relative_path,
+        source.clone(),
+        target.clone(),
+    )?;
+    push_activity(
+        &state,
+        "saves",
+        format!(
+            "Copied cloud diff file {} from {:?} to {:?}",
+            relative_path, source, target
+        ),
+        Some(relative_path),
+    )?;
+    Ok(detail)
+}
+
+#[tauri::command]
+pub fn get_backup_artifact_status() -> Result<BackupArtifactStatus, String> {
+    SaveService::new().get_backup_artifact_status()
+}
+
+#[tauri::command]
+pub fn cleanup_backup_artifacts(
+    state: State<'_, AppState>,
+) -> Result<BackupArtifactCleanupResult, String> {
+    let result = SaveService::new().cleanup_backup_artifacts()?;
+    push_activity(
+        &state,
+        "saves",
+        format!(
+            "Cleaned backup artifacts: local {}, cloud {}",
+            result.local_removed, result.cloud_removed
+        ),
+        None,
+    )?;
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn ascend_to_cloud_full(
+    allow_steam_running: Option<bool>,
+) -> Result<CloudSaveStatus, String> {
+    crate::services::save_service::SaveService::new()
+        .sync_with_cloud(true, allow_steam_running.unwrap_or(false))
+}
+
+#[tauri::command]
+pub async fn descend_from_cloud_full(
+    allow_steam_running: Option<bool>,
+) -> Result<CloudSaveStatus, String> {
+    crate::services::save_service::SaveService::new()
+        .sync_with_cloud(false, allow_steam_running.unwrap_or(false))
 }
 
 #[tauri::command]
@@ -223,12 +303,7 @@ pub fn update_nexus_api_key(
     }
 
     settings_repo::save_settings(&settings)?;
-    push_activity(
-        &state,
-        "settings",
-        "Updated Nexus API key",
-        None,
-    )?;
+    push_activity(&state, "settings", "Updated Nexus API key", None)?;
     Ok(settings.clone())
 }
 
@@ -245,7 +320,10 @@ pub fn detect_game_install(state: State<'_, AppState>) -> Result<GameInstall, St
 }
 
 #[tauri::command]
-pub fn update_app_locale(locale: String, state: State<'_, AppState>) -> Result<AppSettings, String> {
+pub fn update_app_locale(
+    locale: String,
+    state: State<'_, AppState>,
+) -> Result<AppSettings, String> {
     let normalized = match locale.as_str() {
         "en-US" => "en-US",
         _ => "zh-CN",
@@ -310,7 +388,10 @@ pub fn enable_mod(mod_id: String, state: State<'_, AppState>) -> Result<ModToggl
         format!("Enabled {}", updated.name),
         Some(updated.install_dir.clone()),
     )?;
-    Ok(ModToggleResult { mod_item: updated, save_guard })
+    Ok(ModToggleResult {
+        mod_item: updated,
+        save_guard,
+    })
 }
 
 #[tauri::command]
@@ -325,14 +406,19 @@ pub fn disable_mod(mod_id: String, state: State<'_, AppState>) -> Result<ModTogg
     let before_count = service.count_enabled().map_err(|e| e.to_string())?;
     let save_guard = run_save_guard(before_count, before_count.saturating_sub(1), &settings);
 
-    let updated = service.disable(&mod_id).map_err(|error| error.to_string())?;
+    let updated = service
+        .disable(&mod_id)
+        .map_err(|error| error.to_string())?;
     push_activity(
         &state,
         "mods",
         format!("Disabled {}", updated.name),
         Some(updated.install_dir.clone()),
     )?;
-    Ok(ModToggleResult { mod_item: updated, save_guard })
+    Ok(ModToggleResult {
+        mod_item: updated,
+        save_guard,
+    })
 }
 
 #[tauri::command]
@@ -347,12 +433,20 @@ pub fn uninstall_mod(mod_id: String, state: State<'_, AppState>) -> Result<Strin
 
     // Check if the mod being uninstalled is enabled (affects mods/ count)
     let enabled_mods = service.list_installed().map_err(|e| e.to_string())?;
-    let is_enabled = enabled_mods.iter().any(|m| m.id.eq_ignore_ascii_case(&mod_id));
+    let is_enabled = enabled_mods
+        .iter()
+        .any(|m| m.id.eq_ignore_ascii_case(&mod_id));
     let before_count = enabled_mods.len();
-    let after_count = if is_enabled { before_count.saturating_sub(1) } else { before_count };
+    let after_count = if is_enabled {
+        before_count.saturating_sub(1)
+    } else {
+        before_count
+    };
     let _save_guard = run_save_guard(before_count, after_count, &settings);
 
-    let removed = service.uninstall(&mod_id).map_err(|error| error.to_string())?;
+    let removed = service
+        .uninstall(&mod_id)
+        .map_err(|error| error.to_string())?;
     push_activity(&state, "mods", format!("Uninstalled {}", removed), None)?;
     Ok(removed)
 }
@@ -480,7 +574,13 @@ pub fn batch_install_mods(
     }
 
     let result = service
-        .batch_install(&paths, enable_after_install, replace_existing, &selected_mod_ids, &conflict_resolutions)
+        .batch_install(
+            &paths,
+            enable_after_install,
+            replace_existing,
+            &selected_mod_ids,
+            &conflict_resolutions,
+        )
         .map_err(|error| error.to_string())?;
 
     push_activity(
@@ -545,7 +645,10 @@ pub fn create_save_backup(
     push_activity(
         &state,
         "saves",
-        format!("Created backup for {:?} slot {}", slot.kind, slot.slot_index),
+        format!(
+            "Created backup for {:?} slot {}",
+            slot.kind, slot.slot_index
+        ),
         Some(backup.backup_path.clone()),
     )?;
     Ok(backup)
@@ -576,8 +679,17 @@ pub fn search_remote_mods(
     count: Option<u64>,
     state: State<'_, AppState>,
 ) -> Result<RemoteModSearchResult, String> {
-    let settings = state.settings.read().map_err(|_| "failed to read app settings".to_string())?.clone();
-    DiscoverService::new(settings).search(&query, &sort_by, offset.unwrap_or(0), count.unwrap_or(20))
+    let settings = state
+        .settings
+        .read()
+        .map_err(|_| "failed to read app settings".to_string())?
+        .clone();
+    DiscoverService::new(settings).search(
+        &query,
+        &sort_by,
+        offset.unwrap_or(0),
+        count.unwrap_or(20),
+    )
 }
 
 #[derive(serde::Serialize)]
@@ -594,7 +706,11 @@ pub struct ModFileInfo {
 
 #[tauri::command]
 pub fn get_mod_files(mod_id: u64, state: State<'_, AppState>) -> Result<Vec<ModFileInfo>, String> {
-    let settings = state.settings.read().map_err(|_| "failed to read app settings".to_string())?.clone();
+    let settings = state
+        .settings
+        .read()
+        .map_err(|_| "failed to read app settings".to_string())?
+        .clone();
     let files = DiscoverService::new(settings).get_mod_files(mod_id)?;
     Ok(files
         .into_iter()
@@ -611,8 +727,16 @@ pub fn get_mod_files(mod_id: u64, state: State<'_, AppState>) -> Result<Vec<ModF
 }
 
 #[tauri::command]
-pub fn get_download_link(mod_id: u64, file_id: u64, state: State<'_, AppState>) -> Result<String, String> {
-    let settings = state.settings.read().map_err(|_| "failed to read app settings".to_string())?.clone();
+pub fn get_download_link(
+    mod_id: u64,
+    file_id: u64,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let settings = state
+        .settings
+        .read()
+        .map_err(|_| "failed to read app settings".to_string())?
+        .clone();
     DiscoverService::new(settings).get_download_link(mod_id, file_id)
 }
 
@@ -623,7 +747,11 @@ pub fn download_and_install_mod(
     file_name: String,
     state: State<'_, AppState>,
 ) -> Result<InstalledMod, String> {
-    let settings = state.settings.read().map_err(|_| "failed to read app settings".to_string())?.clone();
+    let settings = state
+        .settings
+        .read()
+        .map_err(|_| "failed to read app settings".to_string())?
+        .clone();
     let discover = DiscoverService::new(settings.clone());
 
     // 1. Get download URL
@@ -645,7 +773,9 @@ pub fn download_and_install_mod(
         return Err(format!("Download returned status {}", response.status()));
     }
 
-    let bytes = response.bytes().map_err(|e| format!("Failed to read response: {}", e))?;
+    let bytes = response
+        .bytes()
+        .map_err(|e| format!("Failed to read response: {}", e))?;
     std::fs::write(&file_path, &bytes).map_err(|e| format!("Failed to save file: {}", e))?;
 
     // 3. Guard: download always enables, check path switch
@@ -671,7 +801,10 @@ pub fn download_and_install_mod(
     push_activity(
         &state,
         "mods",
-        format!("Downloaded and installed mod from Nexus (mod_id: {})", mod_id),
+        format!(
+            "Downloaded and installed mod from Nexus (mod_id: {})",
+            mod_id
+        ),
         None,
     )?;
 
@@ -681,7 +814,6 @@ pub fn download_and_install_mod(
         .next()
         .ok_or_else(|| "No mods were installed from the archive".to_string())
 }
-
 
 #[tauri::command]
 pub fn list_profiles() -> Result<Vec<ModProfile>, String> {
@@ -706,7 +838,10 @@ pub fn create_profile(
 }
 
 #[tauri::command]
-pub fn update_profile(profile: ModProfile, state: State<'_, AppState>) -> Result<ModProfile, String> {
+pub fn update_profile(
+    profile: ModProfile,
+    state: State<'_, AppState>,
+) -> Result<ModProfile, String> {
     let previous = ProfileService.get(&profile.id)?;
     let updated = ProfileService.update(profile)?;
 
@@ -731,7 +866,10 @@ pub fn update_profile(profile: ModProfile, state: State<'_, AppState>) -> Result
 }
 
 #[tauri::command]
-pub fn delete_profile(profile_id: String, state: State<'_, AppState>) -> Result<ModProfile, String> {
+pub fn delete_profile(
+    profile_id: String,
+    state: State<'_, AppState>,
+) -> Result<ModProfile, String> {
     let removed = ProfileService.delete(&profile_id)?;
 
     {
@@ -772,11 +910,14 @@ pub fn apply_profile(
     let profile = ProfileService.get(&profile_id)?;
     let all_enabled = mod_service.list_installed().map_err(|e| e.to_string())?;
     let all_disabled = mod_service.list_disabled().map_err(|e| e.to_string())?;
-    let all_known: std::collections::HashSet<String> = all_enabled.iter()
+    let all_known: std::collections::HashSet<String> = all_enabled
+        .iter()
         .chain(all_disabled.iter())
         .map(|m| m.id.to_lowercase())
         .collect();
-    let after_count = profile.mod_ids.iter()
+    let after_count = profile
+        .mod_ids
+        .iter()
         .filter(|id| all_known.contains(&id.to_lowercase()))
         .count();
 
@@ -1094,7 +1235,11 @@ pub fn sync_saves(state: State<'_, AppState>) -> Result<SaveSyncResult, String> 
             None,
         )?;
         // Prune old auto-backups after sync
-        let keep = state.settings.read().map(|s| s.auto_backup_keep_count).unwrap_or(5);
+        let keep = state
+            .settings
+            .read()
+            .map(|s| s.auto_backup_keep_count)
+            .unwrap_or(5);
         let _ = svc.prune_auto_backups(keep);
     }
     Ok(result)
@@ -1157,16 +1302,13 @@ pub fn update_auto_backup_keep_count(
 }
 
 #[tauri::command]
-pub fn test_proxy(
-    proxy_url: String,
-) -> Result<String, String> {
+pub fn test_proxy(proxy_url: String) -> Result<String, String> {
     let trimmed = proxy_url.trim();
     if trimmed.is_empty() {
         return Err("Proxy URL is empty".to_string());
     }
 
-    let proxy = reqwest::Proxy::all(trimmed)
-        .map_err(|e| format!("Invalid proxy URL: {}", e))?;
+    let proxy = reqwest::Proxy::all(trimmed).map_err(|e| format!("Invalid proxy URL: {}", e))?;
 
     let client = reqwest::blocking::Client::builder()
         .proxy(proxy)

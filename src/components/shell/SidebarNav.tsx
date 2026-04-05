@@ -1,16 +1,24 @@
 import { ArrowDownToLine, CheckCircle, AlertTriangle, Loader2, X, Play, ChevronsLeft, Layers3, Check } from "lucide-react";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 import { useI18n } from "../../i18n/I18nProvider";
-import { launchGame, listProfiles, applyProfile, type ModProfile } from "../../lib/desktop";
+import {
+  applyProfile,
+  getCloudSaveStatus,
+  launchGame,
+  listProfiles,
+  type CloudSaveStatusDto,
+  type ModProfile,
+} from "../../lib/desktop";
 import appIcon from "../../assets/app-icon.png";
 import { useDownloads } from "../../contexts/DownloadContext";
 import { useUpdate } from "../../contexts/UpdateContext";
-import type { ShellNavItem } from "./AppShell";
+import type { ShellNavItem, ShellNavigateOptions } from "./AppShell";
 import { useEffect, useRef, useState } from "react";
 
 type SidebarNavProps = {
   items: ShellNavItem[];
   activePath: string;
-  onNavigate: (path: string) => void;
+  onNavigate: (path: string, options?: ShellNavigateOptions) => void;
   collapsed: boolean;
   activeProfileName: string;
   appVersion: string;
@@ -28,6 +36,8 @@ export function SidebarNav(props: SidebarNavProps) {
   const [profiles, setProfiles] = useState<ModProfile[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [launchChecking, setLaunchChecking] = useState(false);
+  const [launchMismatch, setLaunchMismatch] = useState<CloudSaveStatusDto | null>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,6 +70,52 @@ export function SidebarNav(props: SidebarNavProps) {
       setProfileOpen(false);
     }
   };
+
+  const handleLaunch = async () => {
+    if (launchChecking) return;
+
+    setLaunchChecking(true);
+    try {
+      const cloudStatus = await getCloudSaveStatus();
+      if (cloudStatus.isAvailable && cloudStatus.hasMismatch) {
+        setLaunchMismatch(cloudStatus);
+        return;
+      }
+
+      await launchGame();
+    } catch (error) {
+      console.error("Failed to check cloud save status before launch:", error);
+      try {
+        await launchGame();
+      } catch (launchError) {
+        console.error("Failed to launch the game:", launchError);
+      }
+    } finally {
+      setLaunchChecking(false);
+    }
+  };
+
+  const handleLaunchAnyway = async () => {
+    if (launchChecking) return;
+
+    setLaunchChecking(true);
+    try {
+      await launchGame();
+      setLaunchMismatch(null);
+    } catch (error) {
+      console.error("Failed to launch the game:", error);
+    } finally {
+      setLaunchChecking(false);
+    }
+  };
+
+  const launchMismatchSummary = launchMismatch
+    ? t("saves.cloudMismatchSummary", {
+        localOnly: launchMismatch.localOnlyCount,
+        cloudOnly: launchMismatch.cloudOnlyCount,
+        different: launchMismatch.differentCount,
+      })
+    : null;
 
   return (
     <aside className={`sidebar-nav${props.collapsed ? " sidebar-nav--collapsed" : ""}`}>
@@ -196,8 +252,12 @@ export function SidebarNav(props: SidebarNavProps) {
           </div>
         )}
 
-        <button className="sidebar-nav__launch" type="button" onClick={() => void launchGame()}>
-          <Play className="sidebar-nav__launch-icon" size={14} strokeWidth={2.4} />
+        <button className="sidebar-nav__launch" type="button" onClick={() => void handleLaunch()} disabled={launchChecking}>
+          {launchChecking ? (
+            <Loader2 className="sidebar-nav__launch-icon spin-icon" size={14} strokeWidth={2.4} />
+          ) : (
+            <Play className="sidebar-nav__launch-icon" size={14} strokeWidth={2.4} />
+          )}
           <span className="sidebar-nav__launch-text">{t("nav.launchGame")}</span>
         </button>
 
@@ -217,6 +277,49 @@ export function SidebarNav(props: SidebarNavProps) {
           )}
         </button>
       </div>
+
+      <ConfirmDialog
+        open={launchMismatch !== null}
+        title={t("saves.cloudLaunchMismatchTitle")}
+        description={t("saves.cloudLaunchMismatchBody")}
+        dismissLabel={t("saves.reviewInSaves")}
+        cancelLabel={t("common.cancel")}
+        confirmLabel={t("saves.launchAnyway")}
+        onDismiss={() => {
+          setLaunchMismatch(null);
+          props.onNavigate("/saves", {
+            state: {
+              openCloudDiffWorkbench: true,
+              source: "launch-mismatch-guard",
+              requestId: Date.now(),
+            },
+          });
+        }}
+        onCancel={() => setLaunchMismatch(null)}
+        onConfirm={() => void handleLaunchAnyway()}
+      >
+        {launchMismatch ? (
+          <div style={{ display: "grid", gap: "10px" }}>
+            {launchMismatchSummary ? (
+              <div style={{ color: "var(--text-secondary)", fontSize: "13px" }}>
+                {launchMismatchSummary}
+              </div>
+            ) : null}
+            {launchMismatch.samplePaths.length > 0 ? (
+              <div style={{ display: "grid", gap: "6px" }}>
+                {launchMismatch.samplePaths.map((sample) => (
+                  <code key={sample} style={{ fontSize: "12px", whiteSpace: "pre-wrap" }}>
+                    {sample}
+                  </code>
+                ))}
+              </div>
+            ) : null}
+            <div style={{ color: "var(--text-dim)", fontSize: "12px" }}>
+              {t("saves.cloudReviewBeforeLaunch")}
+            </div>
+          </div>
+        ) : null}
+      </ConfirmDialog>
     </aside>
   );
 }

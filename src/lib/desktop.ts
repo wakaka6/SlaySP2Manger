@@ -421,20 +421,117 @@ export async function syncSaves(): Promise<SaveSyncResult> {
 export type CloudSaveStatusDto = {
   isAvailable: boolean;
   cloudPath: string | null;
+  localPath: string | null;
+  hasMismatch: boolean;
+  localOnlyCount: number;
+  cloudOnlyCount: number;
+  differentCount: number;
+  localFileCount: number;
+  cloudFileCount: number;
+  samplePaths: string[];
+  localAppliedToCloud: boolean;
+  cloudAppliedToLocal: boolean;
+};
+
+export type CloudSaveDiffKind = "in_sync" | "different" | "local_only" | "cloud_only";
+export type CloudSaveDiffSide = "local" | "cloud";
+
+export type CloudSaveDiffEntryDto = {
+  relativePath: string;
+  kind: CloudSaveDiffKind;
+  localExists: boolean;
+  cloudExists: boolean;
+  localSize: number | null;
+  cloudSize: number | null;
+  localSha: string | null;
+  cloudSha: string | null;
+};
+
+export type CloudSaveDiffSideDetailDto = {
+  path: string;
+  exists: boolean;
+  isText: boolean;
+  size: number | null;
+  sha: string | null;
+  modifiedAt: string | null;
+  textContent: string | null;
+};
+
+export type CloudSaveDiffDetailDto = {
+  relativePath: string;
+  kind: CloudSaveDiffKind;
+  local: CloudSaveDiffSideDetailDto;
+  cloud: CloudSaveDiffSideDetailDto;
+};
+
+export type BackupArtifactStatusDto = {
+  localCount: number;
+  cloudCount: number;
+};
+
+export type BackupArtifactCleanupResultDto = {
+  localRemoved: number;
+  cloudRemoved: number;
 };
 
 export async function getCloudSaveStatus(): Promise<CloudSaveStatusDto> {
   return invoke<CloudSaveStatusDto>("get_cloud_save_status");
 }
 
-export async function ascendToCloudFull() {
-  const result = await invoke<void>("ascend_to_cloud_full");
+export async function listCloudSaveDiffEntries(): Promise<CloudSaveDiffEntryDto[]> {
+  return invoke<CloudSaveDiffEntryDto[]>("list_cloud_save_diff_entries");
+}
+
+export async function getCloudSaveDiffDetail(relativePath: string): Promise<CloudSaveDiffDetailDto> {
+  return invoke<CloudSaveDiffDetailDto>("get_cloud_save_diff_detail", { relativePath });
+}
+
+export async function saveCloudSaveDiffContent(
+  relativePath: string,
+  target: CloudSaveDiffSide,
+  content: string,
+): Promise<CloudSaveDiffDetailDto> {
+  const result = await invoke<CloudSaveDiffDetailDto>("save_cloud_save_diff_content", {
+    relativePath,
+    target,
+    content,
+  });
+  invalidate("save_slots");
+  return result;
+}
+
+export async function copyCloudSaveDiffSide(
+  relativePath: string,
+  source: CloudSaveDiffSide,
+  target: CloudSaveDiffSide,
+): Promise<CloudSaveDiffDetailDto> {
+  const result = await invoke<CloudSaveDiffDetailDto>("copy_cloud_save_diff_side", {
+    relativePath,
+    source,
+    target,
+  });
+  invalidate("save_slots");
+  return result;
+}
+
+export async function getBackupArtifactStatus(): Promise<BackupArtifactStatusDto> {
+  return invoke<BackupArtifactStatusDto>("get_backup_artifact_status");
+}
+
+export async function cleanupBackupArtifacts(): Promise<BackupArtifactCleanupResultDto> {
+  const result = await invoke<BackupArtifactCleanupResultDto>("cleanup_backup_artifacts");
+  invalidate("save_slots");
+  return result;
+}
+
+export async function ascendToCloudFull(allowSteamRunning = false): Promise<CloudSaveStatusDto> {
+  const result = await invoke<CloudSaveStatusDto>("ascend_to_cloud_full", { allowSteamRunning });
   invalidate("save_slots", "save_backups");
   return result;
 }
 
-export async function descendFromCloudFull() {
-  const result = await invoke<void>("descend_from_cloud_full");
+export async function descendFromCloudFull(allowSteamRunning = false): Promise<CloudSaveStatusDto> {
+  const result = await invoke<CloudSaveStatusDto>("descend_from_cloud_full", { allowSteamRunning });
   invalidate("save_slots", "save_backups");
   return result;
 }

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { CloudDiffWorkbenchDialog } from "../../components/saves/CloudDiffWorkbenchDialog";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { PageHeader } from "../../components/common/PageHeader";
 import { useI18n } from "../../i18n/I18nProvider";
@@ -69,7 +71,15 @@ const REASON_MAP: Record<string, ReasonKey> = {
 // ── Line data ────────────────────────────────────────────────────────────
 type LineCoord = { x1: number; y1: number; x2: number; y2: number };
 
+type SavesPageRouteState = {
+  openCloudDiffWorkbench?: boolean;
+  source?: string;
+  requestId?: number;
+};
+
 export function SavesPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { t } = useI18n();
   const [slots, setSlots] = useState<SaveSlot[]>([]);
   const [backups, setBackups] = useState<SaveBackupEntry[]>([]);
@@ -87,6 +97,17 @@ export function SavesPage() {
   // Cloud Integration
   const [cloudStatus, setCloudStatus] = useState<CloudSaveStatusDto | null>(null);
   const [isCloudSyncing, setIsCloudSyncing] = useState<"ascend" | "descend" | null>(null);
+  const [steamCloudRiskAction, setSteamCloudRiskAction] = useState<"ascend" | "descend" | null>(null);
+  const [cloudDiffOpen, setCloudDiffOpen] = useState(false);
+
+  const cloudMismatchSummary = useMemo(() => {
+    if (!cloudStatus?.isAvailable || !cloudStatus.hasMismatch) return null;
+    return t("saves.cloudMismatchSummary", {
+      localOnly: cloudStatus.localOnlyCount,
+      cloudOnly: cloudStatus.cloudOnlyCount,
+      different: cloudStatus.differentCount,
+    });
+  }, [cloudStatus, t]);
 
   // Group backups by kind + slotIndex
   const groupedBackups = useMemo(() => {
@@ -106,11 +127,17 @@ export function SavesPage() {
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
   const [lines, setLines] = useState<(LineCoord & { key: string })[]>([]);
   const isActionRunningRef = useRef(false);
+  const handledCloudDiffRequestRef = useRef<number | null>(null);
 
   async function reload() {
-    const [slotItems, backupItems] = await Promise.all([listSaveSlots(), listSaveBackups()]);
+    const [slotItems, backupItems, nextCloudStatus] = await Promise.all([
+      listSaveSlots(),
+      listSaveBackups(),
+      getCloudSaveStatus().catch(() => null),
+    ]);
     setSlots(slotItems);
     setBackups(backupItems);
+    setCloudStatus(nextCloudStatus);
   }
 
   useEffect(() => {
@@ -121,12 +148,22 @@ export function SavesPage() {
         void handleSync(true);
       }
     }).catch(() => {});
-    
-    // Fetch Cloud Status
-    getCloudSaveStatus().then(setCloudStatus).catch(() => {});
-    
     void reload();
   }, []);
+
+  useEffect(() => {
+    const routeState = (location.state ?? null) as SavesPageRouteState | null;
+    if (!routeState?.openCloudDiffWorkbench) return;
+
+    const requestId = routeState.requestId ?? 0;
+    if (handledCloudDiffRequestRef.current === requestId) return;
+    handledCloudDiffRequestRef.current = requestId;
+
+    setCloudDiffOpen(true);
+    setStatus(t("saves.cloudReviewBeforeLaunch"));
+    void reload();
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate, t]);
 
   // ── Calculate line positions ───────────────────────────────────────
   const recalcLines = useCallback(() => {
@@ -307,21 +344,40 @@ export function SavesPage() {
   }
 
   // ── Cloud Handlers ────────────────────────────────────────────────
-  async function handleCloudAction(action: "ascend" | "descend") {
+  async function handleCloudAction(action: "ascend" | "descend", allowSteamRunning = false) {
     if (isActionRunningRef.current || !cloudStatus?.isAvailable) return;
     isActionRunningRef.current = true;
     setIsCloudSyncing(action);
     setStatus(action === "ascend" ? t("saves.cloudAscending") : t("saves.cloudDescending"));
     try {
+      const nextStatus =
+        action === "ascend"
+          ? await ascendToCloudFull(allowSteamRunning)
+          : await descendFromCloudFull(allowSteamRunning);
+
+      setCloudStatus(nextStatus);
+
       if (action === "ascend") {
-        await ascendToCloudFull();
+        setStatus(
+          nextStatus.localAppliedToCloud && !nextStatus.hasMismatch
+            ? t("saves.cloudAscendDone")
+            : t("saves.cloudAscendPreparedWithWarnings"),
+        );
       } else {
-        await descendFromCloudFull();
+        setStatus(
+          nextStatus.cloudAppliedToLocal && !nextStatus.hasMismatch
+            ? t("saves.cloudDescendDone")
+            : t("saves.cloudDescendPreparedWithWarnings"),
+        );
       }
-      setStatus(action === "ascend" ? t("saves.cloudAscendDone") : t("saves.cloudDescendDone"));
       await reload();
     } catch (error) {
       let errMsg = typeof error === "string" ? error : (error instanceof Error ? error.message : "Unknown error");
+      if (errMsg === "error.steamRunningBeforeCloudSync" && !allowSteamRunning) {
+        setSteamCloudRiskAction(action);
+        setStatus(t("saves.cloudSteamRunningReview"));
+        return;
+      }
       if (errMsg.startsWith("error.")) {
         errMsg = t(errMsg as any);
       }
@@ -547,8 +603,28 @@ export function SavesPage() {
                  
                  {cloudStatus ? (
                    cloudStatus.isAvailable ? (
-                     <div className="cloud-core__status" title={cloudStatus.cloudPath || ""}>
-                       {t("saves.cloudDetected")}
+                     <div className="cloud-core__status">
+                       <div className="cloud-core__headline">
+                         {cloudStatus.hasMismatch
+                           ? t("saves.cloudMismatch")
+                           : t("saves.cloudInSync")}
+                       </div>
+                       {cloudMismatchSummary ? (
+                         <div className="cloud-core__summary">
+                           {cloudMismatchSummary}
+                         </div>
+                       ) : null}
+                       {cloudStatus.hasMismatch ? (
+                         <div className="cloud-core__review">
+                           <button
+                             className="button button--ghost button--sm"
+                             type="button"
+                             onClick={() => setCloudDiffOpen(true)}
+                           >
+                             {t("saves.cloudReviewDiff")}
+                           </button>
+                         </div>
+                       ) : null}
                      </div>
                    ) : (
                      <div className="cloud-core__status text-error">{t("saves.cloudNotFound")}</div>
@@ -808,6 +884,36 @@ export function SavesPage() {
         }) : undefined}
         onCancel={() => setPendingRestore(null)} onConfirm={() => void confirmRestore()}
         open={pendingRestore !== null} title={t("saves.confirmRestore")} tone="danger"
+      />
+
+      <ConfirmDialog
+        open={steamCloudRiskAction !== null}
+        title={t("saves.cloudSteamRunningTitle")}
+        description={t("saves.cloudSteamRunningBody")}
+        cancelLabel={t("common.cancel")}
+        confirmLabel={t("saves.cloudSteamRunningContinue")}
+        onCancel={() => {
+          setSteamCloudRiskAction(null);
+          setStatus(t("saves.ready"));
+        }}
+        onConfirm={() => {
+          const action = steamCloudRiskAction;
+          setSteamCloudRiskAction(null);
+          if (action) {
+            void handleCloudAction(action, true);
+          }
+        }}
+      >
+        <div style={{ color: "var(--text-dim)", fontSize: "13px" }}>
+          {t("saves.cloudSteamRunningHint")}
+        </div>
+      </ConfirmDialog>
+
+      <CloudDiffWorkbenchDialog
+        open={cloudDiffOpen}
+        cloudStatus={cloudStatus}
+        onClose={() => setCloudDiffOpen(false)}
+        onStatusChanged={reload}
       />
     </section>
   );

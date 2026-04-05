@@ -1,5 +1,5 @@
-use serde::Serialize;
 use crate::domain::save::SaveSyncPair;
+use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

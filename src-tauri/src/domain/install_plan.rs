@@ -96,4 +96,3 @@ pub struct BatchInstallResult {
     pub failure_count: usize,
     pub results: Vec<BatchInstallItemResult>,
 }
-

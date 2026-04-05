@@ -107,7 +107,9 @@ impl DiscoverService {
             return Err(format!("Nexus API returned {}", response.status()));
         }
 
-        response.json::<NexusUserValidation>().map_err(|e| e.to_string())
+        response
+            .json::<NexusUserValidation>()
+            .map_err(|e| e.to_string())
     }
 
     /// Search / list mods with pagination via the GraphQL v2 API.
@@ -212,9 +214,7 @@ impl DiscoverService {
                 NEXUS_GAME_ID
             )
         } else {
-            let escaped = query_trimmed
-                .replace('\\', "\\\\")
-                .replace('"', "\\\"");
+            let escaped = query_trimmed.replace('\\', "\\\\").replace('"', "\\\"");
             format!(
                 r#"{{ filter: [{{ gameId: {{ value: "{game_id}", op: EQUALS }}, name: {{ value: "{q}", op: EQUALS }} }}, {{ gameId: {{ value: "{game_id}", op: EQUALS }}, description: {{ value: "{q}", op: MATCHES }} }}], op: OR }}"#,
                 game_id = NEXUS_GAME_ID,
@@ -288,6 +288,9 @@ impl DiscoverService {
     }
 
     fn read_api_key(&self) -> Option<String> {
-        self.settings.nexus_api_key.clone().filter(|s| !s.is_empty())
+        self.settings
+            .nexus_api_key
+            .clone()
+            .filter(|s| !s.is_empty())
     }
 }

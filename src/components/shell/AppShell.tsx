@@ -25,6 +25,11 @@ export type ShellNavItem = {
   section?: string;
 };
 
+export type ShellNavigateOptions = {
+  replace?: boolean;
+  state?: unknown;
+};
+
 export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -84,7 +89,7 @@ export function AppShell() {
       <SidebarNav
         activePath={location.pathname}
         items={navItems}
-        onNavigate={navigate}
+        onNavigate={(path, options) => navigate(path, options)}
         collapsed={sidebarCollapsed}
         activeProfileName={appState?.activeProfileName ?? ""}
         appVersion={appState?.appVersion ?? ""}

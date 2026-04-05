@@ -1,6 +1,6 @@
 [package]
 name = "slaysp2manager"
-version = "0.6.0"
+version = "0.6.1"
 edition = "2021"
 
 [lib]
@@ -25,3 +25,5 @@ reqwest = { version = "0.12", features = ["blocking", "json", "socks"] }
 dirs-next = "2.0"
 winreg = "0.55"
 tauri-plugin-updater = "2"
+sha1 = "0.10"
+filetime = "0.2"

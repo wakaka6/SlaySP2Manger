@@ -5,6 +5,25 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.6.1] - 2026-04-05
+
+### 新增
+
+- **云存档差异审视工作台**：新增专门的本地/Steam Cloud 真实差异审视窗口，支持 delta 风格 diff、两侧文件元数据查看、文本文件内联编辑，以及本地与云缓存之间的精确复制。
+- **Steam Cloud 同步文档**：新增 `docs/steam-cloud-sync-notes.md`、`docs/remotecache-vdf-reference.md` 和 `docs/save-file-reference.md`，系统说明 Steam Cloud 缓存机制、`remotecache.vdf` 和长期进度相关存档字段。
+
+### 变更
+
+- 云缓存准备流程现在会在写入云侧文件后对齐文件 mtime，并重建 `remotecache.vdf`，让 Steam 下次启动时看到一份更自洽的本地缓存快照。
+- 启动游戏前的云存档差异提示现在可以直接跳转到存档页，并自动打开云差异审视窗口。
+- 云差异审视窗口默认隐藏 `*.backup` 项，先把真正影响长期进度的核心文件呈现出来。
+
+### 修复
+
+- 修复误删 `history/*.run.backup` 这类 Steam 仍会在启动同步阶段读取的文件后，导致 Slay the Spire 2 启动崩溃的问题；危险的 backup cleanup 路径现已禁用。
+- 修复审视窗口与确认弹窗被应用顶层拖拽区、标题区遮挡，导致界面看起来“卡住”的问题。
+- 修复在 Steam 或游戏仍在运行时直接改写云缓存导致状态错乱的问题；云侧写操作现在会要求先关闭 Steam 和游戏。
+
 ## [0.6.0] - 2026-04-03
 
 ### 新增

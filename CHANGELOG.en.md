@@ -5,6 +5,25 @@ All notable changes to SlaySP2Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-04-05
+
+### Added
+
+- **Cloud diff workbench**: Added a dedicated review workspace for real local-vs-cloud mismatches with delta-style diff, exact file metadata, inline text editing, and one-click copy between local and Steam cloud cache.
+- **Steam cloud sync documentation**: Added `docs/steam-cloud-sync-notes.md`, `docs/remotecache-vdf-reference.md`, and `docs/save-file-reference.md` to document Steam Cloud cache behavior, `remotecache.vdf`, and long-term save/progress fields.
+
+### Changed
+
+- Cloud cache preparation now aligns file mtimes and rebuilds `remotecache.vdf` after cloud-side writes so Steam sees a self-consistent cache snapshot on next launch.
+- The pre-launch cloud mismatch guard can now jump directly into Saves and auto-open the cloud diff workbench.
+- Backup artifacts are hidden by default in the cloud diff workbench so long-term progress files stay visible first during review.
+
+### Fixed
+
+- Fixed a startup crash caused by removing `history/*.run.backup` files that Slay the Spire 2 still expects during Steam cloud sync. The unsafe backup-cleanup path is now disabled.
+- Fixed the review dialog being visually trapped behind higher-level shell overlays and title/drag layers.
+- Fixed cloud-side mutations while Steam or the game is still running by blocking those writes until both processes are closed.
+
 ## [0.5.0] - 2026-03-27
 
 ### Added

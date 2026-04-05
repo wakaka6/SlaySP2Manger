@@ -90,7 +90,9 @@ impl ProfileService {
     ) -> Result<ApplyProfileResult, String> {
         let profile = self.get(profile_id)?;
         let service = ModService::new(settings);
-        let enabled = service.list_installed().map_err(|error| error.to_string())?;
+        let enabled = service
+            .list_installed()
+            .map_err(|error| error.to_string())?;
         let disabled = service.list_disabled().map_err(|error| error.to_string())?;
 
         let desired = normalize_mod_ids(profile.mod_ids.clone());
@@ -140,7 +142,11 @@ impl ProfileService {
     }
 }
 
-fn validate_name(profiles: &[ModProfile], name: &str, current_id: Option<&str>) -> Result<(), String> {
+fn validate_name(
+    profiles: &[ModProfile],
+    name: &str,
+    current_id: Option<&str>,
+) -> Result<(), String> {
     let trimmed = name.trim();
     if trimmed.is_empty() {
         return Err("profile name is required".to_string());

@@ -281,6 +281,9 @@ export type MessageKey =
   | "error.localSaveNotFound"
   | "error.cloudSaveNotFound"
   | "error.activeUserNotFound"
+  | "error.closeSteamAndGameBeforeCloudSync"
+  | "error.closeGameBeforeCloudSync"
+  | "error.steamRunningBeforeCloudSync"
   | "saves.title"
   | "saves.description"
   | "saves.ready"
@@ -353,6 +356,9 @@ export type MessageKey =
   | "saves.timeDaysAgo"
   | "saves.cloudSanctuary"
   | "saves.cloudDetected"
+  | "saves.cloudInSync"
+  | "saves.cloudMismatch"
+  | "saves.cloudMismatchSummary"
   | "saves.cloudNotFound"
   | "saves.cloudScanning"
   | "saves.cloudDescend"
@@ -361,8 +367,53 @@ export type MessageKey =
   | "saves.cloudDescending"
   | "saves.cloudAscendDone"
   | "saves.cloudDescendDone"
+  | "saves.cloudAscendPreparedWithWarnings"
+  | "saves.cloudDescendPreparedWithWarnings"
   | "saves.cloudAscendFailed"
   | "saves.cloudDescendFailed"
+  | "saves.cloudSteamRunningTitle"
+  | "saves.cloudSteamRunningBody"
+  | "saves.cloudSteamRunningHint"
+  | "saves.cloudSteamRunningContinue"
+  | "saves.cloudSteamRunningReview"
+  | "saves.cloudReviewBeforeLaunch"
+  | "saves.cloudReviewDiff"
+  | "saves.cloudDiffWorkbenchTitle"
+  | "saves.cloudDiffWorkbenchBody"
+  | "saves.cloudDiffRefresh"
+  | "saves.cloudDiffHideBackups"
+  | "saves.cloudDiffShowBackups"
+  | "saves.cloudDiffNoItems"
+  | "saves.cloudDiffNoSelection"
+  | "saves.cloudDiffDifferent"
+  | "saves.cloudDiffLocalOnly"
+  | "saves.cloudDiffCloudOnly"
+  | "saves.cloudDiffInSync"
+  | "saves.cloudDiffLocal"
+  | "saves.cloudDiffCloud"
+  | "saves.cloudDiffUseLocal"
+  | "saves.cloudDiffUseCloud"
+  | "saves.cloudDiffEditLocal"
+  | "saves.cloudDiffEditCloud"
+  | "saves.cloudDiffEditing"
+  | "saves.cloudDiffEditingBody"
+  | "saves.cloudDiffCancelEdit"
+  | "saves.cloudDiffSaveEdit"
+  | "saves.cloudDiffTextUnsupported"
+  | "saves.cloudDiffTextUnsupportedBody"
+  | "saves.cloudDiffUnchangedFold"
+  | "saves.cloudDiffStickyNote"
+  | "saves.cloudDiffNoiseNote"
+  | "saves.cloudDiffCleanBackups"
+  | "saves.cloudDiffCleanBackupsConfirmTitle"
+  | "saves.cloudDiffCleanBackupsConfirmBody"
+  | "saves.cloudDiffCleanBackupsConfirmAction"
+  | "saves.cloudDiffCleanBackupsHint"
+  | "saves.cloudDiffCleanBackupsDone"
+  | "saves.cloudLaunchMismatchTitle"
+  | "saves.cloudLaunchMismatchBody"
+  | "saves.reviewInSaves"
+  | "saves.launchAnyway"
   | "saves.timeFragments"
   | "common.cancel"
   | "common.confirm";
@@ -655,6 +706,9 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "error.localSaveNotFound": "Local save directory not found. Please launch the game at least once.",
     "error.cloudSaveNotFound": "Could not locate Steam cloud save directory. Is Steam currently running?",
     "error.activeUserNotFound": "Could not locate active Steam Account.",
+    "error.closeSteamAndGameBeforeCloudSync": "Close Steam and Slay the Spire 2 before running a cloud sync. Steam cache metadata can overwrite externally copied files while either process is running.",
+    "error.closeGameBeforeCloudSync": "Close Slay the Spire 2 before running a cloud sync.",
+    "error.steamRunningBeforeCloudSync": "Steam is still running. Continuing may let Steam overwrite externally prepared cloud cache files.",
     "saves.title": "Save Management",
     "saves.description": "Back up, restore or sync your save files between vanilla and modded environments.",
     "saves.ready": "Ready",
@@ -726,6 +780,9 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.timeDaysAgo": "{count}d ago",
     "saves.cloudSanctuary": "Steam Cloud Save",
     "saves.cloudDetected": "Cloud state detected. Full mirroring active.",
+    "saves.cloudInSync": "Local saves and Steam Cloud cache are in sync.",
+    "saves.cloudMismatch": "Local saves and Steam Cloud cache do not fully match.",
+    "saves.cloudMismatchSummary": "Local-only: {localOnly}, cloud-only: {cloudOnly}, different: {different}.",
     "saves.cloudNotFound": "Steam Cloud save not found. Is Steam running?",
     "saves.cloudScanning": "Scanning connection...",
     "saves.cloudDescend": "Download (Cloud \u2192 Local)",
@@ -734,8 +791,53 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.cloudDescending": "Downloading saves from Steam Cloud...",
     "saves.cloudAscendDone": "Cloud upload completed. Local state is synchronized.",
     "saves.cloudDescendDone": "Cloud download completed. Local state is synchronized.",
+    "saves.cloudAscendPreparedWithWarnings": "Steam Cloud cache was updated, but differences still remain. Review the mismatch summary before launch.",
+    "saves.cloudDescendPreparedWithWarnings": "Local saves were refreshed from the cloud cache, but differences still remain. Review the mismatch summary before launch.",
     "saves.cloudAscendFailed": "Failed to upload Steam Cloud data.",
     "saves.cloudDescendFailed": "Failed to download Steam Cloud data.",
+    "saves.cloudSteamRunningTitle": "Steam is still running",
+    "saves.cloudSteamRunningBody": "The manager can continue, but Steam may immediately rewrite the local cloud cache while it is open.",
+    "saves.cloudSteamRunningHint": "Recommended: close Steam first for the safest cloud sync. Continue only if you accept the overwrite risk.",
+    "saves.cloudSteamRunningContinue": "Continue Anyway",
+    "saves.cloudSteamRunningReview": "Steam is still running. Review the risk before continuing.",
+    "saves.cloudReviewBeforeLaunch": "Review the mismatch in Saves before launching.",
+    "saves.cloudReviewDiff": "Review Diff",
+    "saves.cloudDiffWorkbenchTitle": "Cloud Diff Workbench",
+    "saves.cloudDiffWorkbenchBody": "Inspect the real mismatch set, hide backup noise, compare both sides, and edit the exact file before launch.",
+    "saves.cloudDiffRefresh": "Refresh",
+    "saves.cloudDiffHideBackups": "Hide backup files",
+    "saves.cloudDiffShowBackups": "Show backup files ({count})",
+    "saves.cloudDiffNoItems": "No mismatched files remain.",
+    "saves.cloudDiffNoSelection": "Select a file to inspect.",
+    "saves.cloudDiffDifferent": "Different",
+    "saves.cloudDiffLocalOnly": "Local only",
+    "saves.cloudDiffCloudOnly": "Cloud only",
+    "saves.cloudDiffInSync": "In sync",
+    "saves.cloudDiffLocal": "Local",
+    "saves.cloudDiffCloud": "Cloud cache",
+    "saves.cloudDiffUseLocal": "Use local version",
+    "saves.cloudDiffUseCloud": "Use cloud version",
+    "saves.cloudDiffEditLocal": "Edit local",
+    "saves.cloudDiffEditCloud": "Edit cloud",
+    "saves.cloudDiffEditing": "Editing {side}",
+    "saves.cloudDiffEditingBody": "Write the exact file content you want, then apply it back into the selected side.",
+    "saves.cloudDiffCancelEdit": "Cancel edit",
+    "saves.cloudDiffSaveEdit": "Save edit",
+    "saves.cloudDiffTextUnsupported": "Inline editing is unavailable for this file.",
+    "saves.cloudDiffTextUnsupportedBody": "This side is not valid UTF-8 text or is too large for the inline editor. You can still inspect the path or adopt the opposite side.",
+    "saves.cloudDiffUnchangedFold": "{count} unchanged lines",
+    "saves.cloudDiffStickyNote": "Editing the cloud side changes Steam's local cache view. It does not mean the server already accepted the new version.",
+    "saves.cloudDiffNoiseNote": "Backup artifacts are hidden by default so long-term progression files stay in focus.",
+    "saves.cloudDiffCleanBackups": "Clean backup noise (local {local} / cloud {cloud})",
+    "saves.cloudDiffCleanBackupsConfirmTitle": "Delete backup noise files",
+    "saves.cloudDiffCleanBackupsConfirmBody": "This will remove *.backup artifacts from the active local save directory and the Steam cloud cache. Local: {local}, cloud: {cloud}.",
+    "saves.cloudDiffCleanBackupsConfirmAction": "Clean both sides",
+    "saves.cloudDiffCleanBackupsHint": "This does not touch SlaySP2Manager's own snapshot backups under AppData/SlaySP2Manager/backups.",
+    "saves.cloudDiffCleanBackupsDone": "Removed backup artifacts: local {local}, cloud {cloud}.",
+    "saves.cloudLaunchMismatchTitle": "Cloud cache differs from local saves",
+    "saves.cloudLaunchMismatchBody": "The Steam Cloud local cache and the local save directory are not identical. Launching now may let Steam overwrite one side with the other.",
+    "saves.reviewInSaves": "Review in Saves",
+    "saves.launchAnyway": "Launch Anyway",
     "saves.timeFragments": "Save Backups",
     "common.cancel": "Cancel",
     "common.confirm": "Confirm",
@@ -1025,6 +1127,9 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "error.localSaveNotFound": "未找到本地存档目录，请至少运行一次游戏以生成初始存档。",
     "error.cloudSaveNotFound": "未找到 Steam 云存档目录，请确认 Steam 是否处于运行状态。",
     "error.activeUserNotFound": "未能检测到当前激活的 Steam 账号。",
+    "error.closeSteamAndGameBeforeCloudSync": "执行云同步前请先关闭 Steam 和 Slay the Spire 2。任一进程运行时，Steam 的缓存元数据都可能把外部复制进去的文件再次覆盖掉。",
+    "error.closeGameBeforeCloudSync": "执行云同步前请先关闭 Slay the Spire 2。",
+    "error.steamRunningBeforeCloudSync": "Steam 仍在运行。继续执行时，Steam 可能会立刻改写你刚准备好的云缓存文件。",
     "saves.title": "存档管理",
     "saves.description": "在原版与模组环境之间备份、恢复或同步存档。",
     "saves.ready": "就绪",
@@ -1096,6 +1201,9 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.timeDaysAgo": "{count}天前",
     "saves.cloudSanctuary": "Steam 云存档",
     "saves.cloudDetected": "已侦测到云端存档，全量同步待命中。",
+    "saves.cloudInSync": "本地存档与 Steam Cloud 缓存一致。",
+    "saves.cloudMismatch": "本地存档与 Steam Cloud 缓存不一致。",
+    "saves.cloudMismatchSummary": "仅本地 {localOnly} 项，仅云端 {cloudOnly} 项，内容不同 {different} 项。",
     "saves.cloudNotFound": "未找到 Steam 云存档，请确认 Steam 是否运行。",
     "saves.cloudScanning": "正在扫描连接...",
     "saves.cloudDescend": "下载至本地 (云端 \u2192 本地)",
@@ -1104,8 +1212,53 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.cloudDescending": "正在从 Steam Cloud 下载存档...",
     "saves.cloudAscendDone": "上传完成，本地存档已同步至云端。",
     "saves.cloudDescendDone": "下载完成，世界线已同步至本地。",
+    "saves.cloudAscendPreparedWithWarnings": "已更新 Steam Cloud 本地缓存，但仍存在差异。启动前请先检查。",
+    "saves.cloudDescendPreparedWithWarnings": "已用云缓存刷新本地存档，但仍存在差异。启动前请先检查。",
     "saves.cloudAscendFailed": "上传至 Steam Cloud 失败。",
     "saves.cloudDescendFailed": "从 Steam Cloud 下载失败。",
+    "saves.cloudSteamRunningTitle": "Steam 仍在运行",
+    "saves.cloudSteamRunningBody": "管理器可以继续执行，但只要 Steam 还开着，它就可能立刻把本地云缓存重新改写。",
+    "saves.cloudSteamRunningHint": "建议先关闭 Steam 再同步，这是更稳妥的做法。只有在你接受覆盖风险时才继续。",
+    "saves.cloudSteamRunningContinue": "仍然继续",
+    "saves.cloudSteamRunningReview": "Steam 仍在运行，请先确认风险。",
+    "saves.cloudReviewBeforeLaunch": "启动前建议先到“存档”页检查差异。",
+    "saves.cloudReviewDiff": "审阅差异",
+    "saves.cloudDiffWorkbenchTitle": "云端差异工作台",
+    "saves.cloudDiffWorkbenchBody": "查看真实差异集合，默认隐藏 backup 噪音，对比本地与云缓存两侧内容，并在启动前直接编辑目标文件。",
+    "saves.cloudDiffRefresh": "刷新",
+    "saves.cloudDiffHideBackups": "隐藏 backup 文件",
+    "saves.cloudDiffShowBackups": "显示 backup 文件（{count}）",
+    "saves.cloudDiffNoItems": "已经没有待处理的差异文件。",
+    "saves.cloudDiffNoSelection": "先从左侧选择一个文件。",
+    "saves.cloudDiffDifferent": "内容不同",
+    "saves.cloudDiffLocalOnly": "仅本地",
+    "saves.cloudDiffCloudOnly": "仅云缓存",
+    "saves.cloudDiffInSync": "已一致",
+    "saves.cloudDiffLocal": "本地",
+    "saves.cloudDiffCloud": "云缓存",
+    "saves.cloudDiffUseLocal": "采用本地版本",
+    "saves.cloudDiffUseCloud": "采用云缓存版本",
+    "saves.cloudDiffEditLocal": "编辑本地",
+    "saves.cloudDiffEditCloud": "编辑云缓存",
+    "saves.cloudDiffEditing": "正在编辑 {side}",
+    "saves.cloudDiffEditingBody": "直接写入你想要的文件内容，确认后会回写到当前选中的一侧。",
+    "saves.cloudDiffCancelEdit": "取消编辑",
+    "saves.cloudDiffSaveEdit": "保存改动",
+    "saves.cloudDiffTextUnsupported": "这个文件暂不支持内联编辑。",
+    "saves.cloudDiffTextUnsupportedBody": "这一侧不是有效 UTF-8 文本，或者文件过大，不适合直接在工作台里编辑。你仍然可以打开路径，或者直接采用另一侧版本。",
+    "saves.cloudDiffUnchangedFold": "收起了 {count} 行未变化内容",
+    "saves.cloudDiffStickyNote": "编辑云缓存侧只会改本机 Steam cache 视图，不代表服务器已经接受了这个版本。",
+    "saves.cloudDiffNoiseNote": "backup 文件默认隐藏，避免把真正影响长期进度的主文件淹没掉。",
+    "saves.cloudDiffCleanBackups": "清理 backup 噪音（本地 {local} / 云缓存 {cloud}）",
+    "saves.cloudDiffCleanBackupsConfirmTitle": "删除 backup 噪音文件",
+    "saves.cloudDiffCleanBackupsConfirmBody": "这会删除当前活动本地存档目录和 Steam 云缓存中的 *.backup 文件。本地 {local} 个，云缓存 {cloud} 个。",
+    "saves.cloudDiffCleanBackupsConfirmAction": "清理两边",
+    "saves.cloudDiffCleanBackupsHint": "不会删除 SlaySP2Manager 自己保存在 AppData/SlaySP2Manager/backups 下的快照备份。",
+    "saves.cloudDiffCleanBackupsDone": "已清理 backup 噪音：本地 {local} 个，云缓存 {cloud} 个。",
+    "saves.cloudLaunchMismatchTitle": "云缓存与本地存档不一致",
+    "saves.cloudLaunchMismatchBody": "Steam Cloud 本地缓存与本地存档并不完全一致，现在启动游戏可能会让 Steam 继续用其中一侧覆盖另一侧。",
+    "saves.reviewInSaves": "去存档页查看",
+    "saves.launchAnyway": "仍然启动",
     "saves.timeFragments": "存档备份",
     "common.cancel": "取消",
     "common.confirm": "确认",

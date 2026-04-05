@@ -6,9 +6,8 @@ use std::path::{Path, PathBuf};
 use crate::app::state::AppSettings;
 use crate::domain::game::GameInstall;
 use crate::domain::install_plan::{
-    ArchiveInstallItemPreview, ArchiveInstallPreview,
-    BatchImportPreview, BatchInstallItemResult, BatchInstallResult,
-    DiscoveredMod, DiscoveredModSourceType, DiscoveredModStatus,
+    ArchiveInstallItemPreview, ArchiveInstallPreview, BatchImportPreview, BatchInstallItemResult,
+    BatchInstallResult, DiscoveredMod, DiscoveredModSourceType, DiscoveredModStatus,
 };
 use crate::domain::mod_entity::{InstalledMod, InstalledModState};
 use crate::integrations::filesystem::list_directories;
@@ -73,8 +72,10 @@ impl ModService {
     pub fn uninstall(&self, mod_id: &str) -> Result<String, AppError> {
         let game = self.resolve_game()?;
         let enabled = scan_mod_directory(Path::new(&game.mods_dir), InstalledModState::Enabled);
-        let disabled =
-            scan_mod_directory(Path::new(&game.disabled_mods_dir), InstalledModState::Disabled);
+        let disabled = scan_mod_directory(
+            Path::new(&game.disabled_mods_dir),
+            InstalledModState::Disabled,
+        );
 
         if let Some(found) = enabled
             .into_iter()
@@ -99,8 +100,12 @@ impl ModService {
         let archive = PathBuf::from(archive_path);
         let unpacked = unpack_archive(&archive)?;
         let result = (|| -> Result<Vec<InstalledMod>, AppError> {
-            let preview =
-                build_archive_preview(&game, archive_path, enable_after_install, &unpacked.mod_dirs);
+            let preview = build_archive_preview(
+                &game,
+                archive_path,
+                enable_after_install,
+                &unpacked.mod_dirs,
+            );
 
             if preview.has_conflicts && !replace_existing {
                 let first = preview
@@ -156,8 +161,12 @@ impl ModService {
         let game = self.resolve_game()?;
         let archive = PathBuf::from(archive_path);
         let unpacked = unpack_archive(&archive)?;
-        let preview =
-            build_archive_preview(&game, archive_path, enable_after_install, &unpacked.mod_dirs);
+        let preview = build_archive_preview(
+            &game,
+            archive_path,
+            enable_after_install,
+            &unpacked.mod_dirs,
+        );
         let _ = fs::remove_dir_all(&unpacked.temp_root);
         Ok(preview)
     }
@@ -233,10 +242,22 @@ impl ModService {
             let _ = fs::remove_dir_all(dir);
         }
 
-        let ready_count = all_discovered.iter().filter(|m| m.status == DiscoveredModStatus::Ready).count();
-        let conflict_count = all_discovered.iter().filter(|m| m.status == DiscoveredModStatus::Conflict).count();
-        let unsupported_count = all_discovered.iter().filter(|m| m.status == DiscoveredModStatus::UnsupportedFormat).count();
-        let error_count = all_discovered.iter().filter(|m| m.status == DiscoveredModStatus::Error).count();
+        let ready_count = all_discovered
+            .iter()
+            .filter(|m| m.status == DiscoveredModStatus::Ready)
+            .count();
+        let conflict_count = all_discovered
+            .iter()
+            .filter(|m| m.status == DiscoveredModStatus::Conflict)
+            .count();
+        let unsupported_count = all_discovered
+            .iter()
+            .filter(|m| m.status == DiscoveredModStatus::UnsupportedFormat)
+            .count();
+        let error_count = all_discovered
+            .iter()
+            .filter(|m| m.status == DiscoveredModStatus::Error)
+            .count();
 
         Ok(BatchImportPreview {
             total_targets_scanned: paths.len(),
@@ -287,22 +308,10 @@ impl ModService {
                     mod_dirs.push((path.clone(), PathBuf::new()));
                 } else {
                     // Scan for archives inside
-                    collect_installable_dirs_from_dir(
-                        &path,
-                        0,
-                        3,
-                        &mut mod_dirs,
-                        &mut temp_dirs,
-                    );
+                    collect_installable_dirs_from_dir(&path, 0, 3, &mut mod_dirs, &mut temp_dirs);
                 }
             } else if path.is_file() {
-                collect_installable_dirs_from_file(
-                    &path,
-                    0,
-                    3,
-                    &mut mod_dirs,
-                    &mut temp_dirs,
-                );
+                collect_installable_dirs_from_file(&path, 0, 3, &mut mod_dirs, &mut temp_dirs);
             }
 
             for (mod_dir, _temp_root) in &mod_dirs {
@@ -310,7 +319,9 @@ impl ModService {
 
                 // Skip mods the user didn't select in the preview
                 if !selected_mod_ids.is_empty()
-                    && !selected_mod_ids.iter().any(|sid| sid.eq_ignore_ascii_case(&mapped.id))
+                    && !selected_mod_ids
+                        .iter()
+                        .any(|sid| sid.eq_ignore_ascii_case(&mapped.id))
                 {
                     continue;
                 }
@@ -322,8 +333,10 @@ impl ModService {
                     uuid_str.truncate(8);
                     let safe_id = mapped.id.trim().replace(" ", "_");
                     let new_id = format!("{}_{}", safe_id, uuid_str);
-                    
-                    if let Err(e) = crate::integrations::manifest::rewrite_manifest_id(mod_dir, &new_id) {
+
+                    if let Err(e) =
+                        crate::integrations::manifest::rewrite_manifest_id(mod_dir, &new_id)
+                    {
                         results.push(BatchInstallItemResult {
                             mod_id: mapped.id.clone(),
                             name: mapped.name.clone(),
@@ -332,7 +345,7 @@ impl ModService {
                         });
                         continue;
                     }
-                    
+
                     mapped.id = new_id.clone();
                     mapped.folder_name = new_id;
                 }
@@ -351,8 +364,7 @@ impl ModService {
                         return Err(AppError::ModConflict(mapped.folder_name.clone()));
                     }
                     if target_dir.exists() && replace_this_one {
-                        fs::remove_dir_all(&target_dir)
-                            .map_err(|e| AppError::Io(e.to_string()))?;
+                        fs::remove_dir_all(&target_dir).map_err(|e| AppError::Io(e.to_string()))?;
                     }
 
                     // If the source is from a temp directory (archive extraction),
@@ -468,7 +480,8 @@ fn copy_directory_recursive(source: &Path, target: &Path) -> Result<(), AppError
             if let Some(parent) = target_path.parent() {
                 fs::create_dir_all(parent).map_err(|error| AppError::Io(error.to_string()))?;
             }
-            fs::copy(&source_path, &target_path).map_err(|error| AppError::Io(error.to_string()))?;
+            fs::copy(&source_path, &target_path)
+                .map_err(|error| AppError::Io(error.to_string()))?;
         }
     }
 
@@ -494,7 +507,10 @@ fn unpack_archive(archive_path: &Path) -> Result<UnpackedArchive, AppError> {
         ));
     }
 
-    Ok(UnpackedArchive { temp_root, mod_dirs })
+    Ok(UnpackedArchive {
+        temp_root,
+        mod_dirs,
+    })
 }
 
 fn build_archive_preview(
@@ -573,7 +589,8 @@ fn remove_existing_conflicts(game: &GameInstall, incoming: &InstalledMod) -> Res
         let same_id = item.id.eq_ignore_ascii_case(&incoming.id);
         let same_folder = item.folder_name.eq_ignore_ascii_case(&incoming.folder_name);
         if same_id || same_folder {
-            fs::remove_dir_all(&item.install_dir).map_err(|error| AppError::Io(error.to_string()))?;
+            fs::remove_dir_all(&item.install_dir)
+                .map_err(|error| AppError::Io(error.to_string()))?;
         }
     }
 
@@ -682,7 +699,10 @@ fn detect_and_extract(file_path: &Path, target_root: &Path) -> Result<(), AppErr
 
 /// Supported archive extensions for batch scanning.
 fn is_archive_extension(ext: &str) -> bool {
-    matches!(ext.to_lowercase().as_str(), "zip" | "7z" | "rar" | "gz" | "tar")
+    matches!(
+        ext.to_lowercase().as_str(),
+        "zip" | "7z" | "rar" | "gz" | "tar"
+    )
 }
 
 /// Recursively discover mods from a directory (looking for manifests and nested archives).
@@ -706,7 +726,10 @@ fn recursive_discover_from_dir(
     if find_manifest_path(dir).is_some() {
         let mapped = map_mod_directory(dir.to_path_buf(), state.clone());
         let (status, conflicts, msg) = check_conflicts(&mapped, existing, target_root);
-        let target_dir = target_root.join(&mapped.folder_name).to_string_lossy().to_string();
+        let target_dir = target_root
+            .join(&mapped.folder_name)
+            .to_string_lossy()
+            .to_string();
         discovered.push(DiscoveredMod {
             mod_id: mapped.id,
             name: mapped.name,
@@ -780,7 +803,8 @@ fn recursive_discover_from_file(
         return;
     }
 
-    let file_name = file.file_name()
+    let file_name = file
+        .file_name()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_else(|| source_label.to_string());
 
@@ -878,12 +902,24 @@ fn collect_installable_dirs_from_dir(
             if find_manifest_path(&child).is_some() {
                 mod_dirs.push((child, PathBuf::new()));
             } else {
-                collect_installable_dirs_from_dir(&child, depth + 1, max_depth, mod_dirs, temp_dirs);
+                collect_installable_dirs_from_dir(
+                    &child,
+                    depth + 1,
+                    max_depth,
+                    mod_dirs,
+                    temp_dirs,
+                );
             }
         } else if child.is_file() {
             let ext = child.extension().and_then(|s| s.to_str()).unwrap_or("");
             if is_archive_extension(ext) {
-                collect_installable_dirs_from_file(&child, depth + 1, max_depth, mod_dirs, temp_dirs);
+                collect_installable_dirs_from_file(
+                    &child,
+                    depth + 1,
+                    max_depth,
+                    mod_dirs,
+                    temp_dirs,
+                );
             }
         }
     }
@@ -1031,12 +1067,15 @@ fn map_mod_directory(mod_dir: PathBuf, state: InstalledModState) -> InstalledMod
             .as_ref()
             .and_then(|manifest| manifest.name.clone())
             .unwrap_or_else(|| folder_name.clone()),
-        version: manifest.as_ref().and_then(|manifest| manifest.version.clone()),
-        author: manifest.as_ref().and_then(|manifest| manifest.author.clone()),
+        version: manifest
+            .as_ref()
+            .and_then(|manifest| manifest.version.clone()),
+        author: manifest
+            .as_ref()
+            .and_then(|manifest| manifest.author.clone()),
         folder_name,
         install_dir: mod_dir.to_string_lossy().to_string(),
         manifest_path: manifest_path.map(|path| path.to_string_lossy().to_string()),
         state,
     }
 }
-
