@@ -17,6 +17,7 @@ type ThemeContextValue = {
 };
 
 const STORAGE_KEY = "slaysp2manager.theme_mode";
+const DEFAULT_THEME_MODE: ThemeMode = "dark";
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
@@ -30,7 +31,7 @@ function getSystemTheme(): ResolvedTheme {
 
 function getStoredThemeMode(): ThemeMode {
   if (typeof window === "undefined") {
-    return "system";
+    return DEFAULT_THEME_MODE;
   }
 
   const storedValue = window.localStorage.getItem(STORAGE_KEY);
@@ -38,7 +39,7 @@ function getStoredThemeMode(): ThemeMode {
     return storedValue;
   }
 
-  return "system";
+  return DEFAULT_THEME_MODE;
 }
 
 export function ThemeProvider({ children }: PropsWithChildren) {
