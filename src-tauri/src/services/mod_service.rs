@@ -1076,6 +1076,10 @@ fn map_mod_directory(mod_dir: PathBuf, state: InstalledModState) -> InstalledMod
         folder_name,
         install_dir: mod_dir.to_string_lossy().to_string(),
         manifest_path: manifest_path.map(|path| path.to_string_lossy().to_string()),
+        affects_gameplay: manifest
+            .as_ref()
+            .and_then(|manifest| manifest.affects_gameplay)
+            .unwrap_or(false),
         state,
     }
 }

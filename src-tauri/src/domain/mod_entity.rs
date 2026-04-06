@@ -10,6 +10,8 @@ pub struct InstalledMod {
     pub folder_name: String,
     pub install_dir: String,
     pub manifest_path: Option<String>,
+    #[serde(default)]
+    pub affects_gameplay: bool,
     pub state: InstalledModState,
 }
 

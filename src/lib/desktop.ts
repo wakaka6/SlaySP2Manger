@@ -59,6 +59,7 @@ export type InstalledMod = {
   folderName: string;
   installDir: string;
   manifestPath: string | null;
+  affectsGameplay: boolean;
   state: "enabled" | "disabled" | "update_available" | "conflict" | "broken" | "unknown";
 };
 

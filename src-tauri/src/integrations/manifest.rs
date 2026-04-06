@@ -14,6 +14,7 @@ pub struct ModManifest {
     pub name: Option<String>,
     pub version: Option<String>,
     pub author: Option<String>,
+    pub affects_gameplay: Option<bool>,
     pub has_pck: Option<bool>,
     pub has_dll: Option<bool>,
 }

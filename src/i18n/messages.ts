@@ -272,6 +272,7 @@ export type MessageKey =
   | "library.noteTooltip"
   | "library.noteClear"
   | "library.noteSaved"
+  | "library.multiplayerAffected"
   | "error.gameNotFound"
   | "error.modNotFound"
   | "error.modConflict"
@@ -697,6 +698,7 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.noteTooltip": "Click to add a note or alias for this mod",
     "library.noteClear": "Clear note",
     "library.noteSaved": "Note saved",
+    "library.multiplayerAffected": "Affects Co-op",
     "error.gameNotFound": "Game directory not found. Please check your settings.",
     "error.modNotFound": "Mod could not be found.",
     "error.modConflict": "Installation failed because the folder '{name}' already exists in your mods directory. Please delete the old version first.",
@@ -1118,6 +1120,7 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.noteTooltip": "点击为此模组添加备注或别名",
     "library.noteClear": "清除备注",
     "library.noteSaved": "备注已保存",
+    "library.multiplayerAffected": "影响多人",
     "error.gameNotFound": "找不到游戏目录，请在设置中指定。",
     "error.modNotFound": "指定的模组文件找不到了。",
     "error.modConflict": "安装中止！模组文件夹「{name}」已存在，请先删除旧版。",

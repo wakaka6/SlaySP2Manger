@@ -1585,6 +1585,7 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .mod-card__name {
@@ -1606,12 +1607,31 @@ button:disabled {
   border-radius: 4px;
 }
 
+.mod-card__impact {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--warning);
+  white-space: nowrap;
+}
+
+.mod-card__impact-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.9;
+}
+
 .mod-card__author {
   font-size: 13px;
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* ── Mod Note / Alias ────────────────────────────────────────────── */

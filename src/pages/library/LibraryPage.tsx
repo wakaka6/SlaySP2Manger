@@ -41,7 +41,7 @@ import {
   X,
 } from "lucide-react";
 
-// ── Mod Notes (localStorage) ────────────────────────────────────────
+// Mod Notes (localStorage)
 const MOD_NOTES_STORAGE_KEY = "slaysp2_mod_notes";
 
 function loadModNotes(): Record<string, string> {
@@ -265,7 +265,7 @@ export function LibraryPage() {
     );
   }, [disabledMods, searchQuery, modNotes]);
 
-  // ── Import flows ──────────────────────────────────────────────────────
+  // Import flows
 
   /** Single file import (legacy) */
   async function handleImportSingle() {
@@ -362,6 +362,123 @@ export function LibraryPage() {
 
   const selectedCount = selectedModIds.size;
 
+  function renderModNote(mod: InstalledMod) {
+    if (editingNoteId === mod.id) {
+      return (
+        <div className="mod-card__note mod-card__note--editing">
+          <input
+            ref={noteInputRef}
+            className="mod-card__note-input"
+            value={editingNoteValue}
+            onChange={(e) => setEditingNoteValue(e.target.value)}
+            onBlur={() => commitNote(mod.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitNote(mod.id);
+              if (e.key === "Escape") {
+                setEditingNoteId(null);
+                setEditingNoteValue("");
+              }
+            }}
+            placeholder={t("library.notePlaceholder")}
+            maxLength={80}
+          />
+          {editingNoteValue.trim() && (
+            <button
+              className="mod-card__note-clear"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                clearNote(mod.id);
+              }}
+              title={t("library.noteClear")}
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div
+        className={`mod-card__note ${modNotes[mod.id] ? "has-note" : ""}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          startEditNote(mod.id);
+        }}
+        title={t("library.noteTooltip")}
+      >
+        {modNotes[mod.id] ? (
+          <span className="mod-card__note-text">{modNotes[mod.id]}</span>
+        ) : (
+          <span className="mod-card__note-placeholder">
+            <Pencil size={11} />
+            {t("library.notePlaceholder")}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  function renderModCard(mod: InstalledMod, enabled: boolean) {
+    const isShared = mod.affectsGameplay;
+    const impactLabel = t("library.multiplayerAffected");
+
+    return (
+      <article className={`mod-card${enabled ? " is-enabled" : ""}`} key={mod.id}>
+        <div className="mod-card__left">
+          <div className={`mod-card__avatar${enabled ? "" : " is-disabled"}`}>
+            {mod.name.charAt(0).toUpperCase()}
+          </div>
+          <div className="mod-card__info">
+            <div className="mod-card__title">
+              <span className="mod-card__name">{mod.name}</span>
+              <span className="mod-card__version">{mod.version ?? "v1.0"}</span>
+              {isShared ? (
+                <span className="mod-card__impact" title={impactLabel}>
+                  <span className="mod-card__impact-dot" aria-hidden="true"></span>
+                  {impactLabel}
+                </span>
+              ) : null}
+            </div>
+            <div className="mod-card__author">{mod.author || t("library.unknownAuthor")}</div>
+            {renderModNote(mod)}
+          </div>
+        </div>
+        <div className="mod-card__right">
+          <label
+            className="toggle-switch"
+            title={enabled ? t("library.enabledStatus") : t("library.disabledStatus")}
+          >
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={() => void handleToggle(mod)}
+              disabled={busyId === mod.id}
+            />
+            <span className="toggle-slider"></span>
+          </label>
+          <div className="mod-card__actions">
+            <button
+              className="icon-button"
+              onClick={() => void openModFolder(mod.id).catch((e) => setStatus(e.toString()))}
+              title={t("library.openFolder")}
+            >
+              <FolderOpen size={16} />
+            </button>
+            <button
+              className="icon-button icon-button--danger"
+              disabled={busyId === mod.id}
+              onClick={() => setPendingUninstall(mod)}
+              title={t("library.uninstall")}
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
   /** Confirm batch install */
   async function confirmBatchInstall() {
     if (!batchPreview || batchPaths.length === 0 || selectedCount === 0) return;
@@ -388,13 +505,13 @@ export function LibraryPage() {
       setBatchConflictResolutions({});
 
       if (result.failureCount === 0) {
-        // All succeeded → toast notification
+        // All succeeded -> toast notification
         setSuccessToast({
           message: t("library.batchAllSuccess", { count: result.successCount }),
           visible: true,
         });
       } else {
-        // Has failures → show dialog for user to review errors
+        // Has failures -> show dialog for user to review errors
         setBatchResult(result);
       }
       await reload();
@@ -489,7 +606,7 @@ export function LibraryPage() {
     }
   }
 
-  // ── Status Icon for discovered mods ───────────────────────────────────
+  // Status Icon for discovered mods
 
   function DiscoveredModStatusIcon({ mod }: { mod: DiscoveredMod }) {
     switch (mod.status) {
@@ -521,7 +638,7 @@ export function LibraryPage() {
     }
   }
 
-  // ── Render ────────────────────────────────────────────────────────────
+  // Render
 
   return (
     <section className="library-page">
@@ -658,193 +775,15 @@ export function LibraryPage() {
               </div>
             ) : (
               <>
-                {filteredEnabled.map((mod) => (
-                  <article className="mod-card is-enabled" key={mod.id}>
-                    <div className="mod-card__left">
-                      <div className="mod-card__avatar">
-                        {mod.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="mod-card__info">
-                        <div className="mod-card__title">
-                          <span className="mod-card__name">{mod.name}</span>
-                          <span className="mod-card__version">{mod.version ?? "v1.0"}</span>
-                        </div>
-                        <div className="mod-card__author">
-                          {mod.author || t("library.unknownAuthor")}
-                        </div>
-                        {/* ── Mod Note ── */}
-                        {editingNoteId === mod.id ? (
-                          <div className="mod-card__note mod-card__note--editing">
-                            <input
-                              ref={noteInputRef}
-                              className="mod-card__note-input"
-                              value={editingNoteValue}
-                              onChange={(e) => setEditingNoteValue(e.target.value)}
-                              onBlur={() => commitNote(mod.id)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") commitNote(mod.id);
-                                if (e.key === "Escape") { setEditingNoteId(null); setEditingNoteValue(""); }
-                              }}
-                              placeholder={t("library.notePlaceholder")}
-                              maxLength={80}
-                            />
-                            {editingNoteValue.trim() && (
-                              <button
-                                className="mod-card__note-clear"
-                                onMouseDown={(e) => { e.preventDefault(); clearNote(mod.id); }}
-                                title={t("library.noteClear")}
-                              >
-                                <X size={12} />
-                              </button>
-                            )}
-                          </div>
-                        ) : (
-                          <div
-                            className={`mod-card__note ${modNotes[mod.id] ? "has-note" : ""}`}
-                            onClick={(e) => { e.stopPropagation(); startEditNote(mod.id); }}
-                            title={t("library.noteTooltip")}
-                          >
-                            {modNotes[mod.id] ? (
-                              <span className="mod-card__note-text">{modNotes[mod.id]}</span>
-                            ) : (
-                              <span className="mod-card__note-placeholder">
-                                <Pencil size={11} />
-                                {t("library.notePlaceholder")}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mod-card__right">
-                      <label className="toggle-switch" title={t("library.enabledStatus")}>
-                        <input
-                          type="checkbox"
-                          checked={true}
-                          onChange={() => void handleToggle(mod)}
-                          disabled={busyId === mod.id}
-                        />
-                        <span className="toggle-slider"></span>
-                      </label>
-                      <div className="mod-card__actions">
-                        <button
-                          className="icon-button"
-                          onClick={() =>
-                            void openModFolder(mod.id).catch((e) => setStatus(e.toString()))
-                          }
-                          title={t("library.openFolder")}
-                        >
-                          <FolderOpen size={16} />
-                        </button>
-                        <button
-                          className="icon-button icon-button--danger"
-                          disabled={busyId === mod.id}
-                          onClick={() => setPendingUninstall(mod)}
-                          title={t("library.uninstall")}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-                {filteredDisabled.map((mod) => (
-                  <article className="mod-card" key={mod.id}>
-                    <div className="mod-card__left">
-                      <div className="mod-card__avatar is-disabled">
-                        {mod.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="mod-card__info">
-                        <div className="mod-card__title">
-                          <span className="mod-card__name">{mod.name}</span>
-                          <span className="mod-card__version">{mod.version ?? "v1.0"}</span>
-                        </div>
-                        <div className="mod-card__author">
-                          {mod.author || t("library.unknownAuthor")}
-                        </div>
-                        {/* ── Mod Note ── */}
-                        {editingNoteId === mod.id ? (
-                          <div className="mod-card__note mod-card__note--editing">
-                            <input
-                              ref={noteInputRef}
-                              className="mod-card__note-input"
-                              value={editingNoteValue}
-                              onChange={(e) => setEditingNoteValue(e.target.value)}
-                              onBlur={() => commitNote(mod.id)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") commitNote(mod.id);
-                                if (e.key === "Escape") { setEditingNoteId(null); setEditingNoteValue(""); }
-                              }}
-                              placeholder={t("library.notePlaceholder")}
-                              maxLength={80}
-                            />
-                            {editingNoteValue.trim() && (
-                              <button
-                                className="mod-card__note-clear"
-                                onMouseDown={(e) => { e.preventDefault(); clearNote(mod.id); }}
-                                title={t("library.noteClear")}
-                              >
-                                <X size={12} />
-                              </button>
-                            )}
-                          </div>
-                        ) : (
-                          <div
-                            className={`mod-card__note ${modNotes[mod.id] ? "has-note" : ""}`}
-                            onClick={(e) => { e.stopPropagation(); startEditNote(mod.id); }}
-                            title={t("library.noteTooltip")}
-                          >
-                            {modNotes[mod.id] ? (
-                              <span className="mod-card__note-text">{modNotes[mod.id]}</span>
-                            ) : (
-                              <span className="mod-card__note-placeholder">
-                                <Pencil size={11} />
-                                {t("library.notePlaceholder")}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mod-card__right">
-                      <label className="toggle-switch" title={t("library.disabledStatus")}>
-                        <input
-                          type="checkbox"
-                          checked={false}
-                          onChange={() => void handleToggle(mod)}
-                          disabled={busyId === mod.id}
-                        />
-                        <span className="toggle-slider"></span>
-                      </label>
-                      <div className="mod-card__actions">
-                        <button
-                          className="icon-button"
-                          onClick={() =>
-                            void openModFolder(mod.id).catch((e) => setStatus(e.toString()))
-                          }
-                          title={t("library.openFolder")}
-                        >
-                          <FolderOpen size={16} />
-                        </button>
-                        <button
-                          className="icon-button icon-button--danger"
-                          disabled={busyId === mod.id}
-                          onClick={() => setPendingUninstall(mod)}
-                          title={t("library.uninstall")}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                ))}
+                {filteredEnabled.map((mod) => renderModCard(mod, true))}
+                {filteredDisabled.map((mod) => renderModCard(mod, false))}
               </>
             )}
           </div>
         </div>
       </div>
 
-      {/* ── Batch Preview Dialog ── */}
+      {/* Batch Preview Dialog */}
       <ConfirmDialog
         cancelLabel={t("common.cancel")}
         confirmLabel={
@@ -963,7 +902,7 @@ export function LibraryPage() {
         </div>
       </ConfirmDialog>
 
-      {/* ── Batch Result Dialog ── */}
+      {/* Batch Result Dialog */}
       <ConfirmDialog
         cancelLabel={t("common.cancel")}
         confirmLabel={t("common.confirm")}
@@ -999,7 +938,7 @@ export function LibraryPage() {
         )}
       </ConfirmDialog>
 
-      {/* ── Legacy single-file preview ── */}
+      {/* Legacy single-file preview */}
       <ConfirmDialog
         cancelLabel={t("common.cancel")}
         confirmLabel={t("library.startInstall")}
@@ -1028,7 +967,7 @@ export function LibraryPage() {
         </div>
       </ConfirmDialog>
 
-      {/* ── Uninstall Confirm ── */}
+      {/* Uninstall Confirm */}
       <ConfirmDialog
         cancelLabel={t("common.cancel")}
         confirmLabel={t("library.uninstall")}
@@ -1044,7 +983,7 @@ export function LibraryPage() {
         tone="danger"
       />
 
-      {/* ── Save Guard Warning ── */}
+      {/* Save Guard Warning */}
       <ConfirmDialog
         cancelLabel={t("library.saveGuardGoToPair")}
         confirmLabel={t("common.confirm")}
@@ -1063,7 +1002,7 @@ export function LibraryPage() {
         tone="danger"
       />
 
-      {/* ── Scanning overlay ── */}
+      {/* Scanning overlay */}
       {busyId === "scanning" && (
         <div className="batch-overlay">
           <div className="batch-overlay__content">
@@ -1074,7 +1013,7 @@ export function LibraryPage() {
         </div>
       )}
 
-      {/* ── Batch install progress overlay ── */}
+      {/* Batch install progress overlay */}
       {batchInstalling && (
         <div className="batch-overlay">
           <div className="batch-overlay__content">
@@ -1100,7 +1039,7 @@ export function LibraryPage() {
         </div>
       )}
 
-      {/* ── Success Toast (auto-dismiss) ── */}
+      {/* Success Toast (auto-dismiss) */}
       {successToast && (
         <div className={`success-toast ${successToast.visible ? "is-entering" : "is-leaving"}`}>
           <CheckCircle2 size={20} />
