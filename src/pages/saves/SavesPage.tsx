@@ -33,6 +33,10 @@ function slotRef(slot: SaveSlot): SaveSlotRef {
   return { steamUserId: slot.steamUserId, kind: slot.kind, slotIndex: slot.slotIndex };
 }
 
+function compareSlots(left: SaveSlot, right: SaveSlot) {
+  return left.slotIndex - right.slotIndex;
+}
+
 function formatTime(value: string | null, emptyText: string) {
   if (!value) return emptyText;
   const date = new Date(value);
@@ -126,6 +130,8 @@ export function SavesPage() {
   const layoutRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
   const [lines, setLines] = useState<(LineCoord & { key: string })[]>([]);
+  const [lineMaskRects, setLineMaskRects] = useState<Array<{ x: number; y: number; width: number; height: number }>>([]);
+  const [overlaySize, setOverlaySize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const isActionRunningRef = useRef(false);
   const handledCloudDiffRequestRef = useRef<number | null>(null);
 
@@ -168,8 +174,32 @@ export function SavesPage() {
   // ── Calculate line positions ───────────────────────────────────────
   const recalcLines = useCallback(() => {
     const container = layoutRef.current;
-    if (!container || syncPairs.length === 0) { setLines([]); return; }
+    if (!container) {
+      setLines([]);
+      setLineMaskRects([]);
+      setOverlaySize({ width: 0, height: 0 });
+      return;
+    }
+
     const rect = container.getBoundingClientRect();
+    setOverlaySize({ width: rect.width, height: rect.height });
+
+    const maskRects = Array.from(cardRefs.current.values()).map((card) => {
+      const cardRect = card.getBoundingClientRect();
+      return {
+        x: cardRect.left - rect.left - 1,
+        y: cardRect.top - rect.top - 1,
+        width: cardRect.width + 2,
+        height: cardRect.height + 2,
+      };
+    });
+    setLineMaskRects(maskRects);
+
+    if (syncPairs.length === 0) {
+      setLines([]);
+      return;
+    }
+
     const newLines: (LineCoord & { key: string })[] = [];
 
     for (const pair of syncPairs) {
@@ -200,14 +230,34 @@ export function SavesPage() {
     return () => window.removeEventListener("resize", recalcLines);
   }, [recalcLines]);
 
+  useEffect(() => {
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const scheduleRecalc = () => {
+      window.requestAnimationFrame(recalcLines);
+    };
+
+    const observer = new ResizeObserver(scheduleRecalc);
+    const layout = layoutRef.current;
+
+    if (layout) observer.observe(layout);
+    for (const card of cardRefs.current.values()) {
+      observer.observe(card);
+    }
+
+    return () => observer.disconnect();
+  }, [recalcLines, slots, syncPairs]);
+
   const setCardRef = useCallback((key: string) => (el: HTMLElement | null) => {
     if (el) cardRefs.current.set(key, el);
     else cardRefs.current.delete(key);
   }, []);
 
   // ── Helpers ────────────────────────────────────────────────────────
-  const vanillaSlots = useMemo(() => slots.filter((s) => s.kind === "vanilla"), [slots]);
-  const moddedSlots = useMemo(() => slots.filter((s) => s.kind === "modded"), [slots]);
+  const vanillaSlots = useMemo(() => slots.filter((s) => s.kind === "vanilla").sort(compareSlots), [slots]);
+  const moddedSlots = useMemo(() => slots.filter((s) => s.kind === "modded").sort(compareSlots), [slots]);
   const syncPairsHint = syncPairs.length > 0
     ? t("saves.pairCount", { count: syncPairs.length })
     : t("saves.pairNone");
@@ -534,7 +584,12 @@ export function SavesPage() {
       <div className="saves-layout" ref={layoutRef}>
         {/* SVG connection lines overlay */}
         {(lines.length > 0 || isCloudSyncing) && (
-          <svg className="saves-lines-svg" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 1 }}>
+          <svg
+            className="saves-lines-svg"
+            viewBox={`0 0 ${Math.max(overlaySize.width, 1)} ${Math.max(overlaySize.height, 1)}`}
+            preserveAspectRatio="none"
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 1 }}
+          >
             {/* SVG filter for particle glow */}
             <defs>
               <filter id="particleGlow" x="-50%" y="-50%" width="200%" height="200%">
@@ -544,25 +599,55 @@ export function SavesPage() {
                   <feMergeNode in="SourceGraphic" />
                 </feMerge>
               </filter>
+              <mask
+                id="saves-line-mask"
+                maskUnits="userSpaceOnUse"
+                x={0}
+                y={0}
+                width={Math.max(overlaySize.width, 1)}
+                height={Math.max(overlaySize.height, 1)}
+              >
+                <rect
+                  x={0}
+                  y={0}
+                  width={Math.max(overlaySize.width, 1)}
+                  height={Math.max(overlaySize.height, 1)}
+                  fill="white"
+                />
+                {lineMaskRects.map((maskRect) => (
+                  <rect
+                    key={`mask-${maskRect.x}-${maskRect.y}-${maskRect.width}-${maskRect.height}`}
+                    x={maskRect.x}
+                    y={maskRect.y}
+                    width={maskRect.width}
+                    height={maskRect.height}
+                    rx={14}
+                    ry={14}
+                    fill="black"
+                  />
+                ))}
+              </mask>
             </defs>
             {lines.map((line) => {
               const midY = (line.y1 + line.y2) / 2;
               const pathD = `M${line.x1},${line.y1} C${line.x1 + 30},${line.y1} ${line.x2 - 30},${line.y2} ${line.x2},${line.y2}`;
               return (
                 <g key={line.key}>
-                  {/* Base connection line */}
-                  <path
-                    d={pathD}
-                    className={`energy-path ${isSyncing ? 'energy-path--active' : 'energy-path--linked'}`}
-                  />
-                  {/* Forward particles (left → right) */}
-                  <path d={pathD} className="energy-particle-track" filter="url(#particleGlow)" />
-                  <path d={pathD} className="energy-particle-track energy-particle-track--b" filter="url(#particleGlow)" />
-                  <path d={pathD} className="energy-particle-track energy-particle-track--c" />
-                  {/* Reverse particles (right → left) */}
-                  <path d={pathD} className="energy-particle-track energy-particle-track--rev" filter="url(#particleGlow)" />
-                  <path d={pathD} className="energy-particle-track energy-particle-track--rev-b" filter="url(#particleGlow)" />
-                  <path d={pathD} className="energy-particle-track energy-particle-track--rev-c" />
+                  <g mask="url(#saves-line-mask)">
+                    {/* Base connection line */}
+                    <path
+                      d={pathD}
+                      className={`energy-path ${isSyncing ? 'energy-path--active' : 'energy-path--linked'}`}
+                    />
+                    {/* Forward particles (left → right) */}
+                    <path d={pathD} className="energy-particle-track" filter="url(#particleGlow)" />
+                    <path d={pathD} className="energy-particle-track energy-particle-track--b" filter="url(#particleGlow)" />
+                    <path d={pathD} className="energy-particle-track energy-particle-track--c" />
+                    {/* Reverse particles (right → left) */}
+                    <path d={pathD} className="energy-particle-track energy-particle-track--rev" filter="url(#particleGlow)" />
+                    <path d={pathD} className="energy-particle-track energy-particle-track--rev-b" filter="url(#particleGlow)" />
+                    <path d={pathD} className="energy-particle-track energy-particle-track--rev-c" />
+                  </g>
                   {/* Delete button at midpoint */}
                   <g
                     style={{ pointerEvents: "all", cursor: "pointer" }}

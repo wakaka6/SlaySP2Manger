@@ -4748,8 +4748,9 @@ input::-webkit-textfield-decoration-container {
 
 .saves-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
+  align-content: start;
 }
 
 .save-card {
