@@ -5567,6 +5567,10 @@ input::-webkit-textfield-decoration-container {
 
 /* ── Profiles Page Redesign ──────────────────────────────── */
 
+.page--profiles {
+  --profiles-sidebar-top: 136px;
+}
+
 .profiles-header {
   position: sticky;
   top: 0;
@@ -5605,6 +5609,10 @@ input::-webkit-textfield-decoration-container {
 
 /* ── Sidebar ─ borderless, elevation only */
 .profiles-sidebar {
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+  min-height: 0;
   background: var(--bg-panel);
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
@@ -5612,7 +5620,8 @@ input::-webkit-textfield-decoration-container {
   border-radius: var(--radius-lg);
   padding: 4px;
   position: sticky;
-  top: 24px;
+  top: var(--profiles-sidebar-top);
+  max-height: calc(100vh - var(--profiles-sidebar-top) - 24px);
   box-shadow: var(--shadow-panel);
 }
 
@@ -5623,6 +5632,13 @@ input::-webkit-textfield-decoration-container {
   text-transform: uppercase;
   color: var(--text-dim);
   padding: 10px 12px 6px;
+}
+
+.page--profiles .profile-list {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-width: thin;
 }
 
 .profiles-empty-hint {
@@ -5959,6 +5975,22 @@ input::-webkit-textfield-decoration-container {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+@media (max-width: 980px) {
+  .profiles-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .profiles-sidebar {
+    position: static;
+    max-height: none;
+  }
+
+  .page--profiles .profile-list {
+    overflow: visible;
+    padding-right: 0;
+  }
 }
 
 /* ── Split Button Group ──────────────────────────────────────────── */

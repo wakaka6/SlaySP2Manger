@@ -63,6 +63,8 @@ function mergeMods(enabledMods: InstalledMod[], disabledMods: InstalledMod[]) {
 export function ProfilesPage() {
   const { t } = useI18n();
   const multiplayerAffectedLabel = t("library.multiplayerAffected");
+  const pageRef = useRef<HTMLElement | null>(null);
+  const headerRef = useRef<HTMLDivElement | null>(null);
   const [profiles, setProfiles] = useState<ModProfile[]>([]);
   const [enabledMods, setEnabledMods] = useState<InstalledMod[]>([]);
   const [availableMods, setAvailableMods] = useState<InstalledMod[]>([]);
@@ -127,6 +129,31 @@ export function ProfilesPage() {
       window.removeEventListener("slaymgr:mods-changed", handler);
     };
   }, [reload]);
+
+  useEffect(() => {
+    const pageElement = pageRef.current;
+    const headerElement = headerRef.current;
+    if (!pageElement || !headerElement) {
+      return;
+    }
+
+    const updateStickyOffset = () => {
+      const headerHeight = Math.ceil(headerElement.getBoundingClientRect().height);
+      pageElement.style.setProperty("--profiles-sidebar-top", `${headerHeight + 12}px`);
+    };
+
+    updateStickyOffset();
+
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateStickyOffset) : null;
+    observer?.observe(headerElement);
+    window.addEventListener("resize", updateStickyOffset);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateStickyOffset);
+      pageElement.style.removeProperty("--profiles-sidebar-top");
+    };
+  }, []);
 
   function handleSelect(profile: ModProfile) {
     setSelectedProfileId(profile.id);
@@ -282,9 +309,9 @@ export function ProfilesPage() {
   const selectedCount = draft.modIds.filter((id) => availableIds.has(id.toLowerCase())).length;
 
   return (
-    <section className="page">
+    <section className="page page--profiles" ref={pageRef}>
       {/* ── Page header */}
-      <div className="profiles-header">
+      <div className="profiles-header" ref={headerRef}>
         <div>
           <h1 className="profiles-header__title">{t("profiles.title")}</h1>
           <p className="profiles-header__sub">{t("profiles.description")}</p>
