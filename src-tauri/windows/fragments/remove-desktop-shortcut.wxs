@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="DesktopShortcutCleanupAnchor" Guid="*">
+        <RegistryKey Root="HKCU" Key="Software\slay\SlaySP2Manager">
+          <RegistryValue
+            Name="Desktop Shortcut Cleanup"
+            Type="integer"
+            Value="1"
+            KeyPath="yes"
+          />
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+
+    <CustomAction
+      Id="RemoveDesktopShortcutAfterInstall"
+      Directory="INSTALLDIR"
+      ExeCommand='cmd.exe /C if exist "[DesktopFolder]SlaySP2Manager.lnk" del /F /Q "[DesktopFolder]SlaySP2Manager.lnk"'
+      Impersonate="yes"
+      Return="ignore"
+    />
+
+    <InstallExecuteSequence>
+      <Custom Action="RemoveDesktopShortcutAfterInstall" After="InstallFinalize">
+        NOT REMOVE
+      </Custom>
+    </InstallExecuteSequence>
+  </Fragment>
+</Wix>

@@ -1,6 +1,15 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { getAppBootstrap } from "../lib/desktop";
 
 type UpdatePhase = "idle" | "checking" | "available" | "downloading" | "restarting" | "upToDate" | "error";
 
@@ -19,12 +28,39 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   const [update, setUpdate] = useState<Update | null>(null);
   const [phase, setPhase] = useState<UpdatePhase>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [proxyUrl, setProxyUrl] = useState<string | null>(null);
+  const [settingsReady, setSettingsReady] = useState(false);
+  const hasAutoCheckRunRef = useRef(false);
+  const lastProxyUrlRef = useRef<string | null | undefined>(undefined);
+
+  const syncProxyUrl = useCallback(async () => {
+    try {
+      const bootstrap = await getAppBootstrap();
+      const trimmed = bootstrap.proxyUrl?.trim();
+      setProxyUrl(trimmed ? trimmed : null);
+    } catch (error) {
+      console.warn("Failed to load updater proxy settings:", error);
+    } finally {
+      setSettingsReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    void syncProxyUrl();
+
+    const handleBootstrapChanged = () => {
+      void syncProxyUrl();
+    };
+
+    window.addEventListener("slaymgr:bootstrap-changed", handleBootstrapChanged);
+    return () => window.removeEventListener("slaymgr:bootstrap-changed", handleBootstrapChanged);
+  }, [syncProxyUrl]);
 
   const doCheck = useCallback(async () => {
     setPhase("checking");
     setErrorMessage(null);
     try {
-      const u = await check();
+      const u = await check(proxyUrl ? { proxy: proxyUrl } : undefined);
       if (u) {
         setUpdate(u);
         setPhase("available");
@@ -39,7 +75,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       setPhase("error");
       setTimeout(() => setPhase((p) => (p === "error" ? "idle" : p)), 5000);
     }
-  }, []);
+  }, [proxyUrl]);
 
   const installUpdate = useCallback(async () => {
     if (!update) return;
@@ -57,9 +93,29 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
 
   // Auto-check 2s after mount
   useEffect(() => {
-    const timer = setTimeout(() => void doCheck(), 2000);
+    if (!settingsReady || hasAutoCheckRunRef.current) return;
+    const timer = setTimeout(() => {
+      if (hasAutoCheckRunRef.current) return;
+      hasAutoCheckRunRef.current = true;
+      void doCheck();
+    }, 2000);
     return () => clearTimeout(timer);
-  }, [doCheck]);
+  }, [doCheck, settingsReady]);
+
+  useEffect(() => {
+    if (!settingsReady) return;
+
+    const previousProxyUrl = lastProxyUrlRef.current;
+    lastProxyUrlRef.current = proxyUrl;
+
+    if (previousProxyUrl === undefined || previousProxyUrl === proxyUrl) return;
+    if (phase !== "available") return;
+
+    setUpdate(null);
+    setPhase("idle");
+    hasAutoCheckRunRef.current = true;
+    void doCheck();
+  }, [doCheck, phase, proxyUrl, settingsReady]);
 
   return (
     <UpdateContext.Provider
@@ -67,7 +123,10 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         phase,
         availableVersion: update?.version ?? null,
         errorMessage,
-        checkForUpdates: () => void doCheck(),
+        checkForUpdates: () => {
+          hasAutoCheckRunRef.current = true;
+          void doCheck();
+        },
         installUpdate: () => void installUpdate(),
         dismiss: () => setPhase("idle"),
       }}

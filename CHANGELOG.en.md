@@ -5,6 +5,13 @@ All notable changes to SlaySP2Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-04-07
+
+### Fixed
+
+- **Updater proxy support**: The in-app update flow now reuses the proxy configured in Settings, so both update checks and update downloads follow the same HTTP / HTTPS / SOCKS5 proxy path as the rest of the app.
+- **Desktop shortcut cleanup after updates**: Windows MSI installs now remove the desktop shortcut at the end of install/update so app updates no longer leave an unexpected icon on the desktop.
+
 ## [0.7.0] - 2026-04-07
 
 ### Added
