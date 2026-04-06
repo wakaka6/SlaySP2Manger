@@ -3,6 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::app::state::AppSettings;
+use crate::utils::text::read_unicode_text_file;
 
 pub fn load_settings() -> Result<AppSettings, String> {
     let path = settings_file_path()?;
@@ -10,7 +11,7 @@ pub fn load_settings() -> Result<AppSettings, String> {
         return Ok(AppSettings::default());
     }
 
-    let text = fs::read_to_string(path).map_err(|error| error.to_string())?;
+    let text = read_unicode_text_file(path).map_err(|error| error.to_string())?;
     serde_json::from_str(&text).map_err(|error| error.to_string())
 }
 

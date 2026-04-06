@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use chrono::Utc;
 
 use crate::domain::profile::ModProfile;
+use crate::utils::text::read_unicode_text_file;
 
 pub struct ProfilesRepo;
 
@@ -15,7 +16,7 @@ impl ProfilesRepo {
             return Ok(default_profiles());
         }
 
-        let text = fs::read_to_string(path).map_err(|error| error.to_string())?;
+        let text = read_unicode_text_file(path).map_err(|error| error.to_string())?;
         serde_json::from_str(&text).map_err(|error| error.to_string())
     }
 
