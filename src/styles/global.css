@@ -4464,20 +4464,34 @@ input::-webkit-textfield-decoration-container {
 
 .discover-row__avatar {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--surface-contrast);
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-contrast) 78%, transparent), color-mix(in srgb, var(--bg-panel) 86%, transparent));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-secondary);
 }
 .discover-row.is-active .discover-row__avatar {
-  background: var(--accent);
-  color: #000;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent-border) 68%, transparent),
+    0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.discover-row__avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.discover-row__avatar-fallback {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
 }
 
 .discover-row__body {
@@ -4542,7 +4556,195 @@ input::-webkit-textfield-decoration-container {
   padding: 28px;
 }
 
+.discover-detail2__media {
+  position: relative;
+  margin-bottom: 24px;
+  aspect-ratio: 16 / 9;
+  border-radius: calc(var(--radius-md) + 2px);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(var(--accent-rgb, 245,158,11), 0.14), transparent 52%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-contrast) 82%, transparent), color-mix(in srgb, var(--bg-panel) 92%, transparent));
+  border: 1px solid var(--border-subtle);
+}
+
+.discover-detail2__media::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 42%;
+  background: linear-gradient(180deg, transparent, rgba(8, 10, 13, 0.28));
+  pointer-events: none;
+}
+
+.discover-detail2__media-image,
+.discover-detail2__media-fallback {
+  width: 100%;
+  height: 100%;
+}
+
+.discover-detail2__media-image {
+  display: block;
+  object-fit: cover;
+  transform: scale(1.01);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.discover-detail2__media-image.is-loaded {
+  opacity: 1;
+}
+
+.discover-detail2__media-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(var(--accent-rgb, 245,158,11), 0.16), transparent 34%),
+    radial-gradient(circle at 78% 80%, rgba(255, 255, 255, 0.05), transparent 28%),
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-contrast) 88%, transparent), color-mix(in srgb, var(--bg-panel) 96%, transparent));
+  z-index: 1;
+  isolation: isolate;
+}
+
+.discover-detail2__media-loading-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.02) 34%,
+    rgba(255, 255, 255, 0.13) 50%,
+    rgba(255, 255, 255, 0.02) 66%,
+    transparent 100%
+  );
+  transform: translateX(-130%);
+  animation: discoverMediaSweep 1.8s ease-in-out infinite;
+}
+
+.discover-detail2__media-loading-orbit {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  display: grid;
+  place-items: center;
+}
+
+.discover-detail2__media-loading-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent-border) 48%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+}
+
+.discover-detail2__media-loading-ring--a {
+  animation: discoverMediaPulse 1.8s ease-out infinite;
+}
+
+.discover-detail2__media-loading-ring--b {
+  inset: 14px;
+  border-color: color-mix(in srgb, var(--border-strong) 72%, transparent);
+  animation: discoverMediaPulse 1.8s ease-out infinite 0.18s;
+}
+
+.discover-detail2__media-loading-ring--c {
+  inset: 30px;
+  background: radial-gradient(circle, rgba(var(--accent-rgb, 245,158,11), 0.18), transparent 68%);
+  border-color: color-mix(in srgb, var(--accent-border) 68%, transparent);
+  animation: discoverMediaCore 1.8s ease-in-out infinite;
+}
+
+.discover-detail2__media-loading-caption {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  z-index: 1;
+}
+
+.discover-detail2__media-loading-line {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.12), rgba(255,255,255,0.03));
+  animation: discoverMediaBlink 1.4s ease-in-out infinite;
+}
+
+.discover-detail2__media-loading-line--wide {
+  width: 128px;
+}
+
+.discover-detail2__media-loading-line--narrow {
+  width: 74px;
+  animation-delay: 0.16s;
+}
+
+@keyframes discoverMediaSweep {
+  0% { transform: translateX(-130%); }
+  100% { transform: translateX(130%); }
+}
+
+@keyframes discoverMediaPulse {
+  0% {
+    opacity: 0.28;
+    transform: scale(0.96);
+  }
+  55% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.24;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes discoverMediaCore {
+  0%, 100% {
+    opacity: 0.42;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 0.82;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes discoverMediaBlink {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+
+.discover-detail2__media-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 24% 20%, rgba(var(--accent-rgb, 245,158,11), 0.22), transparent 38%),
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-contrast) 86%, transparent), color-mix(in srgb, var(--bg-panel) 94%, transparent));
+}
+
+.discover-detail2__media-fallback span {
+  font-size: clamp(52px, 10vw, 96px);
+  font-weight: 700;
+  color: color-mix(in srgb, var(--text-primary) 22%, transparent);
+  letter-spacing: -0.05em;
+}
+
 .discover-detail2__head {
+  display: flex;
+  flex-direction: column;
   margin-bottom: 20px;
 }
 
@@ -4662,6 +4864,23 @@ input::-webkit-textfield-decoration-container {
 .discover-detail2__link:hover {
   color: var(--accent);
   opacity: 1;
+}
+
+@media (max-width: 980px) {
+  .discover-main {
+    grid-template-columns: 1fr;
+  }
+
+  .discover-scroll {
+    max-height: 42vh;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .discover-detail2__inner,
+  .discover-detail2__skeleton {
+    padding: 22px 20px 28px;
+  }
 }
 
 /* ── Translation UI */

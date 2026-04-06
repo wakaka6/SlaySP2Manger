@@ -131,6 +131,9 @@ export type RemoteMod = {
   summary: string | null;
   author: string | null;
   latestVersion: string | null;
+  pictureUrl: string | null;
+  thumbnailUrl: string | null;
+  thumbnailLargeUrl: string | null;
   detailUrl: string;
   endorsementCount: number;
   downloadCount: number;

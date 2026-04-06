@@ -41,6 +41,9 @@ struct GraphqlMod {
     summary: Option<String>,
     author: Option<String>,
     version: Option<String>,
+    picture_url: Option<String>,
+    thumbnail_url: Option<String>,
+    thumbnail_large_url: Option<String>,
     endorsements: Option<u64>,
     downloads: Option<u64>,
 }
@@ -223,7 +226,7 @@ impl DiscoverService {
         };
 
         let graphql_query = format!(
-            r#"{{ mods(filter: {filter}, sort: [{sort}], offset: {offset}, count: {count}) {{ totalCount nodes {{ modId name summary author version endorsements downloads }} }} }}"#,
+            r#"{{ mods(filter: {filter}, sort: [{sort}], offset: {offset}, count: {count}) {{ totalCount nodes {{ modId name summary author version pictureUrl thumbnailUrl thumbnailLargeUrl endorsements downloads }} }} }}"#,
             filter = filter,
             sort = sort_clause,
             offset = offset,
@@ -272,6 +275,9 @@ impl DiscoverService {
                 summary: m.summary,
                 author: m.author,
                 latest_version: m.version,
+                picture_url: m.picture_url,
+                thumbnail_url: m.thumbnail_url,
+                thumbnail_large_url: m.thumbnail_large_url,
                 detail_url: format!("{}/{}", NEXUS_DETAIL_BASE, m.mod_id),
                 endorsement_count: m.endorsements.unwrap_or(0),
                 download_count: m.downloads.unwrap_or(0),

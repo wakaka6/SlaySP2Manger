@@ -91,6 +91,8 @@ export function DiscoverPage() {
   const [translatedSummary, setTranslatedSummary] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isPremium, setIsPremium] = useState(true); // optimistic default
+  const [failedImageUrls, setFailedImageUrls] = useState<Record<string, true>>({});
+  const [heroImageLoaded, setHeroImageLoaded] = useState(false);
 
   // Unique request ID to cancel stale requests
   const requestIdRef = useRef(0);
@@ -98,6 +100,31 @@ export function DiscoverPage() {
   useEffect(() => {
     getAppBootstrap().then((b) => setIsPremium(b.nexusIsPremium)).catch(() => {});
   }, []);
+
+  const markImageFailed = useCallback((url: string | null) => {
+    if (!url) return;
+    setFailedImageUrls((prev) => {
+      if (prev[url]) return prev;
+      return { ...prev, [url]: true };
+    });
+  }, []);
+
+  function getUsableImageUrl(candidates: Array<string | null | undefined>): string | null {
+    for (const candidate of candidates) {
+      if (candidate && !failedImageUrls[candidate]) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  function getRowImageUrl(mod: RemoteMod): string | null {
+    return getUsableImageUrl([mod.thumbnailUrl, mod.thumbnailLargeUrl, mod.pictureUrl]);
+  }
+
+  function getHeroImageUrl(mod: RemoteMod): string | null {
+    return getUsableImageUrl([mod.pictureUrl, mod.thumbnailLargeUrl, mod.thumbnailUrl]);
+  }
 
 
 
@@ -211,6 +238,11 @@ export function DiscoverPage() {
   const showSkeletons = isInitialLoad && results.length === 0;
   // Show a subtle progress bar when refreshing with stale data visible
   const showRefreshBar = isRefreshing || isPending;
+  const selectedHeroImageUrl = selected ? getHeroImageUrl(selected) : null;
+
+  useEffect(() => {
+    setHeroImageLoaded(!selectedHeroImageUrl);
+  }, [selected?.remoteId, selectedHeroImageUrl]);
 
   const renderSkeletons = () =>
     Array.from({ length: 8 }).map((_, i) => (
@@ -260,6 +292,7 @@ export function DiscoverPage() {
       <>
         {results.map((item) => {
           const isActive = selected?.remoteId === item.remoteId;
+          const rowImageUrl = getRowImageUrl(item);
           return (
             <button
               className={`discover-row${isActive ? " is-active" : ""}${showRefreshBar ? " is-stale" : ""}`}
@@ -268,7 +301,21 @@ export function DiscoverPage() {
               type="button"
             >
               <div className="discover-row__avatar">
-                {item.name.charAt(0).toUpperCase()}
+                {rowImageUrl ? (
+                  <img
+                    alt=""
+                    className="discover-row__avatar-image"
+                    decoding="async"
+                    loading="lazy"
+                    onError={() => markImageFailed(rowImageUrl)}
+                    referrerPolicy="no-referrer"
+                    src={rowImageUrl}
+                  />
+                ) : (
+                  <span className="discover-row__avatar-fallback">
+                    {item.name.charAt(0).toUpperCase()}
+                  </span>
+                )}
               </div>
               <div className="discover-row__body">
                 <div className="discover-row__name">{item.name}</div>
@@ -365,6 +412,44 @@ export function DiscoverPage() {
             </div>
           ) : selected ? (
             <div className="discover-detail2__inner">
+              <div className="discover-detail2__media">
+                {selectedHeroImageUrl ? (
+                  <>
+                    {!heroImageLoaded ? (
+                      <div className="discover-detail2__media-loading" aria-hidden="true">
+                        <div className="discover-detail2__media-loading-shimmer" />
+                        <div className="discover-detail2__media-loading-orbit">
+                          <span className="discover-detail2__media-loading-ring discover-detail2__media-loading-ring--a" />
+                          <span className="discover-detail2__media-loading-ring discover-detail2__media-loading-ring--b" />
+                          <span className="discover-detail2__media-loading-ring discover-detail2__media-loading-ring--c" />
+                        </div>
+                        <div className="discover-detail2__media-loading-caption">
+                          <span className="discover-detail2__media-loading-line discover-detail2__media-loading-line--wide" />
+                          <span className="discover-detail2__media-loading-line discover-detail2__media-loading-line--narrow" />
+                        </div>
+                      </div>
+                    ) : null}
+                    <img
+                      alt={selected.name}
+                      className={`discover-detail2__media-image${heroImageLoaded ? " is-loaded" : ""}`}
+                      decoding="async"
+                      key={`${selected.remoteId}:${selectedHeroImageUrl}`}
+                      onError={() => {
+                        setHeroImageLoaded(true);
+                        markImageFailed(selectedHeroImageUrl);
+                      }}
+                      onLoad={() => setHeroImageLoaded(true)}
+                      referrerPolicy="no-referrer"
+                      src={selectedHeroImageUrl}
+                    />
+                  </>
+                ) : (
+                  <div className="discover-detail2__media-fallback" aria-hidden="true">
+                    <span>{selected.name.charAt(0).toUpperCase()}</span>
+                  </div>
+                )}
+              </div>
+
               <div className="discover-detail2__head">
                 <h2 className="discover-detail2__title">{selected.name}</h2>
                 <div className="discover-detail2__author">
