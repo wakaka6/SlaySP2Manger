@@ -62,6 +62,7 @@ function mergeMods(enabledMods: InstalledMod[], disabledMods: InstalledMod[]) {
 
 export function ProfilesPage() {
   const { t } = useI18n();
+  const multiplayerAffectedLabel = t("library.multiplayerAffected");
   const [profiles, setProfiles] = useState<ModProfile[]>([]);
   const [enabledMods, setEnabledMods] = useState<InstalledMod[]>([]);
   const [availableMods, setAvailableMods] = useState<InstalledMod[]>([]);
@@ -427,10 +428,20 @@ export function ProfilesPage() {
                       <span className={`profiles-mod-check${included ? " is-on" : ""}`}>
                         {included && <Check size={11} />}
                       </span>
-                      <span className="profiles-mod-name">{mod.name}</span>
-                      <span className="profiles-mod-meta">
-                        {mod.author || t("profiles.unknownAuthor")}
-                        {mod.version ? ` \u00b7 ${mod.version}` : ""}
+                      <span className="profiles-mod-main">
+                        <span className="profiles-mod-title">
+                          <span className="profiles-mod-name">{mod.name}</span>
+                          {mod.affectsGameplay ? (
+                            <span className="profiles-mod-impact" title={multiplayerAffectedLabel}>
+                              <span className="profiles-mod-impact-dot" aria-hidden="true"></span>
+                              {multiplayerAffectedLabel}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="profiles-mod-meta">
+                          {mod.author || t("profiles.unknownAuthor")}
+                          {mod.version ? ` \u00b7 ${mod.version}` : ""}
+                        </span>
                       </span>
                     </button>
                   );
@@ -444,4 +455,3 @@ export function ProfilesPage() {
     </section>
   );
 }
-

@@ -273,6 +273,9 @@ export type MessageKey =
   | "library.noteClear"
   | "library.noteSaved"
   | "library.multiplayerAffected"
+  | "library.filters"
+  | "library.clearFilters"
+  | "library.noFilterResults"
   | "error.gameNotFound"
   | "error.modNotFound"
   | "error.modConflict"
@@ -699,6 +702,9 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.noteClear": "Clear note",
     "library.noteSaved": "Note saved",
     "library.multiplayerAffected": "Affects Co-op",
+    "library.filters": "Filters",
+    "library.clearFilters": "Clear filters",
+    "library.noFilterResults": "No mods match the active filters.",
     "error.gameNotFound": "Game directory not found. Please check your settings.",
     "error.modNotFound": "Mod could not be found.",
     "error.modConflict": "Installation failed because the folder '{name}' already exists in your mods directory. Please delete the old version first.",
@@ -1265,5 +1271,8 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "saves.timeFragments": "存档备份",
     "common.cancel": "取消",
     "common.confirm": "确认",
+    "library.filters": "筛选",
+    "library.clearFilters": "清除筛选",
+    "library.noFilterResults": "没有模组符合当前筛选条件。",
   },
 };

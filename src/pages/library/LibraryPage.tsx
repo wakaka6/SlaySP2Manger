@@ -111,6 +111,7 @@ export function LibraryPage() {
   const [pendingSaveGuardInfo, setPendingSaveGuardInfo] = useState<SaveGuardInfo | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [multiplayerOnly, setMultiplayerOnly] = useState(false);
   const [showImportMenu, setShowImportMenu] = useState(false);
   const [listRef] = useAutoAnimate<HTMLDivElement>();
   const isPickingFileRef = useRef(false);
@@ -241,29 +242,46 @@ export function LibraryPage() {
       : t("library.installPreviewSafe");
   }, [installPreview, t]);
 
-  const filteredEnabled = useMemo(() => {
-    if (!searchQuery.trim()) return enabledMods;
+  const matchesSearch = useCallback((mod: InstalledMod) => {
     const q = searchQuery.trim().toLowerCase();
-    return enabledMods.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        m.author?.toLowerCase().includes(q) ||
-        m.id.toLowerCase().includes(q) ||
-        modNotes[m.id]?.toLowerCase().includes(q),
-    );
-  }, [enabledMods, searchQuery, modNotes]);
 
-  const filteredDisabled = useMemo(() => {
-    if (!searchQuery.trim()) return disabledMods;
-    const q = searchQuery.trim().toLowerCase();
-    return disabledMods.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        m.author?.toLowerCase().includes(q) ||
-        m.id.toLowerCase().includes(q) ||
-        modNotes[m.id]?.toLowerCase().includes(q),
+    if (!q) {
+      return true;
+    }
+
+    return (
+      mod.name.toLowerCase().includes(q) ||
+      mod.author?.toLowerCase().includes(q) ||
+      mod.id.toLowerCase().includes(q) ||
+      modNotes[mod.id]?.toLowerCase().includes(q)
     );
-  }, [disabledMods, searchQuery, modNotes]);
+  }, [searchQuery, modNotes]);
+
+  const searchFilteredEnabled = useMemo(
+    () => enabledMods.filter(matchesSearch),
+    [enabledMods, matchesSearch],
+  );
+
+  const searchFilteredDisabled = useMemo(
+    () => disabledMods.filter(matchesSearch),
+    [disabledMods, matchesSearch],
+  );
+
+  const filteredEnabled = useMemo(
+    () => (multiplayerOnly ? searchFilteredEnabled.filter((mod) => mod.affectsGameplay) : searchFilteredEnabled),
+    [multiplayerOnly, searchFilteredEnabled],
+  );
+
+  const filteredDisabled = useMemo(
+    () => (multiplayerOnly ? searchFilteredDisabled.filter((mod) => mod.affectsGameplay) : searchFilteredDisabled),
+    [multiplayerOnly, searchFilteredDisabled],
+  );
+  const multiplayerMatchCount = useMemo(
+    () => searchFilteredEnabled.concat(searchFilteredDisabled).filter((mod) => mod.affectsGameplay).length,
+    [searchFilteredDisabled, searchFilteredEnabled],
+  );
+  const hasSearchQuery = Boolean(searchQuery.trim());
+  const hasActiveListFilter = multiplayerOnly || hasSearchQuery;
 
   // Import flows
 
@@ -763,15 +781,49 @@ export function LibraryPage() {
         </div>
       </header>
 
-      <div className="library-layout">
+      <div className="library-layout library-layout--filters">
+        <aside className="library-pane library-pane--filters">
+          <div className={`library-filter-rail${multiplayerOnly ? " is-filtered" : ""}`}>
+            <div className="library-filter-rail__header">
+              <span className="library-filter-rail__eyebrow">{t("library.filters")}</span>
+              {multiplayerOnly ? (
+                <button
+                  className="button button--ghost library-filter-rail__clear"
+                  type="button"
+                  onClick={() => setMultiplayerOnly(false)}
+                >
+                  {t("library.clearFilters")}
+                </button>
+              ) : null}
+            </div>
+
+            <div className="library-filter-rail__list">
+              <button
+                className={`button button--secondary library-filter-option${multiplayerOnly ? " is-active" : ""}`}
+                type="button"
+                aria-pressed={multiplayerOnly}
+                disabled={!multiplayerOnly && multiplayerMatchCount === 0}
+                onClick={() => setMultiplayerOnly((v) => !v)}
+                title={t("library.multiplayerAffected")}
+              >
+                <span className="library-filter-option__main">
+                  <span className="library-filter-chip__dot" aria-hidden="true"></span>
+                  <span className="library-filter-option__label">{t("library.multiplayerAffected")}</span>
+                </span>
+                <span className="library-filter-option__count">{multiplayerMatchCount}</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+
         <div className="library-pane library-pane--list">
           <div className="mod-list" ref={listRef}>
             {filteredEnabled.length === 0 && filteredDisabled.length === 0 ? (
               <div className="mod-list__empty">
                 <strong>
-                  {searchQuery ? t("library.noSearchResults") : t("library.emptyEnabled")}
+                  {hasSearchQuery ? t("library.noSearchResults") : multiplayerOnly ? t("library.noFilterResults") : t("library.emptyEnabled")}
                 </strong>
-                <span>{searchQuery ? "" : t("library.emptyEnabledHelp")}</span>
+                <span>{hasActiveListFilter ? "" : t("library.emptyEnabledHelp")}</span>
               </div>
             ) : (
               <>

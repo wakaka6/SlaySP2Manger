@@ -30,15 +30,23 @@ export type ShellNavigateOptions = {
   state?: unknown;
 };
 
+const COMPACT_SIDEBAR_MEDIA_QUERY = "(max-width: 980px)";
+
+function getCompactSidebarMatches() {
+  return typeof window !== "undefined" && window.matchMedia(COMPACT_SIDEBAR_MEDIA_QUERY).matches;
+}
+
 export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useI18n();
   const [appState, setAppState] = useState<AppBootstrap | null>(null);
   const { pendingDropPaths, isDragging } = useDropZone();
+  const [compactSidebar, setCompactSidebar] = useState(getCompactSidebarMatches);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try { return localStorage.getItem("sidebar-collapsed") === "true"; } catch { return false; }
   });
+  const effectiveCollapsed = compactSidebar || sidebarCollapsed;
 
   // Use transition so bootstrap refetch doesn't block navigation interactions
   const [, startTransition] = useTransition();
@@ -55,6 +63,15 @@ export function AppShell() {
   useEffect(() => {
     fetchAppState();
   }, [location.pathname, fetchAppState]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(COMPACT_SIDEBAR_MEDIA_QUERY);
+    const handleChange = (event: MediaQueryListEvent) => setCompactSidebar(event.matches);
+
+    setCompactSidebar(mediaQuery.matches);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
 
   // Listen for bootstrap invalidation events (triggered by any mutation like mod import/enable/disable)
   // This ensures the sidebar badge count stays in sync without waiting for route changes
@@ -85,12 +102,13 @@ export function AppShell() {
   ];
 
   return (
-    <div className={`app-shell${sidebarCollapsed ? " app-shell--collapsed" : ""}`}>
+    <div className={`app-shell${effectiveCollapsed ? " app-shell--collapsed" : ""}${compactSidebar ? " app-shell--compact" : ""}`}>
       <SidebarNav
         activePath={location.pathname}
         items={navItems}
         onNavigate={(path, options) => navigate(path, options)}
-        collapsed={sidebarCollapsed}
+        collapsed={effectiveCollapsed}
+        compact={compactSidebar}
         activeProfileName={appState?.activeProfileName ?? ""}
         appVersion={appState?.appVersion ?? ""}
         onToggle={() => {
