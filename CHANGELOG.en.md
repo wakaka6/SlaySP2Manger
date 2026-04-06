@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Updater proxy support**: The in-app update flow now reuses the proxy configured in Settings, so both update checks and update downloads follow the same HTTP / HTTPS / SOCKS5 proxy path as the rest of the app.
-- **Desktop shortcut cleanup after updates**: Windows MSI installs now remove the desktop shortcut at the end of install/update so app updates no longer leave an unexpected icon on the desktop.
+- **Desktop shortcut preference preserved on updates**: Windows MSI upgrades now keep the original desktop shortcut choice. If the previous install did not enable a desktop shortcut, the updater removes the newly created shortcut and its registry marker after upgrade.
 
 ## [0.7.0] - 2026-04-07
 

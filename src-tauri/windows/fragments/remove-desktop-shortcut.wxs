@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Fragment>
+    <Property Id="PREVIOUSDESKTOPSHORTCUT">
+      <RegistrySearch
+        Id="SearchPreviousDesktopShortcut"
+        Root="HKCU"
+        Key="Software\slay\SlaySP2Manager"
+        Name="Desktop Shortcut"
+        Type="raw"
+      />
+    </Property>
+
     <DirectoryRef Id="INSTALLDIR">
       <Component Id="DesktopShortcutCleanupAnchor" Guid="*">
         <RegistryKey Root="HKCU" Key="Software\slay\SlaySP2Manager">
@@ -17,14 +27,14 @@
     <CustomAction
       Id="RemoveDesktopShortcutAfterInstall"
       Directory="INSTALLDIR"
-      ExeCommand='cmd.exe /C if exist "[DesktopFolder]SlaySP2Manager.lnk" del /F /Q "[DesktopFolder]SlaySP2Manager.lnk"'
+      ExeCommand='cmd.exe /C if exist "[DesktopFolder]SlaySP2Manager.lnk" del /F /Q "[DesktopFolder]SlaySP2Manager.lnk" &amp; reg delete "HKCU\Software\slay\SlaySP2Manager" /v "Desktop Shortcut" /f &gt;nul 2&gt;nul'
       Impersonate="yes"
       Return="ignore"
     />
 
     <InstallExecuteSequence>
       <Custom Action="RemoveDesktopShortcutAfterInstall" After="InstallFinalize">
-        NOT REMOVE
+        WIX_UPGRADE_DETECTED AND NOT PREVIOUSDESKTOPSHORTCUT
       </Custom>
     </InstallExecuteSequence>
   </Fragment>
