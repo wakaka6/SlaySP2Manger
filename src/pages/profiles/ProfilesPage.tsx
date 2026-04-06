@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
 import {
   applyProfile,
@@ -74,7 +74,7 @@ export function ProfilesPage() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const isBusyRef = useRef(false);
 
-  async function reload(nextSelectedId?: string | null) {
+  const reload = useCallback(async (nextSelectedId?: string | null) => {
     const [profileItems, enabledItems, disabledItems, bootstrap] = await Promise.all([
       listProfiles(),
       listInstalledMods(),
@@ -111,12 +111,22 @@ export function ProfilesPage() {
       setDraft(toDraft(selected));
       setIsCreating(false);
     }
-  }
+  }, [isCreating, selectedProfileId]);
 
   useEffect(() => {
     void reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const handler = () => void reload();
+    window.addEventListener("slaymgr:bootstrap-changed", handler);
+    window.addEventListener("slaymgr:mods-changed", handler);
+    return () => {
+      window.removeEventListener("slaymgr:bootstrap-changed", handler);
+      window.removeEventListener("slaymgr:mods-changed", handler);
+    };
+  }, [reload]);
 
   function handleSelect(profile: ModProfile) {
     setSelectedProfileId(profile.id);
