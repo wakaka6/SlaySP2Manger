@@ -26,6 +26,48 @@ type SidebarNavProps = {
   onToggle: () => void;
 };
 
+function VersionMarkIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      className="sidebar-version__glyph"
+      aria-hidden="true"
+    >
+      <path
+        d="M5.1 2.75H8.75L11.9 5.9V10.85C11.9 12.03 10.93 13 9.75 13H5.1C3.92 13 2.95 12.03 2.95 10.85V4.9C2.95 3.72 3.92 2.75 5.1 2.75Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+      <path
+        d="M8.55 2.95V5.35C8.55 5.82 8.93 6.2 9.4 6.2H11.8"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity="0.82"
+      />
+      <path
+        d="M5.1 7.85H9.8"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinecap="round"
+      />
+      <path
+        d="M5.1 10.2H7.9"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinecap="round"
+        opacity="0.74"
+      />
+      <path
+        d="M10.35 8.95L11.4 10L10.35 11.05L9.3 10L10.35 8.95Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 export function SidebarNav(props: SidebarNavProps) {
   const { t } = useI18n();
   const { tasks, activeCount, dismissTask, clearFinished } = useDownloads();
@@ -332,7 +374,9 @@ export function SidebarNav(props: SidebarNavProps) {
               : `v${props.appVersion}`
           }
         >
-          <span className="sidebar-version__symbol" aria-hidden="true">v</span>
+          <span className="sidebar-version__icon" aria-hidden="true">
+            <VersionMarkIcon />
+          </span>
           <span className="sidebar-version__label">v{props.appVersion}</span>
           {hasUpdate && (
             <span className="sidebar-version__dot" />
