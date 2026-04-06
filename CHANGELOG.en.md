@@ -5,6 +5,25 @@ All notable changes to SlaySP2Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-04-07
+
+### Added
+
+- **Nexus artwork previews**: Discover now shows mod artwork previews so you can evaluate results faster without opening each detail page first.
+- **Multiplayer impact metadata**: The Library and the Profiles mod picker now show a restrained "Affects Co-op" tag for mods whose manifests declare `affects_gameplay = true`.
+
+### Changed
+
+- **Dark by default**: First launch now defaults to dark mode whenever no local theme preference has been stored yet.
+- **Library and shell polish**: Refined the Library filter rail, collapsed sidebar treatment, and version badge presentation for a cleaner, more stable visual hierarchy.
+- **Save slot alignment**: Saves now keeps vanilla and modded slots in a fixed 1:1 vertical order so cross-environment relationships remain easy to read.
+
+### Fixed
+
+- Fixed manifest parsing for mod JSON files encoded with UTF-8 BOM or UTF-16 so metadata can still be detected correctly.
+- Fixed Profiles so preset mod choices refresh after Library changes and the left preset rail stays pinned below the page header while scrolling.
+- Fixed Saves connection lines after window resizing so links no longer drift across cards or imply the wrong slot pairing.
+
 ## [0.6.1] - 2026-04-05
 
 ### Added
