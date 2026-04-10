@@ -186,6 +186,12 @@ export type MessageKey =
   | "discover.loadMore"
   | "discover.noMore"
   | "discover.filterDownloads"
+  | "discover.filterUpdates"
+  | "discover.updatesLoading"
+  | "discover.updateAvailable"
+  | "discover.localVersion"
+  | "discover.noUpdates"
+  | "discover.updatesCount"
   | "discover.premiumHint"
   | "discover.manualStep1"
   | "discover.manualStep2"
@@ -615,6 +621,12 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "discover.loadMore": "Load More",
     "discover.noMore": "All loaded",
     "discover.filterDownloads": "Most Downloaded",
+    "discover.filterUpdates": "Has Updates",
+    "discover.updatesLoading": "Checking for updates...",
+    "discover.updateAvailable": "Update available",
+    "discover.localVersion": "Local: v{version}",
+    "discover.noUpdates": "All installed mods are up to date.",
+    "discover.updatesCount": "{count} updates available",
     "discover.premiumHint": "Nexus Premium required for direct download. You can download manually:",
     "discover.manualStep1": "Click \"Open Nexus Page\" to visit the mod page",
     "discover.manualStep2": "Download the zip file from Nexus manually",
@@ -1040,6 +1052,12 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "discover.loadMore": "加载更多",
     "discover.noMore": "已全部加载",
     "discover.filterDownloads": "下载最多",
+    "discover.filterUpdates": "待更新",
+    "discover.updatesLoading": "正在检查更新...",
+    "discover.updateAvailable": "可更新",
+    "discover.localVersion": "本地: v{version}",
+    "discover.noUpdates": "所有已安装模组均为最新版本。",
+    "discover.updatesCount": "有 {count} 个可更新",
     "discover.premiumHint": "一键安装需要 Nexus Premium 会员，你可以手动下载：",
     "discover.manualStep1": "点击「打开 Nexus 页面」前往模组页面",
     "discover.manualStep2": "在 Nexus 网站手动下载 zip 文件",

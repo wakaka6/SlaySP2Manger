@@ -1,11 +1,11 @@
-import { useEffect, useState, useCallback, useRef, useTransition } from "react";
+import { useEffect, useState, useCallback, useRef, useTransition, useMemo } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
-import { searchRemoteMods, openUrlInBrowser, getAppBootstrap, type RemoteMod } from "../../lib/desktop";
+import { searchRemoteMods, openUrlInBrowser, getAppBootstrap, listInstalledMods, listDisabledMods, type RemoteMod, type InstalledMod } from "../../lib/desktop";
 import { useNavigate } from "react-router-dom";
 import { useDownloads } from "../../contexts/DownloadContext";
 import {
   PackageSearch, Search, ServerOff, ExternalLink, Globe, Loader2,
-  Download, ThumbsUp, TrendingUp, Clock, ArrowDownToLine, Crown, Library,
+  Download, ThumbsUp, TrendingUp, Clock, ArrowDownToLine, Crown, Library, ArrowUpCircle,
 } from "lucide-react";
 
 // ── Locale-aware Translation via MyMemory API ──────────────────────────
@@ -59,6 +59,32 @@ const PAGE_SIZE = 20;
 
 type SortOption = { key: string; label: string; icon: React.ReactNode };
 
+/** Normalise a version string for comparison: strip leading "v", trim whitespace. */
+function normalizeVersion(v: string | null | undefined): string {
+  if (!v) return "";
+  return v.trim().replace(/^v/i, "").trim();
+}
+
+/** Simple numeric-segment comparison. Returns true when remote > local. */
+function isNewerVersion(local: string, remote: string): boolean {
+  const nl = normalizeVersion(local);
+  const nr = normalizeVersion(remote);
+  if (!nl || !nr || nl === nr) return false;
+  const lp = nl.split(/[.\-+]/).map(Number);
+  const rp = nr.split(/[.\-+]/).map(Number);
+  const len = Math.max(lp.length, rp.length);
+  for (let i = 0; i < len; i++) {
+    const a = lp[i] ?? 0;
+    const b = rp[i] ?? 0;
+    if (isNaN(a) || isNaN(b)) return nl !== nr; // fallback: treat as update if strings differ
+    if (b > a) return true;
+    if (b < a) return false;
+  }
+  return false;
+}
+
+type UpdatableMod = RemoteMod & { localVersion: string };
+
 export function DiscoverPage() {
   const { t, locale } = useI18n();
   const navigate = useNavigate();
@@ -92,6 +118,11 @@ export function DiscoverPage() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [isPremium, setIsPremium] = useState(true); // optimistic default
   const [failedImageUrls, setFailedImageUrls] = useState<Record<string, true>>({});
+
+  // ── "Has Updates" filter mode ──
+  const [updatesMode, setUpdatesMode] = useState(false);
+  const [updatesLoading, setUpdatesLoading] = useState(false);
+  const [updatableMods, setUpdatableMods] = useState<UpdatableMod[]>([]);
   const [heroImageLoaded, setHeroImageLoaded] = useState(false);
 
   // Unique request ID to cancel stale requests
@@ -188,6 +219,74 @@ export function DiscoverPage() {
     }
   }, [committedQuery, sortBy, results.length, totalCount, isLoadingMore]);
 
+  // ── Check for updates: search Nexus for each installed mod ──
+  const checkForUpdates = useCallback(async () => {
+    setUpdatesLoading(true);
+    setUpdatableMods([]);
+    setErrorState(null);
+    try {
+      const [enabled, disabled] = await Promise.all([listInstalledMods(), listDisabledMods()]);
+      const allLocal: InstalledMod[] = [...enabled, ...disabled];
+      if (allLocal.length === 0) {
+        setUpdatesLoading(false);
+        return;
+      }
+
+      const updatable: UpdatableMod[] = [];
+
+      // Search Nexus for each installed mod by name (with concurrency limit)
+      const CONCURRENCY = 3;
+      let idx = 0;
+      const tasks = async () => {
+        while (idx < allLocal.length) {
+          const mod = allLocal[idx++];
+          if (!mod.name || !mod.version) continue;
+          try {
+            const result = await searchRemoteMods(mod.name, "latest_updated", 0, 5);
+            // Find a remote mod whose name closely matches
+            const match = result.items.find(
+              (r) => r.name.toLowerCase() === mod.name.toLowerCase(),
+            );
+            if (match && match.latestVersion && isNewerVersion(mod.version, match.latestVersion)) {
+              updatable.push({ ...match, localVersion: mod.version });
+            }
+          } catch {
+            // Skip mods whose search fails
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: CONCURRENCY }, tasks));
+
+      startTransition(() => {
+        setUpdatableMods(updatable);
+        setSelected(updatable[0] ?? null);
+      });
+    } catch (e) {
+      setErrorState(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUpdatesLoading(false);
+    }
+  }, []);
+
+  const handleToggleUpdatesMode = useCallback(() => {
+    setUpdatesMode((prev) => {
+      const next = !prev;
+      if (next) {
+        void checkForUpdates();
+      } else {
+        setUpdatableMods([]);
+      }
+      return next;
+    });
+  }, [checkForUpdates]);
+
+  // Build a lookup map of updatable remote IDs → local version (for badge rendering)
+  const updatableMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const um of updatableMods) m.set(um.remoteId, um.localVersion);
+    return m;
+  }, [updatableMods]);
+
   // Infinite scroll
   useEffect(() => {
     const el = listRef.current;
@@ -252,7 +351,39 @@ export function DiscoverPage() {
       </div>
     ));
 
+  // Determine display list: in updates mode use updatableMods, otherwise normal results
+  const displayList: RemoteMod[] = updatesMode ? updatableMods : results;
+
   const renderList = () => {
+    // Updates mode: special loading / empty states
+    if (updatesMode) {
+      if (updatesLoading) {
+        return (
+          <div className="discover-empty">
+            <Loader2 size={28} className="spin-icon" style={{ opacity: 0.4 }} />
+            <p>{t("discover.updatesLoading")}</p>
+          </div>
+        );
+      }
+      if (errorState && updatableMods.length === 0) {
+        return (
+          <div className="discover-empty">
+            <ServerOff size={36} style={{ opacity: 0.25 }} />
+            <h3>{t("discover.statusFailed")}</h3>
+            <p>{errorState}</p>
+          </div>
+        );
+      }
+      if (updatableMods.length === 0) {
+        return (
+          <div className="discover-empty">
+            <PackageSearch size={36} style={{ opacity: 0.25 }} />
+            <p>{t("discover.noUpdates")}</p>
+          </div>
+        );
+      }
+    }
+
     if (showSkeletons) return renderSkeletons();
 
     if (errorState && results.length === 0) {
@@ -290,12 +421,13 @@ export function DiscoverPage() {
 
     return (
       <>
-        {results.map((item) => {
+        {displayList.map((item) => {
           const isActive = selected?.remoteId === item.remoteId;
           const rowImageUrl = getRowImageUrl(item);
+          const localVer = updatableMap.get(item.remoteId);
           return (
             <button
-              className={`discover-row${isActive ? " is-active" : ""}${showRefreshBar ? " is-stale" : ""}`}
+              className={`discover-row${isActive ? " is-active" : ""}${showRefreshBar && !updatesMode ? " is-stale" : ""}`}
               key={item.remoteId}
               onClick={() => setSelected(item)}
               type="button"
@@ -318,11 +450,26 @@ export function DiscoverPage() {
                 )}
               </div>
               <div className="discover-row__body">
-                <div className="discover-row__name">{item.name}</div>
+                <div className="discover-row__name">
+                  {item.name}
+                  {localVer && (
+                    <span className="discover-row__update-badge" title={t("discover.updateAvailable")}>
+                      <ArrowUpCircle size={12} />
+                    </span>
+                  )}
+                </div>
                 <div className="discover-row__meta">
                   {item.author ?? t("discover.unknownAuthor")}
                   <span className="discover-row__dot" />
                   v{item.latestVersion ?? "?"}
+                  {localVer && (
+                    <>
+                      <span className="discover-row__dot" />
+                      <span className="discover-row__local-ver">
+                        {t("discover.localVersion", { version: normalizeVersion(localVer) })}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="discover-row__stats">
@@ -333,12 +480,12 @@ export function DiscoverPage() {
           );
         })}
 
-        {isLoadingMore && (
+        {!updatesMode && isLoadingMore && (
           <div className="discover-row discover-row--loading">
             <Loader2 size={14} className="spin-icon" />
           </div>
         )}
-        {!hasMore && results.length > 0 && (
+        {!updatesMode && !hasMore && results.length > 0 && (
           <div className="discover-row discover-row--end">{t("discover.noMore")}</div>
         )}
       </>
@@ -378,19 +525,33 @@ export function DiscoverPage() {
           <div className="discover-toolbar2__sorts">
             {sortOptions.map((opt) => (
               <button
-                className={`discover-sort-chip${sortBy === opt.key ? " is-active" : ""}`}
+                className={`discover-sort-chip${!updatesMode && sortBy === opt.key ? " is-active" : ""}`}
                 key={opt.key}
-                onClick={() => setSortBy(opt.key)}
+                onClick={() => { if (updatesMode) { setUpdatesMode(false); setUpdatableMods([]); } setSortBy(opt.key); }}
                 type="button"
               >
                 {opt.icon}
                 <span>{opt.label}</span>
               </button>
             ))}
+            <span className="discover-toolbar2__sorts-divider" />
+            <button
+              className={`discover-sort-chip discover-sort-chip--updates${updatesMode ? " is-active" : ""}`}
+              onClick={handleToggleUpdatesMode}
+              type="button"
+            >
+              {updatesLoading ? <Loader2 size={12} className="spin-icon" /> : <ArrowUpCircle size={12} />}
+              <span>{t("discover.filterUpdates")}</span>
+            </button>
           </div>
-          {totalCount > 0 && !isInitialLoad && (
+          {!updatesMode && totalCount > 0 && !isInitialLoad && (
             <span className="discover-toolbar2__count">
               {t("discover.totalCount", { total: totalCount })}
+            </span>
+          )}
+          {updatesMode && !updatesLoading && updatableMods.length > 0 && (
+            <span className="discover-toolbar2__count">
+              {t("discover.updatesCount", { count: updatableMods.length })}
             </span>
           )}
         </div>
@@ -455,6 +616,14 @@ export function DiscoverPage() {
                 <div className="discover-detail2__author">
                   {selected.author ?? t("discover.unknownAuthor")} · v{selected.latestVersion ?? "?"}
                 </div>
+                {updatableMap.has(selected.remoteId) && (
+                  <div className="discover-detail2__update-hint">
+                    <ArrowUpCircle size={13} />
+                    <span>
+                      {t("discover.updateAvailable")} — {t("discover.localVersion", { version: normalizeVersion(updatableMap.get(selected.remoteId)) })}
+                    </span>
+                  </div>
+                )}
                 <div className="discover-detail2__chips">
                   <span className="discover-chip"><ThumbsUp size={11} /> {fmtNum(selected.endorsementCount)}</span>
                   <span className="discover-chip"><Download size={11} /> {fmtNum(selected.downloadCount)}</span>
