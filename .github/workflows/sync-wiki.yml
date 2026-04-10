@@ -1,0 +1,47 @@
+name: Sync Wiki
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wiki/**'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Sync wiki/ → GitHub Wiki
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+
+      - name: Sync to wiki repo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          WIKI_URL="https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.wiki.git"
+
+          git clone --depth 1 "$WIKI_URL" wiki-repo || {
+            echo "⚠️ Wiki repo not found. Please create at least one wiki page manually first."
+            exit 1
+          }
+
+          # Remove old files and copy new ones
+          cd wiki-repo
+          git rm -rf . --ignore-unmatch --quiet
+          cp -r ../wiki/* .
+
+          # Commit and push if there are changes
+          git add -A
+          if git diff --cached --quiet; then
+            echo "✅ Wiki is already up to date."
+          else
+            git commit -m "docs(wiki): sync from main repo ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+            git push
+            echo "✅ Wiki updated successfully."
+          fi
