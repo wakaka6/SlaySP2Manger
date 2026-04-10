@@ -314,6 +314,14 @@ impl ModService {
                 collect_installable_dirs_from_file(&path, 0, 3, &mut mod_dirs, &mut temp_dirs);
             }
 
+            // Deduplicate: the same mod dir can be discovered by both
+            // find_extracted_mod_dirs and collect_installable_dirs_from_dir.
+            // Keep the first occurrence (which carries the correct temp_root).
+            {
+                let mut seen = std::collections::HashSet::new();
+                mod_dirs.retain(|entry| seen.insert(entry.0.clone()));
+            }
+
             for (mod_dir, _temp_root) in &mod_dirs {
                 let mut mapped = map_mod_directory(mod_dir.clone(), current_state.clone());
 

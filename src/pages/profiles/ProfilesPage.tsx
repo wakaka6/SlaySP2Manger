@@ -81,6 +81,7 @@ export function ProfilesPage() {
   const [status, setStatus] = useState(t("profiles.loading"));
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const isBusyRef = useRef(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [bundlePreview, setBundlePreview] = useState<PresetBundlePreview | null>(null);
   const [bundleConflictResolutions, setBundleConflictResolutions] = useState<Record<string, string>>({});
   const [bundleImporting, setBundleImporting] = useState(false);
@@ -287,18 +288,18 @@ export function ProfilesPage() {
     }
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (isBusyRef.current) return;
     if (!draft.id) {
       beginCreate();
       return;
     }
+    setShowDeleteConfirm(true);
+  }
 
-    const confirmed = window.confirm(t("profiles.confirmDelete", { name: draft.name || "Untitled" }));
-    if (!confirmed) {
-      return;
-    }
-
+  async function confirmDelete() {
+    if (!draft.id) return;
+    setShowDeleteConfirm(false);
     isBusyRef.current = true;
     setBusyAction("delete");
     try {
@@ -604,6 +605,15 @@ export function ProfilesPage() {
 
         </div>
       </div>
+
+      {/* ── Delete confirmation dialog */}
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title={t("profiles.confirmDelete", { name: draft.name || "Untitled" })}
+        tone="danger"
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
 
       {/* ── Bundle conflict resolution dialog */}
       {bundlePreview && (
