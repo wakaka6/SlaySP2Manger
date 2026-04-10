@@ -9,7 +9,10 @@ use crate::app::state::{AppSettings, AppState};
 use crate::domain::game::GameInstall;
 use crate::domain::install_plan::{ArchiveInstallPreview, BatchImportPreview, BatchInstallResult};
 use crate::domain::mod_entity::InstalledMod;
-use crate::domain::profile::{ApplyProfileResult, ModProfile};
+use crate::domain::profile::{
+    ApplyProfileResult, ModProfile, PresetBundleImportResult, PresetBundleManifest,
+    PresetBundleModEntry, PresetBundlePresetInfo, PresetBundlePreview, PresetBundlePreviewMod,
+};
 use crate::domain::remote_mod::RemoteModSearchResult;
 use crate::domain::save::{
     BackupArtifactCleanupResult, BackupArtifactStatus, CloudSaveDiffDetail, CloudSaveDiffEntry,
@@ -971,6 +974,379 @@ pub fn export_profile(profile_id: String) -> Result<Option<String>, String> {
     let content = serde_json::to_string_pretty(&profile).map_err(|error| error.to_string())?;
     std::fs::write(&path, content).map_err(|error| error.to_string())?;
     Ok(Some(path.to_string_lossy().to_string()))
+}
+
+// ── Preset Bundle: Export ───────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn export_preset_bundle(
+    profile_id: String,
+    state: State<'_, AppState>,
+) -> Result<Option<String>, String> {
+    let settings = state
+        .settings
+        .read()
+        .map_err(|_| "failed to read app settings".to_string())?
+        .clone();
+    let app_version = env!("CARGO_PKG_VERSION").to_string();
+
+    spawn_blocking(move || {
+        let profile = ProfileService.get(&profile_id)?;
+        let _game = GameService::new(settings.clone())
+            .detect_install()
+            .map_err(|e| e.to_string())?;
+
+        let default_name = sanitize_profile_filename(&profile.name);
+        let Some(save_path) = rfd::FileDialog::new()
+            .set_file_name(&format!("{default_name}_bundle.zip"))
+            .add_filter("ZIP Archive", &["zip"])
+            .save_file()
+        else {
+            return Ok(None);
+        };
+
+        let mod_service = ModService::new(settings);
+        let enabled = mod_service.list_installed().map_err(|e| e.to_string())?;
+        let disabled = mod_service.list_disabled().map_err(|e| e.to_string())?;
+        let all_mods: Vec<InstalledMod> = enabled.into_iter().chain(disabled).collect();
+
+        let mut mod_entries: Vec<PresetBundleModEntry> = Vec::new();
+        let mut mod_dirs: Vec<(String, std::path::PathBuf)> = Vec::new();
+
+        for mod_id in &profile.mod_ids {
+            if let Some(m) = all_mods
+                .iter()
+                .find(|item| item.id.eq_ignore_ascii_case(mod_id))
+            {
+                mod_entries.push(PresetBundleModEntry {
+                    id: m.id.clone(),
+                    name: m.name.clone(),
+                    version: m.version.clone(),
+                    folder_name: m.folder_name.clone(),
+                    author: m.author.clone(),
+                });
+                mod_dirs.push((
+                    m.folder_name.clone(),
+                    std::path::PathBuf::from(&m.install_dir),
+                ));
+            }
+        }
+
+        let manifest = PresetBundleManifest {
+            format_version: 1,
+            preset: PresetBundlePresetInfo {
+                name: profile.name.clone(),
+                description: profile.description.clone(),
+                mod_ids: profile.mod_ids.clone(),
+            },
+            mods: mod_entries,
+            exported_at: Utc::now().to_rfc3339(),
+            exported_by: format!("SlaySP2Manager v{}", app_version),
+        };
+
+        let file = std::fs::File::create(&save_path).map_err(|e| e.to_string())?;
+        let mut zip = zip::ZipWriter::new(file);
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+
+        // Write preset.spm
+        let manifest_json =
+            serde_json::to_string_pretty(&manifest).map_err(|e| e.to_string())?;
+        zip.start_file("preset.spm", options)
+            .map_err(|e| e.to_string())?;
+        std::io::Write::write_all(&mut zip, manifest_json.as_bytes())
+            .map_err(|e| e.to_string())?;
+
+        // Write mod folders
+        for (folder_name, dir_path) in &mod_dirs {
+            write_directory_to_zip(&mut zip, dir_path, &format!("mods/{folder_name}"), options)?;
+        }
+
+        zip.finish().map_err(|e| e.to_string())?;
+
+        Ok(Some(save_path.to_string_lossy().to_string()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn write_directory_to_zip<W: std::io::Write + std::io::Seek>(
+    zip: &mut zip::ZipWriter<W>,
+    source_dir: &std::path::Path,
+    prefix: &str,
+    options: zip::write::SimpleFileOptions,
+) -> Result<(), String> {
+    if !source_dir.is_dir() {
+        return Ok(());
+    }
+    for entry in std::fs::read_dir(source_dir).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
+        let zip_path = format!("{prefix}/{name}");
+        if path.is_dir() {
+            write_directory_to_zip(zip, &path, &zip_path, options)?;
+        } else {
+            zip.start_file(&zip_path, options)
+                .map_err(|e| e.to_string())?;
+            let data = std::fs::read(&path).map_err(|e| e.to_string())?;
+            std::io::Write::write_all(zip, &data).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+// ── Preset Bundle: Preview ──────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn preview_preset_bundle(
+    archive_path: String,
+    state: State<'_, AppState>,
+) -> Result<PresetBundlePreview, String> {
+    let settings = state
+        .settings
+        .read()
+        .map_err(|_| "failed to read app settings".to_string())?
+        .clone();
+
+    spawn_blocking(move || {
+        let temp_dir = std::env::temp_dir().join(format!("spm_bundle_{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
+
+        // Extract the archive
+        let file = std::fs::File::open(&archive_path).map_err(|e| e.to_string())?;
+        let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
+        archive.extract(&temp_dir).map_err(|e| e.to_string())?;
+
+        // Check for preset.spm
+        let spm_path = temp_dir.join("preset.spm");
+        if !spm_path.exists() {
+            return Ok(PresetBundlePreview {
+                has_manifest: false,
+                preset_name: None,
+                preset_description: None,
+                new_mods: Vec::new(),
+                conflict_mods: Vec::new(),
+                missing_mod_ids: Vec::new(),
+                temp_dir: temp_dir.to_string_lossy().to_string(),
+            });
+        }
+
+        let spm_content = std::fs::read_to_string(&spm_path).map_err(|e| e.to_string())?;
+        let manifest: PresetBundleManifest =
+            serde_json::from_str(&spm_content).map_err(|e| e.to_string())?;
+
+        // List existing local mods
+        let mod_service = ModService::new(settings);
+        let enabled = mod_service.list_installed().map_err(|e| e.to_string())?;
+        let disabled = mod_service.list_disabled().map_err(|e| e.to_string())?;
+        let existing_ids: std::collections::HashSet<String> = enabled
+            .iter()
+            .chain(disabled.iter())
+            .map(|m| m.id.to_lowercase())
+            .collect();
+        let existing_folders: std::collections::HashSet<String> = enabled
+            .iter()
+            .chain(disabled.iter())
+            .map(|m| m.folder_name.to_lowercase())
+            .collect();
+
+        let mods_dir = temp_dir.join("mods");
+        let mut new_mods = Vec::new();
+        let mut conflict_mods = Vec::new();
+        let mut found_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        for mod_entry in &manifest.mods {
+            let folder_path = mods_dir.join(&mod_entry.folder_name);
+            if !folder_path.is_dir() {
+                continue;
+            }
+            found_ids.insert(mod_entry.id.to_lowercase());
+
+            let is_conflict = existing_ids.contains(&mod_entry.id.to_lowercase())
+                || existing_folders.contains(&mod_entry.folder_name.to_lowercase());
+
+            let preview_mod = PresetBundlePreviewMod {
+                id: mod_entry.id.clone(),
+                name: mod_entry.name.clone(),
+                folder_name: mod_entry.folder_name.clone(),
+                conflict: is_conflict,
+            };
+
+            if is_conflict {
+                conflict_mods.push(preview_mod);
+            } else {
+                new_mods.push(preview_mod);
+            }
+        }
+
+        let missing_mod_ids: Vec<String> = manifest
+            .preset
+            .mod_ids
+            .iter()
+            .filter(|id| !found_ids.contains(&id.to_lowercase()))
+            .cloned()
+            .collect();
+
+        Ok(PresetBundlePreview {
+            has_manifest: true,
+            preset_name: Some(manifest.preset.name),
+            preset_description: manifest.preset.description,
+            new_mods,
+            conflict_mods,
+            missing_mod_ids,
+            temp_dir: temp_dir.to_string_lossy().to_string(),
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+// ── Preset Bundle: Confirm Import ───────────────────────────────────────
+
+#[tauri::command]
+pub async fn confirm_import_preset_bundle(
+    temp_dir: String,
+    conflict_resolutions: std::collections::HashMap<String, String>,
+    state: State<'_, AppState>,
+) -> Result<PresetBundleImportResult, String> {
+    let settings = state
+        .settings
+        .read()
+        .map_err(|_| "failed to read app settings".to_string())?
+        .clone();
+
+    spawn_blocking(move || {
+        let temp_path = std::path::PathBuf::from(&temp_dir);
+        let spm_path = temp_path.join("preset.spm");
+        let spm_content = std::fs::read_to_string(&spm_path).map_err(|e| e.to_string())?;
+        let manifest: PresetBundleManifest =
+            serde_json::from_str(&spm_content).map_err(|e| e.to_string())?;
+
+        let game = GameService::new(settings.clone())
+            .detect_install()
+            .map_err(|e| e.to_string())?;
+        let mods_target = std::path::PathBuf::from(&game.mods_dir);
+
+        let mod_service = ModService::new(settings);
+        let enabled = mod_service.list_installed().map_err(|e| e.to_string())?;
+        let disabled = mod_service.list_disabled().map_err(|e| e.to_string())?;
+        let existing_ids: std::collections::HashSet<String> = enabled
+            .iter()
+            .chain(disabled.iter())
+            .map(|m| m.id.to_lowercase())
+            .collect();
+        let existing_folders: std::collections::HashSet<String> = enabled
+            .iter()
+            .chain(disabled.iter())
+            .map(|m| m.folder_name.to_lowercase())
+            .collect();
+
+        let mods_source = temp_path.join("mods");
+        let mut installed_count: usize = 0;
+        let mut skipped_count: usize = 0;
+        let mut failed_count: usize = 0;
+        let mut actual_mod_ids: Vec<String> = Vec::new();
+
+        for mod_entry in &manifest.mods {
+            let source = mods_source.join(&mod_entry.folder_name);
+            if !source.is_dir() {
+                skipped_count += 1;
+                continue;
+            }
+
+            let is_conflict = existing_ids.contains(&mod_entry.id.to_lowercase())
+                || existing_folders.contains(&mod_entry.folder_name.to_lowercase());
+
+            if is_conflict {
+                let resolution = conflict_resolutions
+                    .get(&mod_entry.id)
+                    .map(|s| s.as_str())
+                    .unwrap_or("skip");
+                if resolution == "skip" {
+                    skipped_count += 1;
+                    // Still include in preset mod_ids since the local copy is used
+                    actual_mod_ids.push(mod_entry.id.clone());
+                    continue;
+                }
+                // Replace: remove existing first
+                if let Some(existing) = enabled
+                    .iter()
+                    .chain(disabled.iter())
+                    .find(|m| m.id.eq_ignore_ascii_case(&mod_entry.id))
+                {
+                    let _ = std::fs::remove_dir_all(&existing.install_dir);
+                }
+            }
+
+            let target = mods_target.join(&mod_entry.folder_name);
+            match copy_dir_recursive(&source, &target) {
+                Ok(()) => {
+                    installed_count += 1;
+                    actual_mod_ids.push(mod_entry.id.clone());
+                }
+                Err(_) => {
+                    failed_count += 1;
+                }
+            }
+        }
+
+        // Create profile with a unique name
+        let profile_svc = ProfileService;
+        let profiles = profile_svc.list().unwrap_or_default();
+        let mut preset_name = manifest.preset.name.clone();
+        let base_name = preset_name.clone();
+        let mut suffix = 2u32;
+        while profiles
+            .iter()
+            .any(|p| p.name.eq_ignore_ascii_case(&preset_name))
+        {
+            preset_name = format!("{} ({})", base_name, suffix);
+            suffix += 1;
+        }
+
+        let _ = profile_svc.create(
+            preset_name.clone(),
+            manifest.preset.description.clone(),
+            actual_mod_ids,
+        );
+
+        // Cleanup temp directory
+        let _ = std::fs::remove_dir_all(&temp_path);
+
+        Ok(PresetBundleImportResult {
+            preset_name,
+            installed_count,
+            skipped_count,
+            failed_count,
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> Result<(), String> {
+    std::fs::create_dir_all(dst).map_err(|e| e.to_string())?;
+    for entry in std::fs::read_dir(src).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let target = dst.join(entry.file_name());
+        if entry.path().is_dir() {
+            copy_dir_recursive(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), &target).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+// ── Preset Bundle: Pick file ────────────────────────────────────────────
+
+#[tauri::command]
+pub fn pick_preset_bundle() -> Option<String> {
+    rfd::FileDialog::new()
+        .add_filter("ZIP Archive", &["zip"])
+        .pick_file()
+        .map(|path| path.to_string_lossy().to_string())
 }
 
 fn push_activity(

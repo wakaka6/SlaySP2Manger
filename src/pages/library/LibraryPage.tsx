@@ -6,6 +6,7 @@ import { useI18n } from "../../i18n/I18nProvider";
 import { useDropZone } from "../../contexts/DropZoneContext";
 import {
   batchInstallMods,
+  createProfile,
   disableMod,
   enableMod,
   installArchiveWithReplace,
@@ -38,6 +39,7 @@ import {
   XCircle,
   AlertCircle,
   Loader2,
+  Bookmark,
   Pencil,
   RefreshCw,
   X,
@@ -116,6 +118,13 @@ export function LibraryPage() {
   const [multiplayerOnly, setMultiplayerOnly] = useState(false);
   const [showImportMenu, setShowImportMenu] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Save-as-preset dialog state
+  const [showSavePreset, setShowSavePreset] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const [presetDesc, setPresetDesc] = useState("");
+  const [savingPreset, setSavingPreset] = useState(false);
+
   const [listRef] = useAutoAnimate<HTMLDivElement>();
   const isPickingFileRef = useRef(false);
   const importMenuRef = useRef<HTMLDivElement>(null);
@@ -727,6 +736,20 @@ export function LibraryPage() {
           </div>
           <button
             className="icon-button icon-button--toolbar"
+            aria-label={t("library.savePreset")}
+            disabled={enabledMods.length === 0}
+            onClick={() => {
+              setPresetName("");
+              setPresetDesc("");
+              setShowSavePreset(true);
+            }}
+            title={t("library.savePreset")}
+            type="button"
+          >
+            <Bookmark size={14} />
+          </button>
+          <button
+            className="icon-button icon-button--toolbar"
             aria-label={t("library.refresh")}
             disabled={refreshing}
             onClick={() => {
@@ -1075,6 +1098,51 @@ export function LibraryPage() {
         title={t("library.saveGuardWarnTitle")}
         tone="danger"
       />
+
+      {/* Save as Preset Dialog */}
+      <ConfirmDialog
+        cancelLabel={t("library.savePresetCancel")}
+        confirmLabel={savingPreset ? "..." : t("library.savePresetConfirm")}
+        description={t("library.savePresetDesc")}
+        onCancel={() => setShowSavePreset(false)}
+        onConfirm={async () => {
+          const name = presetName.trim();
+          if (!name) return;
+          setSavingPreset(true);
+          try {
+            const ids = enabledMods.map((m) => m.id);
+            const created = await createProfile(name, presetDesc.trim() || null, ids);
+            setShowSavePreset(false);
+            setStatus(t("library.savePresetSuccess", { name: created.name }));
+            setSuccessToast({ message: t("library.savePresetSuccess", { name: created.name }), visible: true });
+            setTimeout(() => setSuccessToast((p) => p ? { ...p, visible: false } : null), 2400);
+            setTimeout(() => setSuccessToast(null), 2800);
+          } catch (e) {
+            setStatus(e instanceof Error ? e.message : String(e));
+          } finally {
+            setSavingPreset(false);
+          }
+        }}
+        open={showSavePreset}
+        title={t("library.savePreset")}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "4px 0" }}>
+          <input
+            className="profiles-name-input"
+            onChange={(e) => setPresetName(e.target.value)}
+            placeholder={t("library.savePresetName")}
+            value={presetName}
+            autoFocus
+          />
+          <textarea
+            className="profiles-desc-input"
+            onChange={(e) => setPresetDesc(e.target.value)}
+            placeholder={t("library.savePresetDesc")}
+            rows={2}
+            value={presetDesc}
+          />
+        </div>
+      </ConfirmDialog>
 
       {/* Scanning overlay */}
       {busyId === "scanning" && (

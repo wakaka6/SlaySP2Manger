@@ -620,6 +620,56 @@ export async function exportProfile(profileId: string): Promise<string | null> {
   return invoke<string | null>("export_profile", { profileId });
 }
 
+// ── Preset Bundle ───────────────────────────────────────────────────────
+
+export type PresetBundlePreviewMod = {
+  id: string;
+  name: string;
+  folderName: string;
+  conflict: boolean;
+};
+
+export type PresetBundlePreview = {
+  hasManifest: boolean;
+  presetName: string | null;
+  presetDescription: string | null;
+  newMods: PresetBundlePreviewMod[];
+  conflictMods: PresetBundlePreviewMod[];
+  missingModIds: string[];
+  tempDir: string;
+};
+
+export type PresetBundleImportResult = {
+  presetName: string;
+  installedCount: number;
+  skippedCount: number;
+  failedCount: number;
+};
+
+export async function exportPresetBundle(profileId: string): Promise<string | null> {
+  return invoke<string | null>("export_preset_bundle", { profileId });
+}
+
+export async function pickPresetBundle(): Promise<string | null> {
+  return invoke<string | null>("pick_preset_bundle");
+}
+
+export async function previewPresetBundle(archivePath: string): Promise<PresetBundlePreview> {
+  return invoke<PresetBundlePreview>("preview_preset_bundle", { archivePath });
+}
+
+export async function confirmImportPresetBundle(
+  tempDir: string,
+  conflictResolutions: Record<string, string>,
+): Promise<PresetBundleImportResult> {
+  const result = await invoke<PresetBundleImportResult>("confirm_import_preset_bundle", {
+    tempDir,
+    conflictResolutions,
+  });
+  invalidate("profiles", "installed_mods", "disabled_mods", "app_bootstrap");
+  return result;
+}
+
 export async function launchGame() {
   return invoke<void>("launch_game");
 }

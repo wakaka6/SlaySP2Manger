@@ -147,6 +147,28 @@ export type MessageKey =
   | "profiles.eyebrowDetail"
   | "profiles.applyTitle"
   | "profiles.applySub"
+  | "profiles.shareBundle"
+  | "profiles.shareBundleNeedSave"
+  | "profiles.bundleExported"
+  | "profiles.bundleExportCancelled"
+  | "profiles.bundleExportFailed"
+  | "profiles.importBundle"
+  | "profiles.bundleImportSuccess"
+  | "profiles.bundleImportFailed"
+  | "profiles.bundleConflictTitle"
+  | "profiles.bundleConflictDesc"
+  | "profiles.bundleConflictSkip"
+  | "profiles.bundleConflictReplace"
+  | "profiles.bundleModsMissing"
+  | "profiles.bundleImporting"
+  | "profiles.bundleNewMods"
+  | "profiles.bundleConflictMods"
+  | "library.savePreset"
+  | "library.savePresetName"
+  | "library.savePresetDesc"
+  | "library.savePresetSuccess"
+  | "library.savePresetCancel"
+  | "library.savePresetConfirm"
   | "discover.title"
   | "discover.description"
   | "discover.searchPlaceholder"
@@ -583,6 +605,22 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "profiles.eyebrowDetail": "Profile Details",
     "profiles.applyTitle": "Apply this Profile",
     "profiles.applySub": "Switch game mod loading environment",
+    "profiles.shareBundle": "Share Bundle",
+    "profiles.shareBundleNeedSave": "Please save the profile before sharing.",
+    "profiles.bundleExported": "Bundle exported to {path}",
+    "profiles.bundleExportCancelled": "Bundle export cancelled.",
+    "profiles.bundleExportFailed": "Failed to export preset bundle.",
+    "profiles.importBundle": "Import Bundle",
+    "profiles.bundleImportSuccess": "Imported preset \"{name}\": {installed} mod(s) installed, {skipped} skipped.",
+    "profiles.bundleImportFailed": "Failed to import preset bundle.",
+    "profiles.bundleConflictTitle": "Mod Conflicts Detected",
+    "profiles.bundleConflictDesc": "{count} mod(s) already exist. Choose how to handle each:",
+    "profiles.bundleConflictSkip": "Skip",
+    "profiles.bundleConflictReplace": "Replace",
+    "profiles.bundleModsMissing": "{count} mod(s) missing from bundle (not packaged by author).",
+    "profiles.bundleImporting": "Importing preset bundle...",
+    "profiles.bundleNewMods": "New mods ({count}):",
+    "profiles.bundleConflictMods": "Conflicting mods ({count}):",
     "discover.title": "Discover",
     "discover.description": "Search for mods for Slay the Spire 2 and view details on Nexus.",
     "discover.searchPlaceholder": "Search mod name, author or category...",
@@ -685,6 +723,12 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.searchPlaceholder": "Search mods...",
     "library.openFolder": "Open Folder",
     "library.refresh": "Refresh",
+    "library.savePreset": "Save as Preset",
+    "library.savePresetName": "Preset Name",
+    "library.savePresetDesc": "Description (optional)",
+    "library.savePresetSuccess": "Preset saved: {name}",
+    "library.savePresetCancel": "Cancel",
+    "library.savePresetConfirm": "Save",
     "library.unknownAuthor": "Unknown Author",
     "library.dropTitle": "Drop to Import",
     "library.dropSubtitle": "Release the file to start installing the mod archive.",
@@ -1015,6 +1059,22 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "profiles.eyebrowDetail": "预设详情",
     "profiles.applyTitle": "应用此预设",
     "profiles.applySub": "切换游戏 mod 加载环境",
+    "profiles.shareBundle": "分享整合包",
+    "profiles.shareBundleNeedSave": "请先保存预设，再分享。",
+    "profiles.bundleExported": "整合包已导出到 {path}",
+    "profiles.bundleExportCancelled": "已取消导出整合包。",
+    "profiles.bundleExportFailed": "导出预设整合包失败。",
+    "profiles.importBundle": "导入整合包",
+    "profiles.bundleImportSuccess": "已导入预设\"{name}\"：安装 {installed} 个模组，跳过 {skipped} 个。",
+    "profiles.bundleImportFailed": "导入预设整合包失败。",
+    "profiles.bundleConflictTitle": "检测到模组冲突",
+    "profiles.bundleConflictDesc": "{count} 个模组已存在，请选择处理方式：",
+    "profiles.bundleConflictSkip": "跳过",
+    "profiles.bundleConflictReplace": "覆盖",
+    "profiles.bundleModsMissing": "{count} 个模组未包含在整合包中（作者未打包）。",
+    "profiles.bundleImporting": "正在导入预设整合包...",
+    "profiles.bundleNewMods": "新增模组 ({count})：",
+    "profiles.bundleConflictMods": "冲突模组 ({count})：",
     "discover.title": "发现",
     "discover.description": "搜索适合 Slay the Spire 2 的模组，并跳转到 Nexus 查看详情。",
     "discover.searchPlaceholder": "搜索模组名、作者或功能关键词",
@@ -1117,6 +1177,12 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.searchPlaceholder": "搜索模组...",
     "library.openFolder": "打开文件夹",
     "library.refresh": "刷新",
+    "library.savePreset": "保存为预设",
+    "library.savePresetName": "预设名称",
+    "library.savePresetDesc": "描述（可选）",
+    "library.savePresetSuccess": "已保存预设：{name}",
+    "library.savePresetCancel": "取消",
+    "library.savePresetConfirm": "保存",
     "library.unknownAuthor": "未知作者",
     "library.dropTitle": "拖放导入",
     "library.dropSubtitle": "松开文件即可开始安装模组包。",

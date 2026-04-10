@@ -2,18 +2,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
 import {
   applyProfile,
+  confirmImportPresetBundle,
   createProfile,
   deleteProfile,
+  exportPresetBundle,
   exportProfile,
   getAppBootstrap,
   listDisabledMods,
   listInstalledMods,
   listProfiles,
+  pickPresetBundle,
+  previewPresetBundle,
   updateProfile,
   type InstalledMod,
   type ModProfile,
+  type PresetBundlePreview,
 } from "../../lib/desktop";
-import { Save, LogOut, CheckCircle, Trash2, DatabaseZap, Plus, Layers, Zap, Package, Check } from "lucide-react";
+import { ConfirmDialog } from "../../components/common/ConfirmDialog";
+import { Save, LogOut, CheckCircle, Trash2, DatabaseZap, Plus, Layers, Zap, Package, Check, Share2, FolderDown } from "lucide-react";
 
 type ProfileDraft = {
   id: string | null;
@@ -75,6 +81,9 @@ export function ProfilesPage() {
   const [status, setStatus] = useState(t("profiles.loading"));
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const isBusyRef = useRef(false);
+  const [bundlePreview, setBundlePreview] = useState<PresetBundlePreview | null>(null);
+  const [bundleConflictResolutions, setBundleConflictResolutions] = useState<Record<string, string>>({});
+  const [bundleImporting, setBundleImporting] = useState(false);
 
   const reload = useCallback(async (nextSelectedId?: string | null) => {
     const [profileItems, enabledItems, disabledItems, bootstrap] = await Promise.all([
@@ -305,6 +314,97 @@ export function ProfilesPage() {
     }
   }
 
+  async function handleShareBundle() {
+    if (isBusyRef.current) return;
+    if (!draft.id) {
+      setStatus(t("profiles.exportNeedSave"));
+      return;
+    }
+
+    isBusyRef.current = true;
+    setBusyAction("shareBundle");
+    try {
+      const path = await exportPresetBundle(draft.id);
+      setStatus(path ? t("profiles.bundleExported") : t("profiles.exportCancelled"));
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : t("profiles.exportFailed"));
+    } finally {
+      isBusyRef.current = false;
+      setBusyAction(null);
+    }
+  }
+
+  async function handleImportBundle() {
+    if (isBusyRef.current) return;
+
+    isBusyRef.current = true;
+    setBusyAction("importBundle");
+    try {
+      const filePath = await pickPresetBundle();
+      if (!filePath) {
+        setStatus(t("profiles.exportCancelled"));
+        return;
+      }
+
+      const preview = await previewPresetBundle(filePath);
+      if (!preview.hasManifest) {
+        // No .spm manifest — not a preset bundle, just a regular mod archive
+        setStatus(t("profiles.bundleModsMissing"));
+        return;
+      }
+
+      if (preview.conflictMods.length === 0) {
+        // No conflicts → auto-import
+        const result = await confirmImportPresetBundle(preview.tempDir, {});
+        await reload(null);
+        setStatus(
+          t("profiles.bundleImportSuccess", {
+            name: result.presetName,
+            installed: result.installedCount,
+            skipped: result.skippedCount,
+          }),
+        );
+      } else {
+        // Has conflicts → show dialog
+        const defaults: Record<string, string> = {};
+        for (const mod of preview.conflictMods) {
+          defaults[mod.id] = "skip";
+        }
+        setBundleConflictResolutions(defaults);
+        setBundlePreview(preview);
+      }
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : t("profiles.bundleImportFailed"));
+    } finally {
+      isBusyRef.current = false;
+      setBusyAction(null);
+    }
+  }
+
+  async function handleConfirmBundleImport() {
+    if (!bundlePreview) return;
+    setBundleImporting(true);
+    try {
+      const result = await confirmImportPresetBundle(
+        bundlePreview.tempDir,
+        bundleConflictResolutions,
+      );
+      setBundlePreview(null);
+      await reload(null);
+      setStatus(
+        t("profiles.bundleImportSuccess", {
+          name: result.presetName,
+          installed: result.installedCount,
+          skipped: result.skippedCount,
+        }),
+      );
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : t("profiles.bundleImportFailed"));
+    } finally {
+      setBundleImporting(false);
+    }
+  }
+
   const availableIds = new Set(availableMods.map((m) => m.id.toLowerCase()));
   const selectedCount = draft.modIds.filter((id) => availableIds.has(id.toLowerCase())).length;
 
@@ -316,10 +416,16 @@ export function ProfilesPage() {
           <h1 className="profiles-header__title">{t("profiles.title")}</h1>
           <p className="profiles-header__sub">{t("profiles.description")}</p>
         </div>
-        <button className="button button--primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }} onClick={beginCreate} type="button">
-          <Plus size={16} />
-          {t("profiles.new")}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="button button--secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }} onClick={() => void handleImportBundle()} disabled={busyAction !== null} type="button">
+            <FolderDown size={16} />
+            {t("profiles.importBundle")}
+          </button>
+          <button className="button button--primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }} onClick={beginCreate} type="button">
+            <Plus size={16} />
+            {t("profiles.new")}
+          </button>
+        </div>
       </div>
 
       <div className="profiles-layout">
@@ -417,6 +523,15 @@ export function ProfilesPage() {
               <LogOut size={15} />
             </button>
             <button
+              className="profiles-toolbar__action"
+              disabled={!draft.id || busyAction !== null}
+              onClick={() => void handleShareBundle()}
+              title={t("profiles.shareBundle")}
+              type="button"
+            >
+              <Share2 size={15} />
+            </button>
+            <button
               className="profiles-toolbar__action profiles-toolbar__action--danger"
               disabled={busyAction !== null}
               onClick={() => void handleDelete()}
@@ -489,6 +604,51 @@ export function ProfilesPage() {
 
         </div>
       </div>
+
+      {/* ── Bundle conflict resolution dialog */}
+      {bundlePreview && (
+        <ConfirmDialog
+          open
+          title={t("profiles.bundleConflictTitle")}
+          confirmLabel={bundleImporting ? t("profiles.bundleImporting") : t("profiles.importBundle")}
+          cancelLabel={t("library.savePresetCancel")}
+          onConfirm={() => void handleConfirmBundleImport()}
+          onCancel={() => setBundlePreview(null)}
+        >
+          <p style={{ margin: "0 0 12px" }}>
+            {t("profiles.bundleConflictDesc")}
+          </p>
+          {bundlePreview.newMods.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <strong>{t("profiles.bundleNewMods", { count: bundlePreview.newMods.length })}</strong>
+              <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+                {bundlePreview.newMods.map((m) => (
+                  <li key={m.id}>{m.name}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {bundlePreview.conflictMods.length > 0 && (
+            <div>
+              <strong>{t("profiles.bundleConflictMods", { count: bundlePreview.conflictMods.length })}</strong>
+              {bundlePreview.conflictMods.map((m) => (
+                <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                  <span style={{ flex: 1 }}>{m.name}</span>
+                  <select
+                    value={bundleConflictResolutions[m.id] ?? "skip"}
+                    onChange={(e) =>
+                      setBundleConflictResolutions((prev) => ({ ...prev, [m.id]: e.target.value }))
+                    }
+                  >
+                    <option value="skip">{t("profiles.bundleConflictSkip")}</option>
+                    <option value="replace">{t("profiles.bundleConflictReplace")}</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
+        </ConfirmDialog>
+      )}
     </section>
   );
 }
