@@ -23,7 +23,7 @@ Built with Rust + Tauri + React — Fast, Secure, and Fully Automated.
 ## 🖥️ Demo
 
 <div align="center">
-  <video src="https://github.com/user-attachments/assets/f24a8f15-989d-4810-8970-577b16709b66" width="100%" autoplay loop muted playsinline></video>
+  <video src="https://github.com/user-attachments/assets/4eddda81-022d-4ac5-9ad8-38529399b653" width="100%" autoplay loop muted playsinline></video>
 </div>
 
 ---
