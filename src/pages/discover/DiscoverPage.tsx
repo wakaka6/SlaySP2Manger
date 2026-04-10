@@ -527,7 +527,10 @@ export function DiscoverPage() {
               <button
                 className={`discover-sort-chip${!updatesMode && sortBy === opt.key ? " is-active" : ""}`}
                 key={opt.key}
-                onClick={() => { if (updatesMode) { setUpdatesMode(false); setUpdatableMods([]); } setSortBy(opt.key); }}
+                onClick={() => {
+                  if (updatesMode) { setUpdatesMode(false); setUpdatableMods([]); }
+                  setSortBy(opt.key);
+                }}
                 type="button"
               >
                 {opt.icon}
