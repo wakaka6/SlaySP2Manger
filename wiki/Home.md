@@ -12,10 +12,12 @@ This is the official knowledge base for the Slay the Spire 2 Mod Manager. Here y
 
 ### 🇨🇳 中文
 - [🎮 推荐 Mod 列表](Recommended-Mods-zh) — 《杀戮尖塔 2》必备与推荐 Mod 列表（根据热度排序，持续更新）
+- [📦 预设整合包指南](Preset-Bundles-zh) — 打包分享预设与 Mod，好友一键导入（v0.8.0 新增）
 - [❓ 常见问题解答](FAQ-zh) — Mod 安装崩溃排查、存档管理报错等常见问题与解决方案
 
 ### 🇺🇸 English
 - [🎮 Recommended Mods](Recommended-Mods) — A curated list of popular and recommended mods for Slay the Spire 2
+- [📦 Preset Bundles Guide](Preset-Bundles) — Package and share presets with mods, one-click import (new in v0.8.0)
 - [❓ FAQ / Common Issues](FAQ) — Frequently Asked Questions and solutions to common problems
 
 ---

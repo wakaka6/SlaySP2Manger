@@ -9,6 +9,7 @@
 - [General Questions](#-general-questions)
 - [Installation & Setup](#-installation--setup)
 - [Mod Management](#-mod-management)
+- [Preset Bundles](#-preset-bundles)
 - [Nexus Mods Integration](#-nexus-mods-integration)
 - [Save Management](#-save-management)
 - [Proxy & Network Issues](#-proxy--network-issues)
@@ -144,7 +145,38 @@ Common game paths:
 
 ---
 
-## 🔑 Nexus Mods Integration
+## � Preset Bundles
+
+### Q: What is a preset bundle?
+
+**A:** A preset bundle is a `.zip` file containing a preset configuration (`.spm` manifest) along with all the mod files it references. This lets you share a complete, ready-to-play mod setup with others — they import the bundle and everything is installed automatically. See the full [Preset Bundles Guide](Preset-Bundles) for details.
+
+---
+
+### Q: How do I share my mod setup with a friend?
+
+**A:** 
+1. Go to the **Presets** page and select the preset you want to share
+2. Click **Share Bundle** (📤) in the toolbar
+3. Choose a save location — the app packages the preset and all its mods into a single `.zip` file
+4. Send the file to your friend
+5. They drag the file onto their SlaySP2Manager window to import it
+
+---
+
+### Q: I imported a bundle and some mods conflicted with ones I already have. What happens?
+
+**A:** The app shows a conflict resolution panel listing every mod in the bundle. New mods are installed automatically. For each conflicting mod (same name as a locally installed mod), you choose **Skip** (keep your local version) or **Replace** (overwrite with the bundled version) via a toggle button.
+
+---
+
+### Q: Can someone without SlaySP2Manager use my bundle?
+
+**A:** Yes — the bundle is a standard ZIP. They can manually extract the `mods/` folders into their game directory. However, they will miss out on conflict detection and automatic preset creation.
+
+---
+
+## �🔑 Nexus Mods Integration
 
 ### Q: How do I get a Nexus Mods API key?
 
