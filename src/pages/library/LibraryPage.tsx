@@ -38,6 +38,7 @@ import {
   AlertCircle,
   Loader2,
   Pencil,
+  RefreshCw,
   X,
 } from "lucide-react";
 
@@ -113,6 +114,7 @@ export function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [multiplayerOnly, setMultiplayerOnly] = useState(false);
   const [showImportMenu, setShowImportMenu] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [listRef] = useAutoAnimate<HTMLDivElement>();
   const isPickingFileRef = useRef(false);
   const importMenuRef = useRef<HTMLDivElement>(null);
@@ -722,6 +724,19 @@ export function LibraryPage() {
               <span className="search-field__enter-hint">Enter ↵</span>
             )}
           </div>
+          <button
+            className="button button--secondary"
+            disabled={refreshing}
+            onClick={() => {
+              setRefreshing(true);
+              void reload().finally(() => setRefreshing(false));
+            }}
+            title={t("library.refresh")}
+            type="button"
+          >
+            <RefreshCw size={14} className={refreshing ? "spin-icon" : ""} />
+            {t("library.refresh")}
+          </button>
           <button
             className="button button--secondary"
             onClick={() => void openModsDirectory().catch((e) => setStatus(e.toString()))}

@@ -242,6 +242,7 @@ export type MessageKey =
   | "library.noSearchResults"
   | "library.searchPlaceholder"
   | "library.openFolder"
+  | "library.refresh"
   | "library.unknownAuthor"
   | "library.dropTitle"
   | "library.dropSubtitle"
@@ -671,6 +672,7 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.noSearchResults": "No mods matching your search.",
     "library.searchPlaceholder": "Search mods...",
     "library.openFolder": "Open Folder",
+    "library.refresh": "Refresh",
     "library.unknownAuthor": "Unknown Author",
     "library.dropTitle": "Drop to Import",
     "library.dropSubtitle": "Release the file to start installing the mod archive.",
@@ -1096,6 +1098,7 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "library.noSearchResults": "没有找到匹配的模组。",
     "library.searchPlaceholder": "搜索模组...",
     "library.openFolder": "打开文件夹",
+    "library.refresh": "刷新",
     "library.unknownAuthor": "未知作者",
     "library.dropTitle": "拖放导入",
     "library.dropSubtitle": "松开文件即可开始安装模组包。",
