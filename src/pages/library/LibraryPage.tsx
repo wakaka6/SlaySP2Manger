@@ -16,6 +16,7 @@ import {
   pickImportFolder,
   previewInstallArchive,
   processImportTargets,
+  refreshModList,
   openModsDirectory,
   openModFolder,
   type ArchiveInstallPreview,
@@ -38,6 +39,7 @@ import {
   AlertCircle,
   Loader2,
   Pencil,
+  RefreshCw,
   X,
 } from "lucide-react";
 
@@ -113,6 +115,7 @@ export function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [multiplayerOnly, setMultiplayerOnly] = useState(false);
   const [showImportMenu, setShowImportMenu] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [listRef] = useAutoAnimate<HTMLDivElement>();
   const isPickingFileRef = useRef(false);
   const importMenuRef = useRef<HTMLDivElement>(null);
@@ -722,6 +725,25 @@ export function LibraryPage() {
               <span className="search-field__enter-hint">Enter ↵</span>
             )}
           </div>
+          <button
+            className="icon-button icon-button--toolbar"
+            aria-label={t("library.refresh")}
+            disabled={refreshing}
+            onClick={() => {
+              setRefreshing(true);
+              void refreshModList()
+                .then(({ enabled, disabled }) => {
+                  setEnabledMods(enabled);
+                  setDisabledMods(disabled);
+                })
+                .catch((e) => setStatus(formatErrorMsg(e)))
+                .finally(() => setRefreshing(false));
+            }}
+            title={t("library.refresh")}
+            type="button"
+          >
+            <RefreshCw size={14} className={refreshing ? "spin-icon" : ""} />
+          </button>
           <button
             className="button button--secondary"
             onClick={() => void openModsDirectory().catch((e) => setStatus(e.toString()))}

@@ -207,6 +207,19 @@ export async function listDisabledMods(): Promise<InstalledMod[]> {
   return cached("disabled_mods", () => invoke<InstalledMod[]>("list_disabled_mods"));
 }
 
+/** Invalidate mod list caches and re-read from disk via the backend. */
+export async function refreshModList(): Promise<{
+  enabled: InstalledMod[];
+  disabled: InstalledMod[];
+}> {
+  invalidate("installed_mods", "disabled_mods", "app_bootstrap");
+  const [enabled, disabled] = await Promise.all([
+    listInstalledMods(),
+    listDisabledMods(),
+  ]);
+  return { enabled, disabled };
+}
+
 export async function listActivityLogs(): Promise<ActivityLog[]> {
   return cached("activity_logs", () => invoke<ActivityLog[]>("list_activity_logs"));
 }
