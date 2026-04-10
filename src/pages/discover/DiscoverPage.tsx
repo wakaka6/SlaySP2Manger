@@ -83,6 +83,18 @@ function isNewerVersion(local: string, remote: string): boolean {
   return false;
 }
 
+function yieldToMainThread(): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, 0);
+  });
+}
+
+function nextAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => resolve());
+  });
+}
+
 type UpdatableMod = RemoteMod & { localVersion: string };
 
 export function DiscoverPage() {
@@ -127,6 +139,7 @@ export function DiscoverPage() {
 
   // Unique request ID to cancel stale requests
   const requestIdRef = useRef(0);
+  const updatesRequestIdRef = useRef(0);
 
   useEffect(() => {
     getAppBootstrap().then((b) => setIsPremium(b.nexusIsPremium)).catch(() => {});
@@ -221,14 +234,20 @@ export function DiscoverPage() {
 
   // ── Check for updates: search Nexus for each installed mod ──
   const checkForUpdates = useCallback(async () => {
+    const reqId = ++updatesRequestIdRef.current;
     setUpdatesLoading(true);
     setUpdatableMods([]);
     setErrorState(null);
+
+    // Let the pressed state / loading indicator paint before heavy work starts.
+    await nextAnimationFrame();
+
     try {
       const [enabled, disabled] = await Promise.all([listInstalledMods(), listDisabledMods()]);
+      if (reqId !== updatesRequestIdRef.current) return;
+
       const allLocal: InstalledMod[] = [...enabled, ...disabled];
       if (allLocal.length === 0) {
-        setUpdatesLoading(false);
         return;
       }
 
@@ -239,32 +258,55 @@ export function DiscoverPage() {
       let idx = 0;
       const tasks = async () => {
         while (idx < allLocal.length) {
+          if (reqId !== updatesRequestIdRef.current) return;
           const mod = allLocal[idx++];
           if (!mod.name || !mod.version) continue;
           try {
             const result = await searchRemoteMods(mod.name, "latest_updated", 0, 5);
+            if (reqId !== updatesRequestIdRef.current) return;
+
             // Find a remote mod whose name closely matches
             const match = result.items.find(
               (r) => r.name.toLowerCase() === mod.name.toLowerCase(),
             );
             if (match && match.latestVersion && isNewerVersion(mod.version, match.latestVersion)) {
               updatable.push({ ...match, localVersion: mod.version });
+
+              // Incrementally refresh results so users can interact before full completion.
+              startTransition(() => {
+                if (reqId === updatesRequestIdRef.current) {
+                  setUpdatableMods([...updatable]);
+                }
+              });
             }
           } catch {
             // Skip mods whose search fails
           }
+
+          // Yield periodically to keep the renderer responsive.
+          if (idx % 2 === 0) {
+            await yieldToMainThread();
+          }
         }
       };
       await Promise.all(Array.from({ length: CONCURRENCY }, tasks));
+      if (reqId !== updatesRequestIdRef.current) return;
 
       startTransition(() => {
-        setUpdatableMods(updatable);
-        setSelected(updatable[0] ?? null);
+        if (reqId !== updatesRequestIdRef.current) return;
+        setUpdatableMods([...updatable]);
+        setSelected((cur) => {
+          if (cur && updatable.some((i) => i.remoteId === cur.remoteId)) return cur;
+          return updatable[0] ?? null;
+        });
       });
     } catch (e) {
+      if (reqId !== updatesRequestIdRef.current) return;
       setErrorState(e instanceof Error ? e.message : String(e));
     } finally {
-      setUpdatesLoading(false);
+      if (reqId === updatesRequestIdRef.current) {
+        setUpdatesLoading(false);
+      }
     }
   }, []);
 
@@ -272,8 +314,13 @@ export function DiscoverPage() {
     setUpdatesMode((prev) => {
       const next = !prev;
       if (next) {
-        void checkForUpdates();
+        // Run outside the click call stack to avoid blocking input feedback.
+        window.setTimeout(() => {
+          void checkForUpdates();
+        }, 0);
       } else {
+        updatesRequestIdRef.current += 1;
+        setUpdatesLoading(false);
         setUpdatableMods([]);
       }
       return next;
