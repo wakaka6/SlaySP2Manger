@@ -2273,6 +2273,11 @@ button:disabled {
   transition: all var(--duration-normal) var(--ease-standard);
 }
 
+.icon-button--toolbar {
+  border-color: var(--border-subtle);
+  background: var(--surface-faint);
+}
+
 .icon-button:hover:not(:disabled) {
   background: var(--surface-faint-strong);
   color: var(--text-primary);

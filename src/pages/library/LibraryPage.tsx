@@ -726,7 +726,8 @@ export function LibraryPage() {
             )}
           </div>
           <button
-            className="button button--secondary"
+            className="icon-button icon-button--toolbar"
+            aria-label={t("library.refresh")}
             disabled={refreshing}
             onClick={() => {
               setRefreshing(true);
@@ -742,7 +743,6 @@ export function LibraryPage() {
             type="button"
           >
             <RefreshCw size={14} className={refreshing ? "spin-icon" : ""} />
-            {t("library.refresh")}
           </button>
           <button
             className="button button--secondary"
