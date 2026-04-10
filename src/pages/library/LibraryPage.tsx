@@ -16,6 +16,7 @@ import {
   pickImportFolder,
   previewInstallArchive,
   processImportTargets,
+  refreshModList,
   openModsDirectory,
   openModFolder,
   type ArchiveInstallPreview,
@@ -729,7 +730,13 @@ export function LibraryPage() {
             disabled={refreshing}
             onClick={() => {
               setRefreshing(true);
-              void reload().finally(() => setRefreshing(false));
+              void refreshModList()
+                .then(({ enabled, disabled }) => {
+                  setEnabledMods(enabled);
+                  setDisabledMods(disabled);
+                })
+                .catch((e) => setStatus(formatErrorMsg(e)))
+                .finally(() => setRefreshing(false));
             }}
             title={t("library.refresh")}
             type="button"
