@@ -6706,3 +6706,105 @@ input::-webkit-textfield-decoration-container {
   font-weight: 600;
   justify-content: center;
 }
+
+/* ── Bundle conflict dialog ──────────────────────────────── */
+
+.bundle-summary {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+.bundle-section {
+  margin-bottom: 16px;
+}
+
+.bundle-section:last-child {
+  margin-bottom: 0;
+}
+
+.bundle-section__title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
+.bundle-mod-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bundle-mod-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-faint);
+  font-size: 13px;
+}
+
+.bundle-mod-item--new {
+  border-left: 3px solid var(--success);
+}
+
+.bundle-mod-item--conflict {
+  border-left: 3px solid var(--warning);
+  background: var(--warning-soft);
+}
+
+.bundle-mod-item__name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Segmented toggle for skip / replace */
+.bundle-toggle {
+  display: flex;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.bundle-toggle__btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.bundle-toggle__btn:not(:last-child) {
+  border-right: 1px solid var(--border-subtle);
+}
+
+.bundle-toggle__btn:hover:not(.is-active) {
+  background: var(--surface-faint-hover);
+  color: var(--text-secondary);
+}
+
+.bundle-toggle__btn.is-active {
+  background: var(--accent-fill-soft);
+  color: var(--accent);
+}
+
+.bundle-toggle__btn--replace.is-active {
+  background: var(--warning-soft);
+  color: var(--warning);
+}

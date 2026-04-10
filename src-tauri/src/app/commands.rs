@@ -1013,16 +1013,20 @@ pub async fn export_preset_bundle(
         let mut mod_entries: Vec<PresetBundleModEntry> = Vec::new();
         let mut mod_dirs: Vec<(String, std::path::PathBuf)> = Vec::new();
 
-        eprintln!("[bundle] profile has {} mod_ids, all_mods has {} entries", profile.mod_ids.len(), all_mods.len());
         for mod_id in &profile.mod_ids {
-            eprintln!("[bundle] looking for mod_id={mod_id:?}");
             if let Some(m) = all_mods
                 .iter()
                 .find(|item| item.id.eq_ignore_ascii_case(mod_id))
             {
-                eprintln!("[bundle] found mod: id={}, folder={}, install_dir={}", m.id, m.folder_name, m.install_dir);
-                let dir = std::path::Path::new(&m.install_dir);
-                eprintln!("[bundle] install_dir exists={}, is_dir={}", dir.exists(), dir.is_dir());
+                let dir = std::path::PathBuf::from(&m.install_dir);
+                // Skip mods with empty or missing directories
+                let has_files = dir.is_dir()
+                    && std::fs::read_dir(&dir)
+                        .map(|mut rd| rd.next().is_some())
+                        .unwrap_or(false);
+                if !has_files {
+                    continue;
+                }
                 mod_entries.push(PresetBundleModEntry {
                     id: m.id.clone(),
                     name: m.name.clone(),
@@ -1030,10 +1034,7 @@ pub async fn export_preset_bundle(
                     folder_name: m.folder_name.clone(),
                     author: m.author.clone(),
                 });
-                mod_dirs.push((
-                    m.folder_name.clone(),
-                    std::path::PathBuf::from(&m.install_dir),
-                ));
+                mod_dirs.push((m.folder_name.clone(), dir));
             }
         }
 

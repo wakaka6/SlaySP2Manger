@@ -62,7 +62,10 @@ Installing mods for Slay the Spire 2 is messy — and we've been there:
 ### 🗂️ Presets
 - Create **multiple local mod presets** (e.g. "Vanilla-friendly", "Full chaos run")
 - Switch presets safely — the app validates integrity before applying
-- Duplicate, rename, export, and import presets
+- Duplicate and rename presets
+- **Share as bundle**: Package a preset with all its mods into a `.zip` bundle (with `.spm` manifest) to share with friends in one click
+- **Import bundles**: Click a button or drag-and-drop a bundle onto the window — the app detects conflicts and lets you choose "Skip" or "Replace" per mod
+- **Save preset from Library**: Capture all currently enabled mods as a new preset with one click
 
 ### 💾 Save Management
 - Clearly separates **vanilla save slots** from **modded save slots**

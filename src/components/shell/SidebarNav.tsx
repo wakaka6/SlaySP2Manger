@@ -91,6 +91,13 @@ export function SidebarNav(props: SidebarNavProps) {
     void listProfiles().then(setProfiles);
   }, [props.activeProfileName]);
 
+  // Re-fetch profile list when mods/profiles change (e.g. import or delete)
+  useEffect(() => {
+    const handler = () => void listProfiles().then(setProfiles);
+    window.addEventListener("slaymgr:bootstrap-changed", handler);
+    return () => window.removeEventListener("slaymgr:bootstrap-changed", handler);
+  }, []);
+
   // Close dropdown on outside click
   useEffect(() => {
     if (!profileOpen && !downloadOpen) return;

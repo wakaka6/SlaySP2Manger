@@ -8,9 +8,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState, useTransition, useCallback } from "react";
+import { useEffect, useState, useTransition, useCallback, useRef } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
-import { getAppBootstrap, type AppBootstrap } from "../../lib/desktop";
+import { getAppBootstrap, previewPresetBundle, type AppBootstrap } from "../../lib/desktop";
 import { SidebarNav } from "./SidebarNav";
 import { WelcomeGuide } from "./WelcomeGuide";
 import { UpdateChecker } from "./UpdateChecker";
@@ -41,7 +41,7 @@ export function AppShell() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const [appState, setAppState] = useState<AppBootstrap | null>(null);
-  const { pendingDropPaths, isDragging } = useDropZone();
+  const { pendingDropPaths, isDragging, setPendingDropPaths } = useDropZone();
   const [compactSidebar, setCompactSidebar] = useState(getCompactSidebarMatches);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try { return localStorage.getItem("sidebar-collapsed") === "true"; } catch { return false; }
@@ -81,12 +81,38 @@ export function AppShell() {
     return () => window.removeEventListener("slaymgr:bootstrap-changed", handler);
   }, [fetchAppState]);
 
-  // Navigate to library magically when dropping a file on any page
+  // Navigate to the right page when dropping a file
+  const bundleCheckRef = useRef(false);
   useEffect(() => {
-    if (pendingDropPaths.length > 0 && location.pathname !== "/") {
-      navigate("/");
+    if (pendingDropPaths.length === 0 || bundleCheckRef.current) return;
+
+    // Single .zip? Check if it's a preset bundle first
+    if (pendingDropPaths.length === 1 && pendingDropPaths[0].toLowerCase().endsWith(".zip")) {
+      bundleCheckRef.current = true;
+      const archivePath = pendingDropPaths[0];
+      previewPresetBundle(archivePath)
+        .then((preview) => {
+          if (preview.hasManifest) {
+            // It's a preset bundle — consume drop paths and navigate to profiles
+            setPendingDropPaths([]);
+            navigate("/profiles", { state: { bundlePath: archivePath, bundlePreview: preview } });
+          } else {
+            // Regular mod archive — go to library
+            if (location.pathname !== "/") navigate("/");
+          }
+        })
+        .catch(() => {
+          // On error, fall through to library import
+          if (location.pathname !== "/") navigate("/");
+        })
+        .finally(() => {
+          bundleCheckRef.current = false;
+        });
+    } else {
+      // Multiple files or non-zip — regular library import
+      if (location.pathname !== "/") navigate("/");
     }
-  }, [pendingDropPaths, location.pathname, navigate]);
+  }, [pendingDropPaths, location.pathname, navigate, setPendingDropPaths]);
 
   const navItems: ShellNavItem[] = [
     { label: t("nav.library"), path: "/", icon: Library, badge: appState ? String(appState.installedCount + appState.disabledCount) : "0" },

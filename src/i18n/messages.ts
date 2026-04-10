@@ -160,6 +160,7 @@ export type MessageKey =
   | "profiles.bundleConflictSkip"
   | "profiles.bundleConflictReplace"
   | "profiles.bundleModsMissing"
+  | "profiles.bundleNotPreset"
   | "profiles.bundleImporting"
   | "profiles.bundleNewMods"
   | "profiles.bundleConflictMods"
@@ -618,6 +619,7 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "profiles.bundleConflictSkip": "Skip",
     "profiles.bundleConflictReplace": "Replace",
     "profiles.bundleModsMissing": "{count} mod(s) missing from bundle (not packaged by author).",
+    "profiles.bundleNotPreset": "This archive does not contain a preset manifest (.spm). Use Library to import mods.",
     "profiles.bundleImporting": "Importing preset bundle...",
     "profiles.bundleNewMods": "New mods ({count}):",
     "profiles.bundleConflictMods": "Conflicting mods ({count}):",
@@ -1072,6 +1074,7 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "profiles.bundleConflictSkip": "跳过",
     "profiles.bundleConflictReplace": "覆盖",
     "profiles.bundleModsMissing": "{count} 个模组未包含在整合包中（作者未打包）。",
+    "profiles.bundleNotPreset": "此压缩包不包含预设清单（.spm），请到模组库页面导入。",
     "profiles.bundleImporting": "正在导入预设整合包...",
     "profiles.bundleNewMods": "新增模组 ({count})：",
     "profiles.bundleConflictMods": "冲突模组 ({count})：",

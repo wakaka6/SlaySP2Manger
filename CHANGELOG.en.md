@@ -5,6 +5,28 @@ All notable changes to SlaySP2Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-04-11
+
+### Added
+
+- **Preset bundles**: Package a preset along with all its mods into a single `.zip` bundle (containing an `.spm` manifest) and share it with friends or the community in one click.
+- **Import bundles**: Click "Import Bundle" on the Presets page or drag-and-drop a bundle onto the window to preview the included mods and import them instantly. When duplicate mods are detected, a conflict resolution panel lets you choose "Skip" or "Replace" for each mod individually.
+- **Save preset from Library**: A new "Save as Preset" button in the Library page captures all currently enabled mods as a new preset with a custom name and description.
+- **Drag-and-drop bundle import**: Drop a `.zip` bundle file onto the app window — the app automatically detects the `.spm` manifest, navigates to Presets, and walks you through the import flow.
+
+### Changed
+
+- **Removed legacy JSON export**: The old "Export" action (JSON-only) has been removed from Presets. "Share Bundle" is now the single export path, ensuring recipients get both configuration and mod files.
+- **In-app delete confirmation**: Preset deletion now uses the app's `ConfirmDialog` component instead of the native `window.confirm`, keeping the experience visually consistent.
+- **Pill-toggle conflict resolution**: The per-mod "Skip / Replace" selector in the conflict dialog has been changed from a dropdown to a segmented pill toggle for faster, more intuitive interaction.
+- **Sidebar preset list live refresh**: The sidebar preset picker now updates immediately after importing or deleting a preset.
+
+### Fixed
+
+- Fixed preset bundle export including empty mod directories (no actual files); empty directories are now silently skipped.
+- Fixed UI freeze when batch-checking mod updates in the Library by switching to async incremental result streaming.
+- Fixed i18n template placeholders (`{count}`, `{path}`) not rendering correctly in bundle-related messages.
+
 ## [0.7.1] - 2026-04-07
 
 ### Fixed
