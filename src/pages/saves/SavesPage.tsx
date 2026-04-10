@@ -27,7 +27,7 @@ import {
   type SaveSlotRef,
   type SaveSyncPair,
 } from "../../lib/desktop";
-import { DatabaseBackup, ArchiveRestore, Trash2, FolderOpen, RefreshCw, Link2, X, Shield, UserPen, ChevronDown, ArrowRight, CloudUpload, CloudDownload, Cloud, Activity } from "lucide-react";
+import { DatabaseBackup, ArchiveRestore, Trash2, FolderOpen, RefreshCw, Link2, X, Shield, UserPen, ChevronDown, ArrowRight, CloudUpload, CloudDownload, Cloud, AlertCircle } from "lucide-react";
 
 function slotRef(slot: SaveSlot): SaveSlotRef {
   return { steamUserId: slot.steamUserId, kind: slot.kind, slotIndex: slot.slotIndex };
@@ -87,7 +87,27 @@ export function SavesPage() {
   const { t } = useI18n();
   const [slots, setSlots] = useState<SaveSlot[]>([]);
   const [backups, setBackups] = useState<SaveBackupEntry[]>([]);
-  const [status, setStatus] = useState(t("saves.ready"));
+  const [loaded, setLoaded] = useState(false);
+  const [contentVisible, setContentVisible] = useState(false);
+  const [toast, setToast] = useState<{ text: string; tone: "info" | "success" | "error"; visible: boolean } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>();
+  const toastRemoveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const showToast = useCallback((text: string, tone: "info" | "success" | "error" = "info", autoHide = true) => {
+    clearTimeout(toastTimer.current);
+    clearTimeout(toastRemoveTimer.current);
+    if (tone !== "error") {
+      setToast(null);
+      return;
+    }
+    setToast({ text, tone, visible: true });
+    if (autoHide) {
+      toastTimer.current = setTimeout(() => {
+        setToast(prev => prev ? { ...prev, visible: false } : null);
+        toastRemoveTimer.current = setTimeout(() => setToast(null), 400);
+      }, 3000);
+    }
+  }, []);
+  useEffect(() => () => { clearTimeout(toastTimer.current); clearTimeout(toastRemoveTimer.current); }, []);
   const [selectedSource, setSelectedSource] = useState<SaveSlot | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<SaveSlot | null>(null);
   const [transferOpen, setTransferOpen] = useState<{ sourceKind: SaveKind; targetKind: SaveKind } | null>(null);
@@ -154,7 +174,10 @@ export function SavesPage() {
         void handleSync(true);
       }
     }).catch(() => {});
-    void reload();
+    reload().finally(() => {
+      setLoaded(true);
+      requestAnimationFrame(() => setContentVisible(true));
+    });
   }, []);
 
   useEffect(() => {
@@ -166,7 +189,7 @@ export function SavesPage() {
     handledCloudDiffRequestRef.current = requestId;
 
     setCloudDiffOpen(true);
-    setStatus(t("saves.cloudReviewBeforeLaunch"));
+    showToast(t("saves.cloudReviewBeforeLaunch"), "info", false);
     void reload();
     navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, location.state, navigate, t]);
@@ -288,7 +311,7 @@ export function SavesPage() {
       setLinkingFrom(null); // cancel
     } else {
       setLinkingFrom(slotIndex);
-      setStatus(t("saves.linkSelectModded"));
+      showToast(t("saves.linkSelectModded"), "info", false);
     }
   }
 
@@ -311,12 +334,12 @@ export function SavesPage() {
     const newPairs = [...filtered, { vanillaSlot: linkingFrom, moddedSlot: slotIndex }];
     setSyncPairs(newPairs);
     setLinkingFrom(null);
-    setStatus(t("saves.linkCreated", { v: linkingFrom, m: slotIndex }));
+    showToast(t("saves.linkCreated", { v: linkingFrom, m: slotIndex }), "success");
 
     try {
       await updateSaveSyncPairs(newPairs);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Failed to save pairs");
+      showToast(error instanceof Error ? error.message : "Failed to save pairs", "error", false);
     }
   }
 
@@ -325,12 +348,12 @@ export function SavesPage() {
       (p) => !(p.vanillaSlot === vanillaSlot && p.moddedSlot === moddedSlot),
     );
     setSyncPairs(newPairs);
-    setStatus(t("saves.linkRemoved"));
+    showToast(t("saves.linkRemoved"), "success");
 
     try {
       await updateSaveSyncPairs(newPairs);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Failed to save pairs");
+      showToast(error instanceof Error ? error.message : "Failed to save pairs", "error", false);
     }
   }
 
@@ -339,7 +362,6 @@ export function SavesPage() {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape" && linkingFrom !== null) {
         setLinkingFrom(null);
-        setStatus(t("saves.ready"));
       }
     }
     window.addEventListener("keydown", onKey);
@@ -353,13 +375,13 @@ export function SavesPage() {
       await toggleSaveAutoSync(enabled);
       if (enabled && syncPairs.length > 0) await handleSync(false);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : t("saves.syncFailed"));
+      showToast(error instanceof Error ? error.message : t("saves.syncFailed"), "error", false);
     }
   }
 
   async function handleSync(silent: boolean) {
     if (syncPairs.length === 0) {
-      if (!silent) setStatus(t("saves.syncNoPairs"));
+      if (!silent) showToast(t("saves.syncNoPairs"), "info");
       return;
     }
     if (isActionRunningRef.current) return;
@@ -368,10 +390,10 @@ export function SavesPage() {
     try {
       const result = await syncSaves();
       await reload();
-      if (result.syncedCount > 0) setStatus(t("saves.syncDone", { count: result.syncedCount }));
-      else if (!silent) setStatus(t("saves.syncUpToDate"));
+      if (result.syncedCount > 0) showToast(t("saves.syncDone", { count: result.syncedCount }), "success");
+      else if (!silent) showToast(t("saves.syncUpToDate"), "success");
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : t("saves.syncFailed"));
+      showToast(error instanceof Error ? error.message : t("saves.syncFailed"), "error", false);
     } finally {
       setIsSyncing(false);
       isActionRunningRef.current = false;
@@ -382,7 +404,7 @@ export function SavesPage() {
     const sourceSlots = slots.filter((s) => s.kind === sourceKind);
     const targetSlots = slots.filter((s) => s.kind === targetKind);
     if (sourceSlots.length === 0 || targetSlots.length === 0) {
-      setStatus(t("saves.transferMissing"));
+      showToast(t("saves.transferMissing"), "error");
       return;
     }
     const defaultSource = sourceSlots.find((s) => s.hasData) ?? sourceSlots[0];
@@ -398,7 +420,7 @@ export function SavesPage() {
     if (isActionRunningRef.current || !cloudStatus?.isAvailable) return;
     isActionRunningRef.current = true;
     setIsCloudSyncing(action);
-    setStatus(action === "ascend" ? t("saves.cloudAscending") : t("saves.cloudDescending"));
+    showToast(action === "ascend" ? t("saves.cloudAscending") : t("saves.cloudDescending"), "info", false);
     try {
       const nextStatus =
         action === "ascend"
@@ -408,16 +430,18 @@ export function SavesPage() {
       setCloudStatus(nextStatus);
 
       if (action === "ascend") {
-        setStatus(
+        showToast(
           nextStatus.localAppliedToCloud && !nextStatus.hasMismatch
             ? t("saves.cloudAscendDone")
             : t("saves.cloudAscendPreparedWithWarnings"),
+          "success",
         );
       } else {
-        setStatus(
+        showToast(
           nextStatus.cloudAppliedToLocal && !nextStatus.hasMismatch
             ? t("saves.cloudDescendDone")
             : t("saves.cloudDescendPreparedWithWarnings"),
+          "success",
         );
       }
       await reload();
@@ -425,13 +449,13 @@ export function SavesPage() {
       let errMsg = typeof error === "string" ? error : (error instanceof Error ? error.message : "Unknown error");
       if (errMsg === "error.steamRunningBeforeCloudSync" && !allowSteamRunning) {
         setSteamCloudRiskAction(action);
-        setStatus(t("saves.cloudSteamRunningReview"));
+        showToast(t("saves.cloudSteamRunningReview"), "info", false);
         return;
       }
       if (errMsg.startsWith("error.")) {
         errMsg = t(errMsg as any);
       }
-      setStatus(errMsg || (action === "ascend" ? t("saves.cloudAscendFailed") : t("saves.cloudDescendFailed")));
+      showToast(errMsg || (action === "ascend" ? t("saves.cloudAscendFailed") : t("saves.cloudDescendFailed")), "error", false);
     } finally {
       setIsCloudSyncing(null);
       isActionRunningRef.current = false;
@@ -445,10 +469,10 @@ export function SavesPage() {
     try {
       const backup = await transferSave(slotRef(selectedSource), slotRef(selectedTarget));
       setTransferOpen(null);
-      setStatus(backup ? t("saves.transferDoneWithBackup") : t("saves.transferDone"));
+      showToast(backup ? t("saves.transferDoneWithBackup") : t("saves.transferDone"), "success");
       await reload();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : t("saves.transferFailed"));
+      showToast(error instanceof Error ? error.message : t("saves.transferFailed"), "error", false);
     } finally {
       isActionRunningRef.current = false;
     }
@@ -459,10 +483,10 @@ export function SavesPage() {
     isActionRunningRef.current = true;
     try {
       const backup = await createSaveBackup(slotRef(slot));
-      setStatus(t("saves.backupDone", { label: backupLabel(backup) }));
+      showToast(t("saves.backupDone", { label: backupLabel(backup) }), "success");
       await reload();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : t("saves.backupFailed"));
+      showToast(error instanceof Error ? error.message : t("saves.backupFailed"), "error", false);
     } finally {
       isActionRunningRef.current = false;
     }
@@ -474,9 +498,9 @@ export function SavesPage() {
     try {
       await deleteSaveBackup(id);
       await reload();
-      setStatus(t("saves.deleteBackupDone"));
+      showToast(t("saves.deleteBackupDone"), "success");
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : t("saves.deleteBackupFailed"));
+      showToast(error instanceof Error ? error.message : t("saves.deleteBackupFailed"), "error", false);
     } finally {
       isActionRunningRef.current = false;
     }
@@ -489,10 +513,10 @@ export function SavesPage() {
     try {
       await restoreSaveBackup(pendingRestore.id);
       setPendingRestore(null);
-      setStatus(t("saves.restoreDone"));
+      showToast(t("saves.restoreDone"), "success");
       await reload();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : t("saves.restoreFailed"));
+      showToast(error instanceof Error ? error.message : t("saves.restoreFailed"), "error", false);
     } finally {
       isActionRunningRef.current = false;
     }
@@ -561,24 +585,82 @@ export function SavesPage() {
     );
   }
 
+  function renderSkeletonCard(key: string) {
+    return (
+      <article className="obsidian-node saves-skeleton-card" key={key} aria-hidden="true">
+        <div className="obsidian-node__top">
+          <span className="skeleton-text saves-skeleton-card__title" />
+          <span className="skeleton-text saves-skeleton-card__dot" />
+        </div>
+        <div className="obsidian-node__mid saves-skeleton-card__mid">
+          <span className="skeleton-text saves-skeleton-card__line saves-skeleton-card__line--wide" />
+          <span className="skeleton-text saves-skeleton-card__line saves-skeleton-card__line--narrow" />
+        </div>
+        <div className="obsidian-node__bottom">
+          <span className="skeleton-text saves-skeleton-card__icon" />
+          <span className="skeleton-text saves-skeleton-card__icon" />
+        </div>
+      </article>
+    );
+  }
+
+  function renderLoadingState() {
+    return (
+      <>
+        <div className="saves-cloud-core saves-skeleton-panel" aria-hidden="true">
+          <div className="cloud-core__info">
+            <div className="cloud-core__title">
+              <span className="skeleton-text saves-skeleton-cloud-icon" />
+              <span className="skeleton-text saves-skeleton-pill" />
+            </div>
+            <div className="cloud-core__status">
+              <span className="skeleton-text saves-skeleton-line saves-skeleton-line--lg" />
+              <span className="skeleton-text saves-skeleton-line saves-skeleton-line--md" />
+              <span className="skeleton-text saves-skeleton-line saves-skeleton-line--sm" />
+            </div>
+          </div>
+          <div className="cloud-core__actions saves-skeleton-actions">
+            <span className="skeleton-text saves-skeleton-action" />
+            <span className="skeleton-text saves-skeleton-action" />
+          </div>
+        </div>
+
+        <div className="saves-sync-bar saves-sync-bar--grid saves-skeleton-panel" aria-hidden="true">
+          <span className="skeleton-text saves-skeleton-toggle" />
+          <span className="skeleton-text saves-skeleton-hint" />
+          <span className="skeleton-text saves-skeleton-action saves-skeleton-action--sm" />
+        </div>
+
+        <section className="saves-section saves-section--vanilla" aria-busy="true">
+          <div className="saves-section__header">
+            <h2>{t("saves.vanillaTitle")}</h2>
+            <div className="saves-section__actions" aria-hidden="true">
+              <span className="skeleton-text saves-skeleton-action saves-skeleton-action--header" />
+            </div>
+          </div>
+          <div className="saves-grid">
+            {[1, 2, 3].map((index) => renderSkeletonCard(`vanilla-skeleton-${index}`))}
+          </div>
+        </section>
+
+        <section className="saves-section saves-section--modded" aria-busy="true">
+          <div className="saves-section__header">
+            <h2>{t("saves.moddedTitle")}</h2>
+            <div className="saves-section__actions" aria-hidden="true">
+              <span className="skeleton-text saves-skeleton-action saves-skeleton-action--header" />
+            </div>
+          </div>
+          <div className="saves-grid">
+            {[1, 2, 3].map((index) => renderSkeletonCard(`modded-skeleton-${index}`))}
+          </div>
+        </section>
+      </>
+    );
+  }
+
   return (
     <section className="page">
       <PageHeader description={t("saves.description")} title={t("saves.title")} />
-      <div className="status-line" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Activity size={14} className="text-accent" />
-        {status}
-      </div>
-
-      {/* ── Linking hint ──────────────────────────────── */}
-      {linkingFrom !== null && (
-        <div className="saves-link-hint">
-          <Link2 size={14} />
-          <span>{t("saves.linkHint", { slot: linkingFrom })}</span>
-          <button className="saves-link-hint__cancel" onClick={() => { setLinkingFrom(null); setStatus(t("saves.ready")); }} type="button">
-            <X size={14} />
-          </button>
-        </div>
-      )}
 
       {/* ── Loom of Destiny Layout ───────────────── */}
       <div className="saves-layout" ref={layoutRef}>
@@ -667,8 +749,10 @@ export function SavesPage() {
         )}
 
          <div className="saves-trinity">
+          {!loaded ? renderLoadingState() : (
+            <>
           {/* ── 1. The Cloud Sanctuary (Top Middle) ── */}
-          <div className="saves-cloud-core">
+          <div className={`saves-cloud-core saves-live-block${contentVisible ? " saves-live-block--visible" : ""}`}>
               <div className="cloud-core__info">
                  <div className="cloud-core__title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Cloud size={28} className="text-accent" />
@@ -744,7 +828,7 @@ export function SavesPage() {
           </div>
           
           {/* ── 2. Vanilla Realm (Left) ── */}
-          <div className="saves-sync-bar saves-sync-bar--grid">
+          <div className={`saves-sync-bar saves-sync-bar--grid saves-live-block saves-live-block--delay-1${contentVisible ? " saves-live-block--visible" : ""}`}>
             <label className="saves-sync-toggle">
               <input
                 type="checkbox"
@@ -767,7 +851,7 @@ export function SavesPage() {
             </button>
           </div>
 
-          <section className="saves-section saves-section--vanilla">
+          <section className={`saves-section saves-section--vanilla saves-live-block saves-live-block--delay-2${contentVisible ? " saves-live-block--visible" : ""}`}>
             <div className="saves-section__header">
               <h2>{t("saves.vanillaTitle")}</h2>
               <div className="saves-section__actions">
@@ -777,14 +861,14 @@ export function SavesPage() {
               </div>
             </div>
             <div className="saves-grid">
-              {vanillaSlots.length === 0 ? (
+              {loaded && vanillaSlots.length === 0 ? (
                 <article className="activity-item"><strong>{t("saves.noVanilla")}</strong><span>{t("saves.noVanillaHelp")}</span></article>
               ) : vanillaSlots.map(renderCard)}
             </div>
           </section>
 
           {/* ── 3. Modded Realm (Right) ── */}
-          <section className="saves-section saves-section--modded">
+          <section className={`saves-section saves-section--modded saves-live-block saves-live-block--delay-3${contentVisible ? " saves-live-block--visible" : ""}`}>
             <div className="saves-section__header">
               <h2>{t("saves.moddedTitle")}</h2>
               <div className="saves-section__actions">
@@ -794,11 +878,13 @@ export function SavesPage() {
               </div>
             </div>
             <div className="saves-grid">
-              {moddedSlots.length === 0 ? (
+              {loaded && moddedSlots.length === 0 ? (
                 <article className="activity-item"><strong>{t("saves.noModded")}</strong><span>{t("saves.noModdedHelp")}</span></article>
               ) : moddedSlots.map(renderCard)}
             </div>
           </section>
+            </>
+          )}
         </div>
       </div>
 
@@ -806,10 +892,19 @@ export function SavesPage() {
       <section className="panel profile-panel" style={{ marginTop: "32px", border: '1px solid color-mix(in srgb, var(--accent) 15%, transparent)', background: 'linear-gradient(to bottom, color-mix(in srgb, var(--bg-panel-soft) 80%, transparent), transparent)' }}>
         <div className="panel__header">
           <h2>{t("saves.timeFragments")}</h2>
-          <span className="panel__meta">{backups.length}</span>
+          {loaded ? (
+            <span className="panel__meta">{backups.length}</span>
+          ) : (
+            <span className="panel__meta skeleton-text saves-skeleton-meta" aria-hidden="true" />
+          )}
         </div>
-        <div className="backup-timeline">
-          {backups.length === 0 ? (
+        <div className={`backup-timeline${loaded ? ` saves-live-block saves-live-block--delay-4${contentVisible ? " saves-live-block--visible" : ""}` : ""}`}>
+          {!loaded ? (
+            <div className="activity-item saves-backup-skeleton" aria-hidden="true">
+              <span className="skeleton-text saves-skeleton-line saves-skeleton-line--md" />
+              <span className="skeleton-text saves-skeleton-line saves-skeleton-line--lg" />
+            </div>
+          ) : backups.length === 0 ? (
             <div className="activity-item"><strong>{t("saves.noBackups")}</strong><span>{t("saves.noBackupsHelp")}</span></div>
           ) : groupedBackups.map(([groupKey, group]) => {
             const isExpanded = expandedGroups.has(groupKey);
@@ -887,6 +982,15 @@ export function SavesPage() {
           })}
         </div>
       </section>
+
+      {toast?.tone === "error" && (
+        <div className="saves-toast-anchor" role="status" aria-live="polite">
+          <div className={`saves-toast saves-toast--error${toast.visible ? " saves-toast--visible" : ""}`}>
+            <AlertCircle size={14} />
+            <span>{toast.text}</span>
+          </div>
+        </div>
+      )}
 
       {/* ── Dialogs ───────────────────────────────────── */}
       {(() => {
@@ -979,7 +1083,6 @@ export function SavesPage() {
         confirmLabel={t("saves.cloudSteamRunningContinue")}
         onCancel={() => {
           setSteamCloudRiskAction(null);
-          setStatus(t("saves.ready"));
         }}
         onConfirm={() => {
           const action = steamCloudRiskAction;

@@ -5,6 +5,18 @@ All notable changes to SlaySP2Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-04-11
+
+### Changed
+
+- **Quieter Saves UI**: Removed the top status ribbon and pairing hint banner so the page relies on card highlighting, connection lines, and only a minimal bottom-corner error signal when something actually fails.
+- **Reworked loading transition**: The Saves page now uses layout-matched skeletons with a subtle staggered reveal for the cloud area, sync bar, slot cards, and backup section.
+
+### Fixed
+
+- Fixed the Saves page briefly flashing “no vanilla saves / no modded saves” empty states before real data finished loading.
+- Fixed visible layout jumps between the loading state and real content by aligning skeleton dimensions with the final cards, actions, and backup panel.
+
 ## [0.8.0] - 2026-04-11
 
 ### Added

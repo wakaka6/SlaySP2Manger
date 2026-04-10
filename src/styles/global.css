@@ -2749,27 +2749,6 @@ button:disabled {
 .saves-sync-bar__action {
   gap: 8px;
 }
-.saves-link-hint {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  padding: 8px 14px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  color: var(--accent);
-}
-.saves-link-hint__cancel {
-  margin-left: auto;
-  background: none;
-  border: none;
-  color: var(--accent);
-  cursor: pointer;
-  padding: 2px;
-  display: flex;
-}
 
 /* ── Saves Page ───────────────────────────────────────────────────── */
 
@@ -2779,6 +2758,148 @@ button:disabled {
   gap: 48px;
   margin-top: 28px;
   position: relative;
+}
+
+.saves-skeleton-panel {
+  overflow: hidden;
+}
+
+.saves-live-block {
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.saves-live-block--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.saves-live-block--delay-1 {
+  transition-delay: 30ms;
+}
+
+.saves-live-block--delay-2 {
+  transition-delay: 55ms;
+}
+
+.saves-live-block--delay-3 {
+  transition-delay: 80ms;
+}
+
+.saves-live-block--delay-4 {
+  transition-delay: 110ms;
+}
+
+.saves-skeleton-card {
+  cursor: default;
+  min-height: 108px;
+}
+
+.saves-skeleton-card__title {
+  width: 112px;
+  height: 14px;
+}
+
+.saves-skeleton-card__dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+}
+
+.saves-skeleton-card__mid {
+  gap: 8px;
+}
+
+.saves-skeleton-card__line {
+  height: 12px;
+}
+
+.saves-skeleton-card__line--wide {
+  width: 132px;
+}
+
+.saves-skeleton-card__line--narrow {
+  width: 68px;
+}
+
+.saves-skeleton-card__icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+}
+
+.saves-skeleton-pill {
+  width: 164px;
+  height: 18px;
+  display: inline-block;
+}
+
+.saves-skeleton-cloud-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.saves-skeleton-line {
+  height: 12px;
+  display: block;
+}
+
+.saves-skeleton-line--lg {
+  width: 240px;
+}
+
+.saves-skeleton-line--md {
+  width: 180px;
+}
+
+.saves-skeleton-line--sm {
+  width: 96px;
+}
+
+.saves-skeleton-actions {
+  gap: 12px;
+  align-items: center;
+}
+
+.saves-skeleton-action {
+  width: 176px;
+  height: 38px;
+  border-radius: 999px;
+}
+
+.saves-skeleton-action--header {
+  width: 116px;
+  height: 30px;
+}
+
+.saves-skeleton-action--sm {
+  width: 110px;
+}
+
+.saves-skeleton-toggle {
+  width: 168px;
+  height: 16px;
+}
+
+.saves-skeleton-hint {
+  width: 72px;
+  height: 14px;
+}
+
+.saves-backup-skeleton {
+  gap: 10px;
+  min-height: 66px;
+}
+
+.saves-skeleton-meta {
+  width: 18px;
+  height: 12px;
+  display: inline-block;
 }
 
 .saves-trinity {
@@ -3843,6 +3964,62 @@ button:disabled {
   color: var(--text-muted);
   font-size: 13px;
   line-height: 1.6;
+}
+
+/* ── Saves transient toast ──────────────────────────────────────── */
+.saves-toast-anchor {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 80;
+  pointer-events: none;
+}
+.saves-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 48px));
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid color-mix(in srgb, var(--danger) 18%, transparent);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  transition:
+    opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  will-change: opacity, transform;
+}
+.saves-toast--visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+.saves-toast--error {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg-card));
+}
+.saves-toast svg {
+  flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+  .saves-toast-anchor {
+    right: 16px;
+    left: 16px;
+    bottom: 16px;
+  }
+
+  .saves-toast {
+    max-width: none;
+    width: 100%;
+  }
 }
 
 .activity-item__head {
