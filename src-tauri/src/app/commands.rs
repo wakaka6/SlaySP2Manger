@@ -1,6 +1,7 @@
 use chrono::Utc;
 use serde::Serialize;
 use tauri::State;
+use tauri::async_runtime::spawn_blocking;
 use uuid::Uuid;
 
 use crate::app::bootstrap::AppBootstrapDto;
@@ -346,27 +347,35 @@ pub fn update_app_locale(
 }
 
 #[tauri::command]
-pub fn list_installed_mods(state: State<'_, AppState>) -> Result<Vec<InstalledMod>, String> {
+pub async fn list_installed_mods(state: State<'_, AppState>) -> Result<Vec<InstalledMod>, String> {
     let settings = state
         .settings
         .read()
         .map_err(|_| "failed to read app settings".to_string())?
         .clone();
 
-    let service = ModService::new(settings);
-    service.list_installed().map_err(|error| error.to_string())
+    spawn_blocking(move || {
+        let service = ModService::new(settings);
+        service.list_installed().map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
-pub fn list_disabled_mods(state: State<'_, AppState>) -> Result<Vec<InstalledMod>, String> {
+pub async fn list_disabled_mods(state: State<'_, AppState>) -> Result<Vec<InstalledMod>, String> {
     let settings = state
         .settings
         .read()
         .map_err(|_| "failed to read app settings".to_string())?
         .clone();
 
-    let service = ModService::new(settings);
-    service.list_disabled().map_err(|error| error.to_string())
+    spawn_blocking(move || {
+        let service = ModService::new(settings);
+        service.list_disabled().map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -672,7 +681,7 @@ pub fn restore_save_backup(backup_id: String, state: State<'_, AppState>) -> Res
 }
 
 #[tauri::command]
-pub fn search_remote_mods(
+pub async fn search_remote_mods(
     query: String,
     sort_by: String,
     offset: Option<u64>,
@@ -684,12 +693,15 @@ pub fn search_remote_mods(
         .read()
         .map_err(|_| "failed to read app settings".to_string())?
         .clone();
-    DiscoverService::new(settings).search(
-        &query,
-        &sort_by,
-        offset.unwrap_or(0),
-        count.unwrap_or(20),
-    )
+
+    let real_offset = offset.unwrap_or(0);
+    let real_count = count.unwrap_or(20);
+
+    spawn_blocking(move || {
+        DiscoverService::new(settings).search(&query, &sort_by, real_offset, real_count)
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 #[derive(serde::Serialize)]
