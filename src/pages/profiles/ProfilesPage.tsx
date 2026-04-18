@@ -14,6 +14,7 @@ import {
   pickPresetBundle,
   previewPresetBundle,
   updateProfile,
+  updateProfileModSelection,
   type InstalledMod,
   type ModProfile,
   type PresetBundlePreview,
@@ -102,6 +103,9 @@ export function ProfilesPage() {
   const [status, setStatus] = useState(t("profiles.loading"));
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const isBusyRef = useRef(false);
+  const profilesRef = useRef<ModProfile[]>([]);
+  const autoSaveQueuedRef = useRef<ProfileDraft | null>(null);
+  const autoSaveRunningRef = useRef(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [bundlePreview, setBundlePreview] = useState<PresetBundlePreview | null>(null);
   const [bundleConflictResolutions, setBundleConflictResolutions] = useState<Record<string, string>>({});
@@ -111,6 +115,10 @@ export function ProfilesPage() {
     [t],
   );
 
+  useEffect(() => {
+    profilesRef.current = profiles;
+  }, [profiles]);
+
   const reload = useCallback(async (nextSelectedId?: string | null) => {
     const [profileItems, enabledItems, disabledItems, bootstrap] = await Promise.all([
       listProfiles(),
@@ -119,6 +127,7 @@ export function ProfilesPage() {
       getAppBootstrap(),
     ]);
 
+    profilesRef.current = profileItems;
     setProfiles(profileItems);
     setEnabledMods(enabledItems);
     setAvailableMods(mergeMods(enabledItems, disabledItems));
@@ -244,23 +253,110 @@ export function ProfilesPage() {
     setStatus(t("profiles.creating"));
   }
 
+  function replaceProfile(updated: ModProfile) {
+    setProfiles((current) => {
+      const index = current.findIndex((item) => item.id === updated.id);
+      if (index === -1) {
+        return current;
+      }
+
+      const next = [...current];
+      next[index] = updated;
+      profilesRef.current = next;
+      return next;
+    });
+  }
+
+  async function saveProfileModSelection(targetDraft: ProfileDraft) {
+    if (!targetDraft.id) {
+      return null;
+    }
+
+    const persisted = profilesRef.current.find((item) => item.id === targetDraft.id);
+    const updated = await updateProfileModSelection(
+      persisted
+        ? {
+            ...persisted,
+            modIds: [...targetDraft.modIds],
+          }
+        : {
+            id: targetDraft.id,
+            name: targetDraft.name.trim(),
+            description: targetDraft.description.trim() || null,
+            modIds: [...targetDraft.modIds],
+            createdAt: targetDraft.createdAt,
+            updatedAt: targetDraft.updatedAt,
+          },
+    );
+
+    replaceProfile(updated);
+    setDraft((current) =>
+      current.id === updated.id
+        ? {
+            ...current,
+            createdAt: updated.createdAt,
+            updatedAt: updated.updatedAt,
+          }
+        : current,
+    );
+    return updated;
+  }
+
+  async function flushAutoSaveQueue() {
+    if (autoSaveRunningRef.current || isBusyRef.current) {
+      return;
+    }
+
+    autoSaveRunningRef.current = true;
+    setBusyAction((current) => current ?? "autosave");
+
+    try {
+      while (autoSaveQueuedRef.current) {
+        const queuedDraft = autoSaveQueuedRef.current;
+        autoSaveQueuedRef.current = null;
+        await saveProfileModSelection(queuedDraft);
+      }
+    } catch (error) {
+      autoSaveQueuedRef.current = null;
+      setStatus(error instanceof Error ? error.message : t("profiles.saveFailed"));
+    } finally {
+      autoSaveRunningRef.current = false;
+      setBusyAction((current) => (current === "autosave" ? null : current));
+    }
+  }
+
+  function scheduleAutoSave(nextDraft: ProfileDraft) {
+    if (!nextDraft.id || isCreating) {
+      return;
+    }
+
+    autoSaveQueuedRef.current = nextDraft;
+    void flushAutoSaveQueue();
+  }
+
   function toggleMod(modId: string) {
     setDraft((current) => {
       const exists = current.modIds.some((item) => item.toLowerCase() === modId.toLowerCase());
-      return {
+      const next = {
         ...current,
         modIds: exists
           ? current.modIds.filter((item) => item.toLowerCase() !== modId.toLowerCase())
           : [...current.modIds, modId],
       };
+      scheduleAutoSave(next);
+      return next;
     });
   }
 
   function fillFromCurrentEnabled() {
-    setDraft((current) => ({
-      ...current,
-      modIds: enabledMods.map((item) => item.id),
-    }));
+    setDraft((current) => {
+      const next = {
+        ...current,
+        modIds: enabledMods.map((item) => item.id),
+      };
+      scheduleAutoSave(next);
+      return next;
+    });
     setStatus(t("profiles.synced"));
   }
 
@@ -287,7 +383,8 @@ export function ProfilesPage() {
 
   async function handleSave() {
     if (isBusyRef.current) return;
-    const name = draft.name.trim();
+    const currentDraft = draft;
+    const name = currentDraft.name.trim();
     if (!name) {
       setStatus(t("profiles.nameRequired"));
       return;
@@ -296,18 +393,18 @@ export function ProfilesPage() {
     isBusyRef.current = true;
     setBusyAction("save");
     try {
-      if (isCreating || !draft.id) {
-        const created = await createProfile(name, draft.description.trim() || null, draft.modIds);
+      if (isCreating || !currentDraft.id) {
+        const created = await createProfile(name, currentDraft.description.trim() || null, currentDraft.modIds);
         await reload(created.id);
         setStatus(t("profiles.created", { name: created.name }));
       } else {
         const updated = await updateProfile({
-          id: draft.id,
+          id: currentDraft.id,
           name,
-          description: draft.description.trim() || null,
-          modIds: draft.modIds,
-          createdAt: draft.createdAt,
-          updatedAt: draft.updatedAt,
+          description: currentDraft.description.trim() || null,
+          modIds: currentDraft.modIds,
+          createdAt: currentDraft.createdAt,
+          updatedAt: currentDraft.updatedAt,
         });
         await reload(updated.id);
         setStatus(t("profiles.saved", { name: updated.name }));
@@ -317,6 +414,7 @@ export function ProfilesPage() {
     } finally {
       isBusyRef.current = false;
       setBusyAction(null);
+      void flushAutoSaveQueue();
     }
   }
 
@@ -351,6 +449,7 @@ export function ProfilesPage() {
     } finally {
       isBusyRef.current = false;
       setBusyAction(null);
+      void flushAutoSaveQueue();
     }
   }
 
@@ -378,6 +477,7 @@ export function ProfilesPage() {
     } finally {
       isBusyRef.current = false;
       setBusyAction(null);
+      void flushAutoSaveQueue();
     }
   }
 
@@ -398,6 +498,7 @@ export function ProfilesPage() {
     } finally {
       isBusyRef.current = false;
       setBusyAction(null);
+      void flushAutoSaveQueue();
     }
   }
 
@@ -445,6 +546,7 @@ export function ProfilesPage() {
     } finally {
       isBusyRef.current = false;
       setBusyAction(null);
+      void flushAutoSaveQueue();
     }
   }
 
@@ -535,6 +637,7 @@ export function ProfilesPage() {
   const selectedProfileIndex = !isCreating
     ? profiles.findIndex((profile) => profile.id === selectedProfileId)
     : -1;
+  const modSelectionLocked = busyAction !== null && busyAction !== "autosave";
 
   return (
     <section className="page page--profiles" ref={pageRef}>
@@ -682,6 +785,7 @@ export function ProfilesPage() {
                 </span>
                 <button
                   className="icon-button"
+                  disabled={modSelectionLocked}
                   onClick={fillFromCurrentEnabled}
                   title={t("profiles.useCurrentEnabled")}
                   type="button"
@@ -787,6 +891,7 @@ export function ProfilesPage() {
                         <button
                           key={mod.id}
                           className={`profiles-mod-row${included ? " is-checked" : ""}`}
+                          disabled={modSelectionLocked}
                           onClick={() => toggleMod(mod.id)}
                           type="button"
                         >
