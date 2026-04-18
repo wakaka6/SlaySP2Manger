@@ -1,9 +1,19 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { useI18n } from "../../i18n/I18nProvider";
 import { useDropZone } from "../../contexts/DropZoneContext";
+import "./LibraryPage.effects.css";
 import {
   batchInstallMods,
   createProfile,
@@ -59,7 +69,11 @@ import {
   RefreshCw,
   X,
 } from "lucide-react";
-import { PresetModTagIcon, formatCustomTagLabel } from "../../components/common/ModTagVisuals";
+import {
+  CustomModTagIcon,
+  PresetModTagIcon,
+  formatCustomTagLabel,
+} from "../../components/common/ModTagVisuals";
 
 function formatTime(value: string) {
   const date = new Date(value);
@@ -310,6 +324,7 @@ export function LibraryPage() {
 
   const matchesSearch = useCallback((mod: InstalledMod) => {
     const q = searchQuery.trim().toLowerCase();
+    const normalizedTagQuery = q.replace(/^#+\s*/, "");
 
     if (!q) {
       return true;
@@ -320,7 +335,9 @@ export function LibraryPage() {
       mod.author?.toLowerCase().includes(q) ||
       mod.id.toLowerCase().includes(q) ||
       getModCustomTags(modTags, mod.id).some(
-        (tag) => tag.toLowerCase().includes(q) || formatCustomTagLabel(tag).toLowerCase().includes(q),
+        (tag) =>
+          tag.toLowerCase().includes(q) ||
+          formatCustomTagLabel(tag).toLowerCase().includes(normalizedTagQuery),
       ) ||
       getModPresetTagIds(modTags, mod.id).some((tagId) => getPresetTagLabel(tagId).toLowerCase().includes(q))
     );
@@ -423,6 +440,8 @@ export function LibraryPage() {
     [searchFilteredDisabled, searchFilteredEnabled],
   );
   const hasSearchQuery = Boolean(searchQuery.trim());
+  const activeSidebarFilterCount =
+    (multiplayerOnly ? 1 : 0) + selectedPresetTagIds.length + selectedCustomTags.length;
   const hasSidebarFilters =
     multiplayerOnly ||
     selectedPresetTagIds.length > 0 ||
@@ -533,6 +552,24 @@ export function LibraryPage() {
     const isEditing = editingTagId === mod.id;
     const editingCustomTagKey = editingCustomTagOriginal?.trim().toLowerCase() ?? null;
     const presetSuggestions = PRESET_MOD_TAGS.filter((item) => !presetTagIds.includes(item.id));
+    const previewTags = [
+      ...presetTagIds.map((tagId) => ({
+        key: `preset:${tagId}`,
+        kind: "preset" as const,
+        label: getPresetTagLabel(tagId),
+        title: getPresetTagLabel(tagId),
+        tagId,
+      })),
+      ...customTags.map((tag) => ({
+        key: `custom:${tag.toLowerCase()}`,
+        kind: "custom" as const,
+        label: formatCustomTagLabel(tag),
+        title: formatCustomTagLabel(tag),
+        tag,
+      })),
+    ];
+    const visiblePreviewTags = previewTags.slice(0, 2);
+    const hiddenPreviewCount = Math.max(previewTags.length - visiblePreviewTags.length, 0);
     const renderTagInput = () => (
       <input
         ref={tagInputRef}
@@ -556,9 +593,78 @@ export function LibraryPage() {
       />
     );
 
+    if (!isEditing) {
+      return (
+        <div
+          className={`mod-card__note${hasAnyTags ? " has-note" : ""}`}
+          onClick={() => beginCreateTag(mod.id)}
+          title={t("library.noteTooltip")}
+        >
+          <div className="mod-card__tag-list mod-card__tag-list--preview">
+            {visiblePreviewTags.map((item) =>
+              item.kind === "preset" ? (
+                <button
+                  className="mod-card__tag-chip mod-card__tag-chip--preview mod-card__tag-chip--preset"
+                  key={item.key}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    beginCreateTag(mod.id);
+                  }}
+                  title={item.title}
+                  type="button"
+                >
+                  <PresetModTagIcon className="mod-card__tag-chip-icon" size={11} tagId={item.tagId} />
+                  <span className="mod-card__tag-chip-label">{item.label}</span>
+                </button>
+              ) : (
+                <button
+                  className="mod-card__tag-chip mod-card__tag-chip--preview mod-card__tag-chip--custom"
+                  key={item.key}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    beginEditCustomTag(mod.id, item.tag);
+                  }}
+                  title={item.title}
+                  type="button"
+                >
+                  <CustomModTagIcon className="mod-card__tag-chip-icon" size={11} />
+                  <span className="mod-card__tag-chip-label">{item.label}</span>
+                </button>
+              ),
+            )}
+
+            {hiddenPreviewCount > 0 ? (
+              <button
+                className="mod-card__tag-chip mod-card__tag-chip--preview mod-card__tag-chip--summary"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  beginCreateTag(mod.id);
+                }}
+                type="button"
+              >
+                +{hiddenPreviewCount}
+              </button>
+            ) : null}
+
+            <button
+              className={`mod-card__tag-create${hasAnyTags ? " mod-card__tag-create--hover-only" : ""}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                beginCreateTag(mod.id);
+              }}
+              type="button"
+            >
+              <Plus size={12} />
+              {t("library.tagCreate")}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div
-        className={`mod-card__note${hasAnyTags ? " has-note" : ""}${isEditing ? " mod-card__note--editing" : ""}`}
+        className={`mod-card__note${hasAnyTags ? " has-note" : ""} mod-card__note--editing`}
         onClick={() => {
           if (isEditing) {
             tagInputRef.current?.focus();
@@ -602,6 +708,7 @@ export function LibraryPage() {
                   beginEditCustomTag(mod.id, tag);
                 }}
               >
+                <CustomModTagIcon className="mod-card__tag-chip-icon" size={12} />
                 <span className="mod-card__tag-chip-label">{formatCustomTagLabel(tag)}</span>
                 <button
                   className="mod-card__tag-chip-remove"
@@ -662,9 +769,66 @@ export function LibraryPage() {
   function renderModCard(mod: InstalledMod, enabled: boolean) {
     const isShared = mod.affectsGameplay;
     const impactLabel = t("library.multiplayerAffected");
+    const glowRgb = enabled ? "232, 175, 82" : "112, 156, 214";
+
+    const setCardGlowPosition = (element: HTMLElement, clientX: number, clientY: number) => {
+      const rect = element.getBoundingClientRect();
+      element.style.setProperty("--library-card-glow-x", `${clientX - rect.left}px`);
+      element.style.setProperty("--library-card-glow-y", `${clientY - rect.top}px`);
+    };
+
+    const handlePointerEnter = (event: ReactPointerEvent<HTMLElement>) => {
+      const element = event.currentTarget;
+      element.style.setProperty("--library-card-glow-active", "1");
+      setCardGlowPosition(element, event.clientX, event.clientY);
+    };
+
+    const handlePointerMove = (event: ReactPointerEvent<HTMLElement>) => {
+      setCardGlowPosition(event.currentTarget, event.clientX, event.clientY);
+    };
+
+    const handlePointerLeave = (event: ReactPointerEvent<HTMLElement>) => {
+      event.currentTarget.style.setProperty("--library-card-glow-active", "0");
+    };
+
+    const handlePointerDown = (event: ReactMouseEvent<HTMLElement>) => {
+      const element = event.currentTarget;
+      const rect = element.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const maxDistance = Math.max(
+        Math.hypot(x, y),
+        Math.hypot(x - rect.width, y),
+        Math.hypot(x, y - rect.height),
+        Math.hypot(x - rect.width, y - rect.height),
+      );
+
+      const ripple = document.createElement("span");
+      ripple.className = "mod-card__ripple";
+      ripple.style.left = `${x}px`;
+      ripple.style.top = `${y}px`;
+      ripple.style.width = `${maxDistance * 2}px`;
+      ripple.style.height = `${maxDistance * 2}px`;
+      ripple.addEventListener("animationend", () => ripple.remove(), { once: true });
+      element.appendChild(ripple);
+    };
 
     return (
-      <article className={`mod-card${enabled ? " is-enabled" : ""}`} key={mod.id}>
+      <article
+        className={`mod-card${enabled ? " is-enabled" : ""}`}
+        key={mod.id}
+        onPointerDown={handlePointerDown}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+        onPointerMove={handlePointerMove}
+        style={
+          {
+            "--library-card-glow-rgb": glowRgb,
+          } as CSSProperties
+        }
+      >
+        <span aria-hidden="true" className="mod-card__magic-spotlight" />
+        <span aria-hidden="true" className="mod-card__magic-border" />
         <div className="mod-card__left">
           <div className={`mod-card__avatar${enabled ? "" : " is-disabled"}`}>
             {mod.name.charAt(0).toUpperCase()}
@@ -1041,22 +1205,27 @@ export function LibraryPage() {
           <div className={`library-filter-rail${hasSidebarFilters ? " is-filtered" : ""}`}>
             <div className="library-filter-rail__header">
               <span className="library-filter-rail__eyebrow">{t("library.filters")}</span>
-              {hasSidebarFilters ? (
-                <button
-                  className="button button--ghost library-filter-rail__clear"
-                  type="button"
-                  onClick={() => {
-                    setMultiplayerOnly(false);
-                    setSelectedPresetTagIds([]);
-                    setSelectedCustomTags([]);
-                  }}
-                >
-                  {t("library.clearFilters")}
-                </button>
-              ) : null}
+              <div className="library-filter-rail__header-actions">
+                {activeSidebarFilterCount > 0 ? (
+                  <span className="library-filter-rail__active-count">{activeSidebarFilterCount}</span>
+                ) : null}
+                {hasSidebarFilters ? (
+                  <button
+                    className="button button--ghost library-filter-rail__clear"
+                    type="button"
+                    onClick={() => {
+                      setMultiplayerOnly(false);
+                      setSelectedPresetTagIds([]);
+                      setSelectedCustomTags([]);
+                    }}
+                  >
+                    {t("library.clearFilters")}
+                  </button>
+                ) : null}
+              </div>
             </div>
 
-            <div className="library-filter-rail__list">
+            <div className="library-filter-group library-filter-group--system">
               <button
                 className={`button button--secondary library-filter-option${multiplayerOnly ? " is-active" : ""}`}
                 type="button"
@@ -1076,9 +1245,16 @@ export function LibraryPage() {
             {hasTagFilterOptions ? (
               <>
                 <div className="library-filter-group">
-                  <div className="library-filter-group__title">{t("library.tagPresetGroup")}</div>
+                    <div className="library-filter-group__header">
+                      <div className="library-filter-group__title">{t("library.tagPresetGroup")}</div>
+                      {selectedPresetTagIds.length > 0 ? (
+                        <span className="library-filter-group__badge">{selectedPresetTagIds.length}</span>
+                      ) : null}
+                    </div>
                   <div className="library-filter-rail__list library-filter-rail__list--tags">
-                    {PRESET_MOD_TAGS.map((item) => {
+                    {PRESET_MOD_TAGS.filter(
+                      (item) => presetTagCounts[item.id] > 0 || selectedPresetTagIds.includes(item.id),
+                    ).map((item) => {
                       const count = presetTagCounts[item.id];
                       const isActive = selectedPresetTagIds.includes(item.id);
                       return (
@@ -1104,7 +1280,12 @@ export function LibraryPage() {
 
                 {customTagOptions.length > 0 ? (
                   <div className="library-filter-group">
-                    <div className="library-filter-group__title">{t("library.tagCustomGroup")}</div>
+                    <div className="library-filter-group__header">
+                      <div className="library-filter-group__title">{t("library.tagCustomGroup")}</div>
+                      {selectedCustomTags.length > 0 ? (
+                        <span className="library-filter-group__badge">{selectedCustomTags.length}</span>
+                      ) : null}
+                    </div>
                     <div className="library-filter-rail__list library-filter-rail__list--tags">
                       {customTagOptions.map((item) => {
                         const isActive = selectedCustomTags.some(
@@ -1117,14 +1298,15 @@ export function LibraryPage() {
                             type="button"
                             aria-pressed={isActive}
                             disabled={!isActive && item.count === 0}
-                          onClick={() => toggleSelectedCustomTag(item.value)}
-                          title={formatCustomTagLabel(item.value)}
-                        >
-                          <span className="library-filter-option__main">
-                            <span className="library-filter-tag-label">{formatCustomTagLabel(item.value)}</span>
-                          </span>
-                          <span className="library-filter-option__count">{item.count}</span>
-                        </button>
+                            onClick={() => toggleSelectedCustomTag(item.value)}
+                            title={formatCustomTagLabel(item.value)}
+                          >
+                            <span className="library-filter-option__main">
+                              <CustomModTagIcon className="library-filter-option__tag-icon" size={14} />
+                              <span className="library-filter-tag-label">{formatCustomTagLabel(item.value)}</span>
+                            </span>
+                            <span className="library-filter-option__count">{item.count}</span>
+                          </button>
                         );
                       })}
                     </div>

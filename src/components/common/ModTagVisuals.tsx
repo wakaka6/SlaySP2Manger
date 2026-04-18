@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import {
   Boxes,
   Gauge,
@@ -6,14 +7,14 @@ import {
   LayoutGrid,
   Scale,
   Sparkles,
+  Tag,
   Users,
   Wrench,
-  type LucideIcon,
   type LucideProps,
 } from "lucide-react";
 import type { PresetModTagId } from "../../lib/modTags";
 
-const PRESET_TAG_ICON_BY_ID: Record<PresetModTagId, LucideIcon> = {
+const PRESET_TAG_ICON_BY_ID: Record<PresetModTagId, ComponentType<LucideProps>> = {
   "visual-enhancement": Sparkles,
   "gameplay-expansion": Gamepad2,
   "utility-tools": Wrench,
@@ -34,7 +35,10 @@ export function PresetModTagIcon({ tagId, ...props }: PresetModTagIconProps) {
   return <Icon aria-hidden="true" {...props} />;
 }
 
+export function CustomModTagIcon(props: LucideProps) {
+  return <Tag aria-hidden="true" {...props} />;
+}
+
 export function formatCustomTagLabel(tag: string) {
-  const normalized = tag.trim().replace(/^#+\s*/, "");
-  return normalized ? `#${normalized}` : "#";
+  return tag.trim().replace(/^#+\s*/, "");
 }

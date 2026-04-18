@@ -29,7 +29,11 @@ import {
   type PresetModTagId,
 } from "../../lib/modTags";
 import AnimatedList from "../../components/common/AnimatedList";
-import { PresetModTagIcon, formatCustomTagLabel } from "../../components/common/ModTagVisuals";
+import {
+  CustomModTagIcon,
+  PresetModTagIcon,
+  formatCustomTagLabel,
+} from "../../components/common/ModTagVisuals";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { Save, CheckCircle, Trash2, DatabaseZap, Plus, Layers, Zap, Package, Check, Share2, FolderDown } from "lucide-react";
 
@@ -708,7 +712,9 @@ export function ProfilesPage() {
                     <div className="profiles-mod-filters__group">
                       <div className="profiles-mod-filters__group-title">{t("library.tagPresetGroup")}</div>
                       <div className="profiles-mod-filters__list">
-                        {PRESET_MOD_TAGS.map((item) => {
+                        {PRESET_MOD_TAGS.filter(
+                          (item) => presetTagCounts[item.id] > 0 || selectedPresetTagIds.includes(item.id),
+                        ).map((item) => {
                           const count = presetTagCounts[item.id];
                           const isActive = selectedPresetTagIds.includes(item.id);
                           return (
@@ -748,6 +754,7 @@ export function ProfilesPage() {
                                 onClick={() => toggleSelectedCustomTag(item.value)}
                                 title={formatCustomTagLabel(item.value)}
                               >
+                                <CustomModTagIcon className="profiles-mod-filter-chip__icon" size={13} />
                                 <span className="profiles-mod-filter-chip__label">{formatCustomTagLabel(item.value)}</span>
                                 <span className="profiles-mod-filter-chip__count">{item.count}</span>
                               </button>
@@ -793,6 +800,7 @@ export function ProfilesPage() {
                                   ))}
                                   {modCustomTags.map((tag) => (
                                     <span className="profiles-mod-tag profiles-mod-tag--custom" key={`custom:${tag}`} title={formatCustomTagLabel(tag)}>
+                                      <CustomModTagIcon className="profiles-mod-tag__icon" size={11} />
                                       <span className="profiles-mod-tag-text">{formatCustomTagLabel(tag)}</span>
                                     </span>
                                   ))}
