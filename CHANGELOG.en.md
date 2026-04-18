@@ -5,6 +5,26 @@ All notable changes to SlaySP2Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-04-19
+
+### Added
+
+- **Native card compendium**: Added a dedicated Slay the Spire 2 compendium page with gallery browsing, card detail inspection, upgrade-state switching, and localized card text.
+- **Game-asset card rendering**: The compendium now extracts card art, frames, banners, energy icons, and title fonts from the local game install so the card presentation matches in-game assets much more closely.
+- **Runtime snapshot generation**: Compendium metadata is now generated from the local game install at refresh time and cached in the app cache directory, removing the need to track a bundled `card-metadata` JSON file in the repository.
+
+### Changed
+
+- **Compendium browsing polish**: Added a sticky filter toolbar, collapsible filter section, back-to-top action, and a fuller light-theme treatment to make long compendium sessions easier to navigate.
+- **Refresh pipeline now stays local**: Refreshing compendium resources now rebuilds metadata and native asset caches from the detected game path instead of relying on a repository snapshot.
+- **Profile mod selection autosave**: Mod selection changes inside Profiles are now persisted automatically for existing profiles, reducing the need for repetitive manual saves.
+
+### Fixed
+
+- Fixed the compendium card shell so native frame, banner, energy, and typography alignment are materially closer to the game's own card layout.
+- Fixed the compendium browsing flow for long lists by reducing filter-panel overhead while scrolling and improving recovery back to the top of the page.
+- Fixed profile editing scenarios where rapid mod selection changes could otherwise lag behind the latest intended profile state.
+
 ## [0.8.2] - 2026-04-18
 
 ### Added
