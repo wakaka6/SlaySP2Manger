@@ -1,10 +1,20 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CloudDiffWorkbenchDialog } from "../../components/saves/CloudDiffWorkbenchDialog";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import ElectricBorder from "../../components/common/ElectricBorder";
 import { PageHeader } from "../../components/common/PageHeader";
 import { useI18n } from "../../i18n/I18nProvider";
+import "./SavesPage.effects.css";
 import type { MessageKey } from "../../i18n/messages";
 import {
   createSaveBackup,
@@ -36,6 +46,39 @@ function slotRef(slot: SaveSlot): SaveSlotRef {
 
 function compareSlots(left: SaveSlot, right: SaveSlot) {
   return left.slotIndex - right.slotIndex;
+}
+
+function setSlotCardGlowPosition(element: HTMLElement, clientX: number, clientY: number) {
+  const rect = element.getBoundingClientRect();
+  element.style.setProperty("--slot-glow-x", `${clientX - rect.left}px`);
+  element.style.setProperty("--slot-glow-y", `${clientY - rect.top}px`);
+}
+
+function resetSlotCardGlowPosition(element: HTMLElement) {
+  const rect = element.getBoundingClientRect();
+  element.style.setProperty("--slot-glow-x", `${rect.width / 2}px`);
+  element.style.setProperty("--slot-glow-y", `${rect.height / 2}px`);
+}
+
+function spawnSlotCardRipple(element: HTMLElement, clientX: number, clientY: number) {
+  const rect = element.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  const maxDistance = Math.max(
+    Math.hypot(x, y),
+    Math.hypot(x - rect.width, y),
+    Math.hypot(x, y - rect.height),
+    Math.hypot(x - rect.width, y - rect.height),
+  );
+
+  const ripple = document.createElement("span");
+  ripple.className = "obsidian-node__ripple";
+  ripple.style.left = `${x}px`;
+  ripple.style.top = `${y}px`;
+  ripple.style.width = `${maxDistance * 2}px`;
+  ripple.style.height = `${maxDistance * 2}px`;
+  ripple.addEventListener("animationend", () => ripple.remove(), { once: true });
+  element.appendChild(ripple);
 }
 
 function formatTime(value: string | null, emptyText: string) {
@@ -124,6 +167,7 @@ export function SavesPage() {
   const [isCloudSyncing, setIsCloudSyncing] = useState<"ascend" | "descend" | null>(null);
   const [steamCloudRiskAction, setSteamCloudRiskAction] = useState<"ascend" | "descend" | null>(null);
   const [cloudDiffOpen, setCloudDiffOpen] = useState(false);
+  const vanillaElectricBorderColor = "#5eb3e4";
   const electricBorderColor =
     typeof window === "undefined"
       ? "#e8af52"
@@ -279,8 +323,30 @@ export function SavesPage() {
   }, [recalcLines, slots, syncPairs]);
 
   const setCardRef = useCallback((key: string) => (el: HTMLElement | null) => {
-    if (el) cardRefs.current.set(key, el);
+    if (el) {
+      cardRefs.current.set(key, el);
+      resetSlotCardGlowPosition(el);
+    }
     else cardRefs.current.delete(key);
+  }, []);
+
+  const handleSlotCardPointerEnter = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    const element = event.currentTarget;
+    element.style.setProperty("--slot-glow-active", "1");
+    setSlotCardGlowPosition(element, event.clientX, event.clientY);
+  }, []);
+
+  const handleSlotCardPointerMove = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    setSlotCardGlowPosition(event.currentTarget, event.clientX, event.clientY);
+  }, []);
+
+  const handleSlotCardPointerLeave = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    const element = event.currentTarget;
+    element.style.setProperty("--slot-glow-active", "0");
+  }, []);
+
+  const handleSlotCardPress = useCallback((event: ReactMouseEvent<HTMLElement>) => {
+    spawnSlotCardRipple(event.currentTarget, event.clientX, event.clientY);
   }, []);
 
   // ── Helpers ────────────────────────────────────────────────────────
@@ -533,6 +599,8 @@ export function SavesPage() {
     const linked = isPaired(kind, slot.slotIndex);
     const isLinkSource = kind === "vanilla" && linkingFrom === slot.slotIndex;
     const isLinkTarget = kind === "modded" && linkingFrom !== null;
+    const isClickable = linkingFrom !== null || kind === "vanilla";
+    const cardKey = `${kind}-${slot.steamUserId}-${slot.slotIndex}`;
 
     const classes = [
       "obsidian-node",
@@ -547,14 +615,22 @@ export function SavesPage() {
       else if (kind === "modded" && linkingFrom !== null) void handleModdedClick(slot.slotIndex);
     }
 
-    return (
+    const cardNode = (
       <article
         className={classes}
-        key={`${kind}-${slot.steamUserId}-${slot.slotIndex}`}
+        key={cardKey}
         ref={setCardRef(`${kind}-${slot.slotIndex}`)}
-        onClick={handleClick}
-        style={{ cursor: linkingFrom !== null || kind === "vanilla" ? "pointer" : undefined }}
+        onClick={isClickable ? (event) => {
+          handleSlotCardPress(event);
+          handleClick();
+        } : undefined}
+        onPointerEnter={handleSlotCardPointerEnter}
+        onPointerLeave={handleSlotCardPointerLeave}
+        onPointerMove={handleSlotCardPointerMove}
+        style={{ cursor: isClickable ? "pointer" : undefined }}
       >
+        <span aria-hidden="true" className="obsidian-node__magic-spotlight" />
+        <span aria-hidden="true" className="obsidian-node__magic-border" />
         <div className="obsidian-node__top">
           <strong>{slotLabel(slot)}</strong>
           {linked && <Link2 size={13} className="save-card__link-icon" />}
@@ -587,6 +663,25 @@ export function SavesPage() {
           </button>
         </div>
       </article>
+    );
+
+    if (!linked) {
+      return cardNode;
+    }
+
+    return (
+      <ElectricBorder
+        key={cardKey}
+        borderRadius={14}
+        chaos={0.03}
+        className="obsidian-node-electric"
+        color={kind === "vanilla" ? vanillaElectricBorderColor : electricBorderColor}
+        speed={0.34}
+        style={{ borderRadius: "var(--radius-md)" }}
+        thickness={1.5}
+      >
+        {cardNode}
+      </ElectricBorder>
     );
   }
 

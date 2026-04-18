@@ -1,0 +1,129 @@
+.obsidian-node-electric {
+  display: block;
+  border-radius: var(--radius-md);
+}
+
+.obsidian-node-electric .eb-background-glow {
+  opacity: 0.2;
+  filter: blur(22px);
+}
+
+.obsidian-node-electric .eb-glow-2 {
+  filter: blur(5px);
+}
+
+.obsidian-node {
+  --slot-glow-x: 50%;
+  --slot-glow-y: 50%;
+  --slot-glow-active: 0;
+  --slot-glow-rgb: 232, 175, 82;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.obsidian-node--vanilla {
+  --slot-glow-rgb: 94, 179, 228;
+}
+
+.obsidian-node--modded {
+  --slot-glow-rgb: 232, 175, 82;
+}
+
+.obsidian-node:hover {
+  border-color: var(--border-strong);
+  box-shadow:
+    var(--shadow-panel),
+    0 0 0 1px rgba(var(--slot-glow-rgb), calc(var(--slot-glow-active) * 0.18)),
+    0 0 26px rgba(var(--slot-glow-rgb), calc(var(--slot-glow-active) * 0.16)),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+.obsidian-node__magic-spotlight,
+.obsidian-node__magic-border,
+.obsidian-node__ripple {
+  position: absolute;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.obsidian-node__magic-spotlight {
+  inset: 0;
+  z-index: 0;
+  opacity: calc(var(--slot-glow-active) * 0.95);
+  transition: opacity 180ms ease;
+  background:
+    radial-gradient(
+      180px circle at var(--slot-glow-x) var(--slot-glow-y),
+      rgba(var(--slot-glow-rgb), 0.22) 0%,
+      rgba(var(--slot-glow-rgb), 0.12) 24%,
+      rgba(var(--slot-glow-rgb), 0.05) 42%,
+      transparent 72%
+    );
+}
+
+.obsidian-node__magic-border {
+  inset: 0;
+  z-index: 0;
+  padding: 1px;
+  opacity: calc(var(--slot-glow-active) * 0.92);
+  transition: opacity 180ms ease;
+  background:
+    radial-gradient(
+      150px circle at var(--slot-glow-x) var(--slot-glow-y),
+      rgba(var(--slot-glow-rgb), 0.82) 0%,
+      rgba(var(--slot-glow-rgb), 0.34) 30%,
+      transparent 62%
+    );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+.obsidian-node__top,
+.obsidian-node__mid,
+.obsidian-node__bottom {
+  position: relative;
+  z-index: 1;
+}
+
+.obsidian-node__ripple {
+  z-index: 0;
+  transform: translate(-50%, -50%) scale(0.18);
+  background:
+    radial-gradient(
+      circle,
+      rgba(var(--slot-glow-rgb), 0.42) 0%,
+      rgba(var(--slot-glow-rgb), 0.18) 38%,
+      transparent 72%
+    );
+  animation: obsidianNodeRipple 700ms cubic-bezier(0.2, 0.65, 0.2, 1) forwards;
+}
+
+@keyframes obsidianNodeRipple {
+  0% {
+    transform: translate(-50%, -50%) scale(0.18);
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+
+@media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .obsidian-node__magic-spotlight,
+  .obsidian-node__magic-border,
+  .obsidian-node__ripple {
+    display: none;
+  }
+
+  .obsidian-node {
+    --slot-glow-active: 0;
+  }
+}

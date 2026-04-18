@@ -193,7 +193,6 @@ export default function ElectricBorder({
     const handlePointerLeave = () => {
       hoverTargetRef.current = 0;
       container.style.setProperty("--eb-pointer-opacity", "0");
-      setPointerCenter();
     };
 
     setPointerCenter();
