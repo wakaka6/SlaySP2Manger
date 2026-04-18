@@ -1,11 +1,12 @@
 use chrono::Utc;
 use serde::Serialize;
-use tauri::State;
 use tauri::async_runtime::spawn_blocking;
+use tauri::State;
 use uuid::Uuid;
 
 use crate::app::bootstrap::AppBootstrapDto;
 use crate::app::state::{AppSettings, AppState};
+use crate::domain::compendium::CompendiumIndex;
 use crate::domain::game::GameInstall;
 use crate::domain::install_plan::{ArchiveInstallPreview, BatchImportPreview, BatchInstallResult};
 use crate::domain::mod_entity::InstalledMod;
@@ -21,6 +22,7 @@ use crate::domain::save::{
 };
 use crate::domain::task::ActivityLogEntry;
 use crate::integrations::settings_repo;
+use crate::services::compendium_service::CompendiumService;
 use crate::services::discover_service::DiscoverService;
 use crate::services::game_service::GameService;
 use crate::services::mod_service::ModService;
@@ -155,6 +157,27 @@ pub fn get_app_bootstrap(state: State<'_, AppState>) -> Result<AppBootstrapDto, 
 }
 
 // ── Cloud Save API ─────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn get_compendium_index(
+    locale: Option<String>,
+    force_refresh: Option<bool>,
+    state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<CompendiumIndex, String> {
+    let settings = state
+        .settings
+        .read()
+        .map_err(|_| "failed to read app settings".to_string())?
+        .clone();
+
+    spawn_blocking(move || {
+        let service = CompendiumService::new(settings);
+        service.get_index(&app_handle, locale, force_refresh.unwrap_or(false))
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
 
 #[tauri::command]
 pub fn get_cloud_save_status() -> Result<CloudSaveStatus, String> {
@@ -1056,12 +1079,10 @@ pub async fn export_preset_bundle(
             .compression_method(zip::CompressionMethod::Deflated);
 
         // Write preset.spm
-        let manifest_json =
-            serde_json::to_string_pretty(&manifest).map_err(|e| e.to_string())?;
+        let manifest_json = serde_json::to_string_pretty(&manifest).map_err(|e| e.to_string())?;
         zip.start_file("preset.spm", options)
             .map_err(|e| e.to_string())?;
-        std::io::Write::write_all(&mut zip, manifest_json.as_bytes())
-            .map_err(|e| e.to_string())?;
+        std::io::Write::write_all(&mut zip, manifest_json.as_bytes()).map_err(|e| e.to_string())?;
 
         // Write mod folders
         for (folder_name, dir_path) in &mod_dirs {

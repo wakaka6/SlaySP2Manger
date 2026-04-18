@@ -1,4 +1,5 @@
 pub mod backup;
+pub mod compendium;
 pub mod conflict;
 pub mod game;
 pub mod install_plan;

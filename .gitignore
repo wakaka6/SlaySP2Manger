@@ -4,8 +4,10 @@ dist/
 .npm-cache/
 .playwright-cli/
 refer/
+output/
 
 src-tauri/target/
+tools/compendium_snapshot/target/
 
 .DS_Store
 Thumbs.db

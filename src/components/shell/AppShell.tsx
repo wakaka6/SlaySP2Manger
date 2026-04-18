@@ -1,4 +1,5 @@
 import {
+  BookImage,
   Compass,
   Layers3,
   Library,
@@ -39,7 +40,7 @@ function getCompactSidebarMatches() {
 export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [appState, setAppState] = useState<AppBootstrap | null>(null);
   const { pendingDropPaths, isDragging, setPendingDropPaths } = useDropZone();
   const [compactSidebar, setCompactSidebar] = useState(getCompactSidebarMatches);
@@ -116,6 +117,7 @@ export function AppShell() {
 
   const navItems: ShellNavItem[] = [
     { label: t("nav.library"), path: "/", icon: Library, badge: appState ? String(appState.installedCount + appState.disabledCount) : "0" },
+    { label: locale === "en-US" ? "Compendium" : "卡牌图鉴", path: "/compendium", icon: BookImage },
     { label: t("nav.discover"), path: "/discover", icon: Compass },
     { label: t("nav.profiles"), path: "/profiles", icon: Layers3 },
     { label: t("nav.saves"), path: "/saves", icon: Save },

@@ -10,9 +10,9 @@ use app::commands::{
     apply_profile, ascend_to_cloud_full, batch_install_mods, cleanup_backup_artifacts,
     confirm_import_preset_bundle, copy_cloud_save_diff_side, create_profile, create_save_backup,
     delete_profile, delete_save_backup, descend_from_cloud_full, detect_game_install, disable_mod,
-    download_and_install_mod, enable_mod, export_preset_bundle, export_profile,
-    get_app_bootstrap, get_backup_artifact_status, get_cloud_save_diff_detail,
-    get_cloud_save_status, get_download_link, get_mod_files, install_archive, launch_game,
+    download_and_install_mod, enable_mod, export_preset_bundle, export_profile, get_app_bootstrap,
+    get_backup_artifact_status, get_cloud_save_diff_detail, get_cloud_save_status,
+    get_compendium_index, get_download_link, get_mod_files, install_archive, launch_game,
     list_activity_logs, list_cloud_save_diff_entries, list_disabled_mods, list_installed_mods,
     list_profiles, list_save_backups, list_save_slots, open_mod_folder, open_mods_directory,
     open_path_in_explorer, open_url_in_browser, pick_archive_file, pick_archive_files,
@@ -31,6 +31,7 @@ pub fn run() {
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             get_app_bootstrap,
+            get_compendium_index,
             detect_game_install,
             list_installed_mods,
             list_disabled_mods,

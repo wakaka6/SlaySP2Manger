@@ -604,6 +604,12 @@ export async function updateProfile(profile: ModProfile): Promise<ModProfile> {
   return result;
 }
 
+export async function updateProfileModSelection(profile: ModProfile): Promise<ModProfile> {
+  const result = await invoke<ModProfile>("update_profile", { profile });
+  invalidate("profiles");
+  return result;
+}
+
 export async function deleteProfile(profileId: string): Promise<ModProfile> {
   const result = await invoke<ModProfile>("delete_profile", { profileId });
   invalidate("profiles", "app_bootstrap");
@@ -695,4 +701,82 @@ export async function testProxy(proxyUrl: string) {
 export async function updateAutoBackupKeepCount(count: number) {
   await invoke<void>("update_auto_backup_keep_count", { count });
   invalidate("app_bootstrap", "save_backups");
+}
+
+export type CompendiumKeywordDefinitionDto = {
+  key: string;
+  title: string;
+  description: string;
+};
+
+export type CompendiumVarDto = {
+  kind: string;
+  key: string;
+  value: number | null;
+};
+
+export type CompendiumUpgradeDto = {
+  energyDelta: number;
+  varDeltas: Record<string, number>;
+  addedKeywords: string[];
+  removedKeywords: string[];
+};
+
+export type CompendiumCardNativeAssetsDto = {
+  frameFilePath: string;
+  bannerFilePath: string;
+  portraitBorderFilePath: string | null;
+  typePlaqueFilePath: string;
+  energyIconFilePath: string;
+};
+
+export type CompendiumNativeFontsDto = {
+  titleLatinFilePath: string;
+  titleCjkFilePath: string;
+};
+
+export type CompendiumCardDto = {
+  id: string;
+  className: string;
+  name: string;
+  descriptionTemplate: string;
+  character: string | null;
+  typeName: string;
+  rarity: string;
+  target: string;
+  energy: number;
+  upgradable: boolean;
+  vars: CompendiumVarDto[];
+  keywords: string[];
+  upgrade: CompendiumUpgradeDto;
+  artFilePath: string | null;
+  nativeAssets: CompendiumCardNativeAssetsDto | null;
+};
+
+export type CompendiumIndexDto = {
+  gameVersion: string;
+  gameCommit: string | null;
+  snapshotVersion: string;
+  snapshotCommit: string | null;
+  stale: boolean;
+  locale: string;
+  nativeFonts: CompendiumNativeFontsDto | null;
+  keywordCatalog: Record<string, CompendiumKeywordDefinitionDto>;
+  cards: CompendiumCardDto[];
+};
+
+export async function getCompendiumIndex(
+  locale: string,
+  forceRefresh = false,
+): Promise<CompendiumIndexDto> {
+  const key = `compendium:${locale}`;
+  if (forceRefresh) {
+    invalidate(key);
+  }
+  return cached(key, () =>
+    invoke<CompendiumIndexDto>("get_compendium_index", {
+      locale,
+      forceRefresh,
+    }),
+  );
 }

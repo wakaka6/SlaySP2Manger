@@ -1,4 +1,5 @@
 pub mod backup_service;
+pub mod compendium_service;
 pub mod diagnostics_service;
 pub mod discover_service;
 pub mod game_service;
