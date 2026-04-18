@@ -1,7 +1,15 @@
 .compendium-page {
-  --compendium-detail-top: clamp(152px, 18svh, 176px);
+  --compendium-header-height: 124px;
+  --compendium-toolbar-top: calc(var(--compendium-header-height) + 10px);
+  --compendium-detail-top: calc(var(--compendium-toolbar-top) + 170px);
   display: grid;
   gap: 24px;
+}
+
+.compendium-toolbar-anchor {
+  height: 1px;
+  margin-top: -1px;
+  pointer-events: none;
 }
 
 .compendium-header {
@@ -12,13 +20,21 @@
 }
 
 .compendium-toolbar {
-  position: relative;
+  position: sticky;
+  top: var(--compendium-toolbar-top);
+  z-index: 36;
   overflow: hidden;
   display: grid;
   gap: 16px;
   padding: 18px 20px 20px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 97%, #17110e), color-mix(in srgb, var(--surface-faint) 86%, #120d0a));
+  transition:
+    padding 180ms ease,
+    gap 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
 }
 
 .compendium-toolbar::before {
@@ -31,8 +47,28 @@
   pointer-events: none;
 }
 
+.compendium-toolbar.is-sticky {
+  gap: 12px;
+  padding: 14px 18px 16px;
+  border-color: color-mix(in srgb, var(--border-strong) 78%, #8a6d4b);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-glass) 96%, #18120f), color-mix(in srgb, var(--bg-panel) 92%, #120d0a));
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.compendium-toolbar.is-sticky::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.028), transparent 42%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018), transparent 14%, transparent 86%, rgba(0, 0, 0, 0.16));
+}
+
 .compendium-toolbar__search {
   position: relative;
+  min-width: 0;
 }
 
 .compendium-toolbar__search svg {
@@ -52,12 +88,84 @@
   background: color-mix(in srgb, var(--bg-panel-soft) 88%, #17120f);
   border-color: color-mix(in srgb, var(--border-subtle) 72%, transparent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  transition:
+    min-height 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.compendium-toolbar.is-sticky .compendium-toolbar__search .input {
+  min-height: 44px;
+  background: color-mix(in srgb, var(--bg-panel-soft) 92%, #15100d);
+  border-color: color-mix(in srgb, var(--border-strong) 64%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 1px rgba(255, 255, 255, 0.015);
+}
+
+.compendium-toolbar__topline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.compendium-toolbar__collapse {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding-inline: 12px 14px;
+  border-radius: 14px;
+  white-space: nowrap;
+  transition:
+    min-height 180ms ease,
+    padding 180ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.compendium-toolbar__collapse-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-faint) 82%, transparent);
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.compendium-toolbar.is-sticky .compendium-toolbar__collapse {
+  min-height: 40px;
+  padding-inline: 11px 13px;
 }
 
 .compendium-toolbar__filter-groups {
   display: grid;
   gap: 0;
   padding-top: 2px;
+  max-height: 420px;
+  overflow: hidden;
+  transform-origin: top center;
+  transition:
+    max-height 220ms ease,
+    opacity 180ms ease,
+    transform 180ms ease,
+    margin 180ms ease,
+    padding 180ms ease;
+}
+
+.compendium-toolbar.is-sticky.is-collapsed .compendium-toolbar__filter-groups {
+  max-height: 0;
+  margin-top: -4px;
+  padding-top: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
 }
 
 .compendium-filter-group {
@@ -68,6 +176,11 @@
   min-width: 0;
   padding: 12px 0;
   border-top: 1px solid color-mix(in srgb, var(--border-subtle) 50%, transparent);
+  transition:
+    grid-template-columns 180ms ease,
+    gap 180ms ease,
+    padding 180ms ease,
+    border-color 180ms ease;
 }
 
 .compendium-filter-group:first-child {
@@ -96,10 +209,17 @@
   color: color-mix(in srgb, var(--text-primary) 88%, #ead8bc);
 }
 
+.compendium-toolbar.is-sticky .compendium-filter-group {
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 14px;
+  padding: 8px 0;
+}
+
 .compendium-filter-group__options {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  transition: gap 180ms ease;
 }
 
 .compendium-filter-option {
@@ -119,7 +239,9 @@
     border-color 160ms ease,
     background 160ms ease,
     color 160ms ease,
-    box-shadow 160ms ease;
+    box-shadow 160ms ease,
+    min-height 180ms ease,
+    padding 180ms ease;
 }
 
 .compendium-filter-option:hover:not(:disabled) {
@@ -161,6 +283,20 @@
   line-height: 1;
   white-space: nowrap;
   letter-spacing: 0.01em;
+}
+
+.compendium-toolbar.is-sticky .compendium-filter-group__options {
+  gap: 7px;
+}
+
+.compendium-toolbar.is-sticky .compendium-filter-option {
+  min-height: 34px;
+  padding-inline: 13px;
+}
+
+.compendium-toolbar.is-sticky.is-collapsed {
+  gap: 0;
+  padding: 12px 16px;
 }
 
 .compendium-toggle {
@@ -426,6 +562,47 @@
   grid-template-columns: minmax(0, 1fr) minmax(380px, 460px);
   gap: 22px;
   align-items: start;
+}
+
+.compendium-scroll-top {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  min-height: 40px;
+  padding-inline: 14px 16px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-glass) 90%, #14100d);
+  border-color: color-mix(in srgb, var(--border-strong) 76%, #7f6950);
+  color: color-mix(in srgb, var(--text-primary) 94%, #f4ead8);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+  z-index: 44;
+}
+
+.compendium-scroll-top.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.compendium-scroll-top:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent-border-strong) 62%, #d2aa73);
+  background: color-mix(in srgb, var(--surface-glass) 96%, #1a1411);
+}
+
+.compendium-scroll-top span {
+  white-space: nowrap;
 }
 
 .compendium-notice {
@@ -1386,6 +1563,278 @@
   line-height: 1.6;
 }
 
+:root[data-theme="light"] .compendium-page {
+  --compendium-surface: rgba(255, 250, 243, 0.92);
+  --compendium-surface-strong: rgba(255, 252, 247, 0.97);
+  --compendium-surface-muted: rgba(244, 235, 222, 0.94);
+  --compendium-border: rgba(145, 112, 72, 0.18);
+  --compendium-border-strong: rgba(145, 112, 72, 0.3);
+  --compendium-ink: #2d2014;
+  --compendium-ink-soft: rgba(61, 43, 24, 0.78);
+  --compendium-ink-muted: rgba(93, 71, 46, 0.62);
+  --compendium-wash: rgba(214, 174, 115, 0.16);
+  --compendium-shadow: 0 18px 42px rgba(118, 84, 46, 0.1);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(223, 183, 123, 0.14), transparent 18%),
+    radial-gradient(circle at 92% 4%, rgba(201, 158, 95, 0.1), transparent 20%),
+    linear-gradient(180deg, #f8f3eb 0%, #efe7da 54%, #e9dece 100%);
+}
+
+:root[data-theme="light"] .compendium-page .page-header {
+  background:
+    linear-gradient(180deg, rgba(255, 251, 245, 0.82), rgba(248, 240, 229, 0.74));
+  border-bottom-color: var(--compendium-border);
+  box-shadow: 0 12px 30px rgba(110, 80, 45, 0.06);
+}
+
+:root[data-theme="light"] .compendium-page .page-header__title {
+  color: var(--compendium-ink);
+}
+
+:root[data-theme="light"] .compendium-page .page-header__description {
+  color: var(--compendium-ink-muted);
+}
+
+:root[data-theme="light"] .compendium-toolbar {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(214, 171, 104, 0.18), transparent 24%),
+    linear-gradient(180deg, rgba(255, 251, 245, 0.97), rgba(244, 235, 222, 0.94));
+  border-color: var(--compendium-border);
+  box-shadow: var(--compendium-shadow);
+}
+
+:root[data-theme="light"] .compendium-toolbar::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent 46%),
+    linear-gradient(90deg, rgba(136, 104, 70, 0.03), transparent 16%, transparent 84%, rgba(136, 104, 70, 0.08));
+}
+
+:root[data-theme="light"] .compendium-toolbar.is-sticky {
+  border-color: var(--compendium-border-strong);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(214, 171, 104, 0.16), transparent 22%),
+    linear-gradient(180deg, rgba(255, 252, 247, 0.94), rgba(245, 236, 223, 0.92));
+  box-shadow:
+    0 16px 36px rgba(113, 78, 38, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.56);
+}
+
+:root[data-theme="light"] .compendium-toolbar.is-sticky::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58), transparent 42%),
+    linear-gradient(90deg, rgba(136, 104, 70, 0.035), transparent 14%, transparent 86%, rgba(136, 104, 70, 0.1));
+}
+
+:root[data-theme="light"] .compendium-toolbar__search svg {
+  color: rgba(102, 77, 51, 0.48);
+}
+
+:root[data-theme="light"] .compendium-toolbar__search .input {
+  background: rgba(255, 252, 248, 0.92);
+  border-color: rgba(141, 108, 69, 0.16);
+  color: var(--compendium-ink);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 1px 0 rgba(255, 255, 255, 0.44);
+}
+
+:root[data-theme="light"] .compendium-toolbar__search .input::placeholder {
+  color: rgba(116, 89, 60, 0.52);
+}
+
+:root[data-theme="light"] .compendium-toolbar.is-sticky .compendium-toolbar__search .input {
+  background: rgba(255, 250, 244, 0.96);
+  border-color: rgba(141, 108, 69, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.84),
+    0 0 0 1px rgba(168, 127, 74, 0.05);
+}
+
+:root[data-theme="light"] .compendium-filter-group {
+  border-top-color: rgba(145, 112, 72, 0.12);
+}
+
+:root[data-theme="light"] .compendium-filter-group__title {
+  color: rgba(108, 82, 54, 0.58);
+}
+
+:root[data-theme="light"] .compendium-filter-group.is-active .compendium-filter-group__title {
+  color: rgba(91, 61, 28, 0.88);
+}
+
+:root[data-theme="light"] .compendium-filter-option {
+  border-color: rgba(145, 112, 72, 0.16);
+  background: rgba(255, 251, 246, 0.84);
+  color: rgba(73, 52, 31, 0.76);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 1px 0 rgba(255, 255, 255, 0.36);
+}
+
+:root[data-theme="light"] .compendium-filter-option:hover:not(:disabled) {
+  border-color: rgba(150, 110, 62, 0.28);
+  background: rgba(251, 243, 232, 0.96);
+  color: var(--compendium-ink);
+}
+
+:root[data-theme="light"] .compendium-filter-option:focus-visible {
+  border-color: rgba(168, 120, 61, 0.34);
+  box-shadow:
+    0 0 0 2px rgba(176, 112, 32, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+:root[data-theme="light"] .compendium-filter-option.is-active {
+  border-color: rgba(149, 105, 51, 0.36);
+  background:
+    linear-gradient(180deg, rgba(255, 247, 229, 0.98), rgba(238, 217, 181, 0.94));
+  color: #4a3015;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    0 8px 18px rgba(170, 126, 68, 0.12);
+}
+
+:root[data-theme="light"] .compendium-filter-option:disabled {
+  border-color: rgba(145, 112, 72, 0.08);
+  color: rgba(124, 99, 72, 0.4);
+  background: rgba(255, 255, 255, 0.34);
+}
+
+:root[data-theme="light"] .compendium-toggle__button.is-active {
+  background: linear-gradient(180deg, rgba(255, 243, 219, 0.98), rgba(232, 204, 156, 0.94));
+  border-color: rgba(150, 106, 48, 0.34);
+  color: #593816;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    0 10px 22px rgba(168, 124, 66, 0.12);
+}
+
+:root[data-theme="light"] .compendium-state {
+  background:
+    linear-gradient(180deg, rgba(255, 251, 245, 0.96), rgba(244, 235, 221, 0.92));
+}
+
+:root[data-theme="light"] .compendium-state__icon {
+  background: rgba(214, 172, 112, 0.12);
+  color: var(--accent);
+}
+
+:root[data-theme="light"] .compendium-state strong {
+  color: var(--compendium-ink);
+}
+
+:root[data-theme="light"] .compendium-state span {
+  color: var(--compendium-ink-muted);
+}
+
+:root[data-theme="light"] .compendium-notice {
+  background:
+    linear-gradient(180deg, rgba(255, 248, 235, 0.98), rgba(247, 235, 212, 0.95));
+  border-color: rgba(180, 132, 72, 0.26);
+  box-shadow: 0 10px 24px rgba(164, 122, 70, 0.08);
+}
+
+:root[data-theme="light"] .compendium-notice__copy {
+  color: rgba(93, 61, 28, 0.86);
+}
+
+:root[data-theme="light"] .compendium-gallery {
+  background:
+    radial-gradient(circle at top left, rgba(216, 173, 109, 0.16), transparent 24%),
+    linear-gradient(180deg, rgba(255, 251, 245, 0.98), rgba(243, 233, 219, 0.96));
+  border-color: var(--compendium-border);
+  box-shadow: var(--compendium-shadow);
+}
+
+:root[data-theme="light"] .compendium-gallery__header {
+  border-bottom-color: rgba(145, 112, 72, 0.14);
+}
+
+:root[data-theme="light"] .compendium-gallery__titles strong {
+  color: var(--compendium-ink);
+}
+
+:root[data-theme="light"] .compendium-card-face {
+  filter: drop-shadow(0 14px 18px rgba(113, 78, 42, 0.18));
+}
+
+:root[data-theme="light"] .compendium-card-face--spotlight {
+  filter: drop-shadow(0 20px 28px rgba(113, 78, 42, 0.2)) drop-shadow(0 0 18px rgba(194, 144, 76, 0.1));
+}
+
+:root[data-theme="light"] .compendium-card:hover .compendium-card-face,
+:root[data-theme="light"] .compendium-card:focus-visible .compendium-card-face {
+  filter: drop-shadow(0 20px 26px rgba(113, 78, 42, 0.22)) drop-shadow(0 0 18px rgba(194, 144, 76, 0.12));
+}
+
+:root[data-theme="light"] .compendium-card.is-active .compendium-card-face {
+  filter: drop-shadow(0 24px 30px rgba(113, 78, 42, 0.24)) drop-shadow(0 0 20px rgba(194, 144, 76, 0.14));
+}
+
+:root[data-theme="light"] .compendium-card.is-active .compendium-card-face__title-band {
+  box-shadow:
+    0 8px 16px rgba(113, 78, 42, 0.16),
+    0 0 0 1px rgba(255, 240, 211, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    inset 0 -1px 0 rgba(95, 77, 58, 0.24);
+}
+
+:root[data-theme="light"] .compendium-inspector {
+  background:
+    radial-gradient(circle at top right, rgba(216, 173, 109, 0.16), transparent 22%),
+    linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(241, 231, 217, 0.96));
+  border-color: var(--compendium-border);
+  box-shadow: var(--compendium-shadow);
+}
+
+:root[data-theme="light"] .compendium-inspector__stage,
+:root[data-theme="light"] .compendium-stats,
+:root[data-theme="light"] .compendium-keywords,
+:root[data-theme="light"] .compendium-upgrade-list,
+:root[data-theme="light"] .compendium-keyword,
+:root[data-theme="light"] .compendium-upgrade-item {
+  border-color: rgba(145, 112, 72, 0.14);
+}
+
+:root[data-theme="light"] .compendium-section-label,
+:root[data-theme="light"] .compendium-inspector__eyebrow,
+:root[data-theme="light"] .compendium-detail-block__title,
+:root[data-theme="light"] .compendium-stats span {
+  color: rgba(112, 85, 55, 0.54);
+}
+
+:root[data-theme="light"] .compendium-inspector__hero h2 {
+  color: var(--compendium-ink);
+}
+
+:root[data-theme="light"] .compendium-inspector__lead,
+:root[data-theme="light"] .compendium-description,
+:root[data-theme="light"] .compendium-keyword div,
+:root[data-theme="light"] .compendium-upgrade-item span {
+  color: var(--compendium-ink-soft);
+}
+
+:root[data-theme="light"] .compendium-empty,
+:root[data-theme="light"] .compendium-empty-inline {
+  border-color: rgba(145, 112, 72, 0.18);
+  background: rgba(255, 250, 244, 0.6);
+  color: rgba(109, 82, 52, 0.66);
+}
+
+:root[data-theme="light"] .compendium-scroll-top {
+  background: rgba(255, 251, 245, 0.88);
+  border-color: rgba(145, 112, 72, 0.18);
+  color: rgba(70, 48, 27, 0.9);
+  box-shadow:
+    0 12px 26px rgba(113, 78, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.74);
+}
+
+:root[data-theme="light"] .compendium-scroll-top:hover:not(:disabled) {
+  border-color: rgba(161, 116, 56, 0.3);
+  background: rgba(255, 248, 238, 0.96);
+}
+
 @keyframes compendiumPosterIn {
   from {
     opacity: 0;
@@ -1447,6 +1896,14 @@
 }
 
 @media (max-width: 760px) {
+  .compendium-toolbar__topline {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .compendium-toolbar__collapse {
+    justify-self: flex-start;
+  }
+
   .compendium-filter-group {
     grid-template-columns: minmax(0, 1fr);
     gap: 10px;
@@ -1489,6 +1946,13 @@
   .compendium-gallery,
   .compendium-inspector {
     padding: 18px;
+  }
+
+  .compendium-scroll-top {
+    right: 20px;
+    bottom: 20px;
+    min-height: 38px;
+    padding-inline: 13px 14px;
   }
 
   .compendium-gallery__header {

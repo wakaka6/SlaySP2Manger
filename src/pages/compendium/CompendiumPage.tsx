@@ -1,12 +1,16 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   AlertTriangle,
+  ArrowUp,
   BookImage,
+  ChevronDown,
+  ChevronUp,
   RefreshCw,
   Search,
+  SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
-import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MagicBento from "../../components/compendium/MagicBento";
 import { PageHeader } from "../../components/common/PageHeader";
@@ -712,6 +716,9 @@ function matchesCompendiumQuery(
 export function CompendiumPage() {
   const { locale } = useI18n();
   const navigate = useNavigate();
+  const pageRef = useRef<HTMLElement | null>(null);
+  const toolbarAnchorRef = useRef<HTMLDivElement | null>(null);
+  const toolbarRef = useRef<HTMLElement | null>(null);
   const resolvedLocale: "zh-CN" | "en-US" = locale === "en-US" ? "en-US" : "zh-CN";
   const copy = COPY[resolvedLocale];
   const characterLabels = CHARACTER_LABELS[resolvedLocale];
@@ -731,6 +738,10 @@ export function CompendiumPage() {
   const [upgraded, setUpgraded] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [visibleCardCount, setVisibleCardCount] = useState(INITIAL_GALLERY_RENDER_COUNT);
+  const [toolbarTopOffset, setToolbarTopOffset] = useState(134);
+  const [toolbarSticky, setToolbarSticky] = useState(false);
+  const [toolbarExpanded, setToolbarExpanded] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const deferredQuery = useDeferredValue(query);
 
   useEffect(() => {
@@ -798,6 +809,110 @@ export function CompendiumPage() {
       console.warn("Failed to load native compendium fonts", reason);
     });
   }, [nativeFontUrls]);
+
+  useEffect(() => {
+    const pageElement = pageRef.current;
+    const toolbarElement = toolbarRef.current;
+    const headerElement = pageElement?.querySelector<HTMLElement>(".page-header");
+
+    if (!toolbarElement || !headerElement || !pageElement) {
+      return;
+    }
+
+    const syncMetrics = () => {
+      const headerHeight = headerElement.offsetHeight;
+      const toolbarHeight = toolbarElement.offsetHeight;
+      const nextToolbarTop = headerHeight + 10;
+
+      pageElement.style.setProperty("--compendium-header-height", `${headerHeight}px`);
+      pageElement.style.setProperty("--compendium-toolbar-top", `${nextToolbarTop}px`);
+      pageElement.style.setProperty("--compendium-detail-top", `${headerHeight + toolbarHeight + 22}px`);
+      setToolbarTopOffset((current) => (current === nextToolbarTop ? current : nextToolbarTop));
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => {
+            syncMetrics();
+          });
+
+    resizeObserver?.observe(headerElement);
+    resizeObserver?.observe(toolbarElement);
+    syncMetrics();
+    window.addEventListener("resize", syncMetrics);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", syncMetrics);
+    };
+  }, [cards.length, toolbarExpanded]);
+
+  useEffect(() => {
+    const pageElement = pageRef.current;
+    const anchorElement = toolbarAnchorRef.current;
+    const scrollContainer = pageElement?.closest(".app-shell__content");
+
+    if (!(scrollContainer instanceof HTMLElement) || !anchorElement) {
+      setToolbarSticky(false);
+      return;
+    }
+
+    const observer =
+      typeof IntersectionObserver === "undefined"
+        ? null
+        : new IntersectionObserver(
+            ([entry]) => {
+              setToolbarSticky(!entry.isIntersecting);
+            },
+            {
+              root: scrollContainer,
+              threshold: 0,
+              rootMargin: `-${toolbarTopOffset}px 0px 0px 0px`,
+            },
+          );
+
+    if (!observer) {
+      return;
+    }
+
+    observer.observe(anchorElement);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [toolbarTopOffset]);
+
+  useEffect(() => {
+    const pageElement = pageRef.current;
+    const toolbarElement = toolbarRef.current;
+    const scrollContainer = pageElement?.closest(".app-shell__content");
+
+    if (!(scrollContainer instanceof HTMLElement) || !toolbarElement) {
+      setShowScrollTop(false);
+      return;
+    }
+
+    const updateVisibility = () => {
+      const threshold = toolbarElement.offsetTop + Math.max(toolbarElement.offsetHeight, 320);
+      setShowScrollTop(scrollContainer.scrollTop > threshold);
+    };
+
+    updateVisibility();
+    scrollContainer.addEventListener("scroll", updateVisibility, { passive: true });
+    window.addEventListener("resize", updateVisibility);
+
+    return () => {
+      scrollContainer.removeEventListener("scroll", updateVisibility);
+      window.removeEventListener("resize", updateVisibility);
+    };
+  }, [cards.length, toolbarExpanded]);
+
+  useEffect(() => {
+    if (!toolbarSticky) {
+      setToolbarExpanded(false);
+    }
+  }, [toolbarSticky]);
 
   const filteredCards = useMemo(
     () =>
@@ -1098,6 +1213,8 @@ export function CompendiumPage() {
     const minimumVisibleCount = selectedIndex >= 0 ? selectedIndex + 1 : 0;
     return filteredCards.slice(0, Math.max(visibleCardCount, minimumVisibleCount));
   }, [filteredCards, selectedIndex, visibleCardCount]);
+  const activeFilterCount = characterFilters.length + typeFilters.length + rarityFilters.length;
+  const toolbarCollapsed = toolbarSticky && !toolbarExpanded;
 
   const toolbarFilterGroups = [
     {
@@ -1122,6 +1239,26 @@ export function CompendiumPage() {
       onToggle: (value: string) => setRarityFilters((current) => toggleCompendiumFilterValue(current, value)),
     },
   ];
+
+  function handleScrollToTop() {
+    const pageElement = pageRef.current;
+    const toolbarElement = toolbarRef.current;
+    const scrollContainer = pageElement?.closest(".app-shell__content");
+
+    if (!(scrollContainer instanceof HTMLElement)) {
+      pageElement?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    const headerHeight =
+      pageElement?.querySelector<HTMLElement>(".page-header")?.offsetHeight ?? 0;
+    const targetTop = Math.max(
+      0,
+      (toolbarElement?.offsetTop ?? pageElement?.offsetTop ?? 0) - headerHeight - 12,
+    );
+
+    scrollContainer.scrollTo({ top: targetTop, behavior: "smooth" });
+  }
 
   function renderLegacyCardFace(card: CompendiumCardDto, variant: "gallery" | "spotlight") {
     const artUrl = toLocalAssetUrl(card.artFilePath);
@@ -1255,7 +1392,7 @@ export function CompendiumPage() {
   }
 
   return (
-    <section className="page compendium-page">
+    <section ref={pageRef} className="page compendium-page">
       <PageHeader
         title={copy.title}
         description={copy.description}
@@ -1313,19 +1450,43 @@ export function CompendiumPage() {
         </div>
       ) : (
         <>
-          <section className="panel compendium-toolbar">
-            <div className="compendium-toolbar__search">
-              <Search size={16} />
-              <input
-                className="input"
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={copy.searchPlaceholder}
-              />
+          <div ref={toolbarAnchorRef} className="compendium-toolbar-anchor" aria-hidden="true" />
+          <section
+            ref={toolbarRef}
+            className={`panel compendium-toolbar${toolbarSticky ? " is-sticky" : ""}${toolbarCollapsed ? " is-collapsed" : ""}`}
+          >
+            <div className="compendium-toolbar__topline">
+              <div className="compendium-toolbar__search">
+                <Search size={16} />
+                <input
+                  className="input"
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={copy.searchPlaceholder}
+                />
+              </div>
+
+              {toolbarSticky ? (
+                <button
+                  type="button"
+                  className="button button--secondary compendium-toolbar__collapse"
+                  onClick={() => setToolbarExpanded((current) => !current)}
+                  aria-expanded={!toolbarCollapsed}
+                  aria-controls="compendium-toolbar-filters"
+                  aria-label={resolvedLocale === "en-US" ? "Toggle filters" : "切换筛选展开状态"}
+                >
+                  <SlidersHorizontal size={14} />
+                  <span>{resolvedLocale === "en-US" ? "Filters" : "筛选"}</span>
+                  {activeFilterCount ? (
+                    <span className="compendium-toolbar__collapse-count">{activeFilterCount}</span>
+                  ) : null}
+                  {toolbarCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                </button>
+              ) : null}
             </div>
 
-            <div className="compendium-toolbar__filter-groups">
+            <div id="compendium-toolbar-filters" className="compendium-toolbar__filter-groups">
               {toolbarFilterGroups.map((group) => (
                 <div
                   key={group.key}
@@ -1562,6 +1723,16 @@ export function CompendiumPage() {
               </section>
             </aside>
           </div>
+
+          <button
+            type="button"
+            className={`button button--secondary compendium-scroll-top${showScrollTop ? " is-visible" : ""}`}
+            onClick={handleScrollToTop}
+            aria-label={resolvedLocale === "en-US" ? "Back to top" : "回到顶部"}
+          >
+            <ArrowUp size={14} />
+            <span>{resolvedLocale === "en-US" ? "Top" : "回到顶部"}</span>
+          </button>
         </>
       )}
     </section>
