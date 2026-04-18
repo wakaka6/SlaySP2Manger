@@ -4,21 +4,23 @@
 
 # SlaySP2Manager
 
-**A desktop mod manager for Slay the Spire 2**  
-Built with Rust + Tauri + React to keep mod installs, presets, saves, and card references inside one stable desktop app.
+**The desktop mod manager for Slay the Spire 2**  
+Built with Rust + Tauri + React — Fast, Secure, and Fully Automated.
 
 [![GitHub release](https://img.shields.io/github/v/release/wakaka6/SlaySP2Manger?style=flat-square&color=C9A84C)](https://github.com/wakaka6/SlaySP2Manger/releases)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/wakaka6/SlaySP2Manger/release.yml?style=flat-square&label=Build)](https://github.com/wakaka6/SlaySP2Manger/actions)
 [![GitHub stars](https://img.shields.io/github/stars/wakaka6/SlaySP2Manger?style=flat-square&color=F1C40F)](https://github.com/wakaka6/SlaySP2Manger/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/wakaka6/SlaySP2Manger?style=flat-square&color=3498DB)](https://github.com/wakaka6/SlaySP2Manger/network)
+[![GitHub watchers](https://img.shields.io/github/watchers/wakaka6/SlaySP2Manger?style=flat-square&color=2ECC71)](https://github.com/wakaka6/SlaySP2Manger/watchers)
 [![License](https://img.shields.io/github/license/wakaka6/SlaySP2Manger?style=flat-square&color=95A5A6)](LICENSE)
 
-[中文文档](./README.md) | **Current version: `0.9.0`**
+[中文文档](./README.md) | **English**
 
 </div>
 
 ---
 
-## Demo
+## 🖥️ Demo
 
 <div align="center">
   <video src="https://github.com/user-attachments/assets/4eddda81-022d-4ac5-9ad8-38529399b653" width="100%" autoplay loop muted playsinline></video>
@@ -26,163 +28,146 @@ Built with Rust + Tauri + React to keep mod installs, presets, saves, and card r
 
 ---
 
-## What this project solves
+## 🎯 The Problem We Solve
 
-Managing Slay the Spire 2 mods usually means dealing with several annoying workflows:
+Installing mods for Slay the Spire 2 is messy — and we've been there:
 
-- hunting for the correct game, mods, and save directories
-- bouncing between Nexus, the browser, and local folders
-- getting no warning when two mods collide
-- risking vanilla saves while trying a modded run
-- lacking a clean place to manage presets, backups, and cloud sync
-- relying on external card databases that may not match the user's installed game version or language
+- 🔍 **Where's my game folder?** First-time modders spend 20 minutes hunting for game and save paths before they even start.
+- 🔀 **Browser ↔ folder hell.** You find a mod on Nexus Mods, download it, unzip it, drop it somewhere, hope it works — then repeat for the next one.
+- 💥 **Silent conflicts.** Two mods overwrite the same file with no warning. The game breaks. You don't know why.
+- 💾 **Save file anxiety.** You want to try a modded run, but you're scared of overwriting your vanilla save.
+- 🔙 **No undo.** After an update goes wrong, there's no easy way to roll things back.
 
-`SlaySP2Manager` is meant to turn that into one desktop workflow.
-
----
-
-## Highlights in 0.9.0
-
-- Added a **native card compendium** page with browsing, filtering, upgrade-state toggles, and card detail inspection.
-- Compendium metadata is now **generated from the local game install at runtime** instead of relying on a tracked static `card-metadata` file.
-- Card rendering can extract **in-game art, frames, banners, energy icons, and title fonts** from local game assets.
-- Compendium browsing now includes a **sticky toolbar, collapsible filters, back-to-top action**, and fuller light-theme support.
-- The Profiles page now **autosaves mod selection changes** for existing profiles.
+**SlaySP2Manager** turns all of this into a calm, one-window workflow.
 
 ---
 
-## Features
+## 🆕 What's New in 0.9.0
 
-### Mod Library
-
-- Scan and display locally installed mods.
-- Enable, disable, and uninstall with one click.
-- Import from `.zip` with preview and conflict detection before writing.
-- Keep an activity log for installs, updates, and removals.
-
-### Discover
-
-- Search Slay the Spire 2 mods on Nexus Mods inside the app.
-- View authors, versions, tags, descriptions, and artwork.
-- Jump to the Nexus page when needed.
-- Manage API key setup and download flow in-app.
-
-### Presets / Profiles
-
-- Save multiple local mod presets.
-- Capture the current enabled mod set as a preset in one click.
-- Export, import, and share preset bundles.
-- Autosave mod selection changes while editing an existing profile.
-
-### Compendium
-
-- Dedicated card compendium page.
-- Filter by character, type, and rarity.
-- Toggle between base and upgraded states.
-- Extract card art and native card-frame assets from the local game install.
-- Rebuild metadata and native asset caches from the detected game path when the user refreshes resources.
-
-### Save Management
-
-- Separate vanilla and modded save slots.
-- Support two-way copy, slot pairing, and visual connections.
-- Create backups before risky actions.
-- Browse and restore save backups.
-
-### Steam Cloud Sync
-
-- Auto-detect the current Steam account's cloud save directory.
-- One-click local-to-cloud and cloud-to-local sync.
-- Full backup before cloud operations.
-- Cloud diff inspection and workbench support.
-
-### Settings & Diagnostics
-
-- Auto-detect the game directory.
-- Configure Nexus API key, proxy, and download-related settings.
-- Inspect game path, mods directory, and save state health.
+- 🃏 **Native card compendium**: Added a dedicated Slay the Spire 2 compendium page with gallery browsing, card detail inspection, upgrade-state switching, and localized card text.
+- 🎨 **Game-asset card rendering**: Card art, frames, banners, energy icons, and title fonts are extracted from the local game install so presentation stays much closer to the in-game look.
+- 🔄 **Local refresh pipeline**: Refreshing resources now rebuilds and caches the compendium snapshot from the local game install instead of relying on a bundled `card-metadata` file.
+- 🧭 **Compendium browsing polish**: Added a sticky filter toolbar, collapsible filters, and a back-to-top action to make long browsing sessions easier to navigate.
+- 💾 **Profiles autosave**: Mod selection changes inside existing profiles are now persisted automatically, cutting down on repetitive manual saves.
 
 ---
 
-## Compendium data source
+## ✨ Features
 
-Starting from `0.9.0`, the compendium uses a local runtime pipeline:
+### 📦 Mod Library
+- **Scan & display** all locally installed mods in one place
+- **Enable / Disable / Uninstall** mods with a single click
+- **Install from ZIP** — drag-and-drop or pick a file; the app reads the manifest, detects conflicts, and shows a preview before writing anything
+- **Conflict detection** — highlights file-level collisions between mods before they cause problems
+- **Activity log** — a clear history of every install, update, and removal
 
-- metadata is derived from the local `sts2.dll` and `SlayTheSpire2.pck`
-- refreshing resources regenerates the compendium snapshot locally
-- generated snapshot data and extracted assets are cached in the app cache directory
-- the repository no longer needs to track static `card-metadata.*.json` snapshots
+### 🔍 Discover (Nexus Mods integration)
+- **Search Nexus Mods** for STS2 mods without leaving the app
+- **Mod detail panel** — description, author, version, endorsements, tags
+- **Multi-language Friendly** — translate mod descriptions right in the app
+- **Open on Nexus** — jump to the full Nexus page in your browser when you need more context
+- **Download queue** — persistent, visible across all pages while downloads are in progress
+- Requires a free Nexus Mods API key (the app walks you through getting one)
 
-This keeps the compendium closer to the user's actual installed game version and localization data.
+### 🗂️ Presets
+- Create **multiple local mod presets** (e.g. "Vanilla-friendly", "Full chaos run")
+- Switch presets safely — the app validates integrity before applying
+- Duplicate and rename presets
+- **Profiles autosave** — Mod selection changes inside existing profiles are persisted automatically
+- **Share as bundle**: Package a preset with all its mods into a `.zip` bundle (with `.spm` manifest) to share with friends in one click
+- **Import bundles**: Click a button or drag-and-drop a bundle onto the window — the app detects conflicts and lets you choose "Skip" or "Replace" per mod
+- **Save preset from Library**: Capture all currently enabled mods as a new preset with one click
+
+### 🃏 Compendium
+- **Native card compendium** — Browse Slay the Spire 2 cards in a gallery view with detail inspection, upgrade-state switching, and localized card text
+- **Game-asset rendering** — Extracts card art, frames, banners, energy icons, and title fonts directly from the local game install
+- **Local rebuild and cache** — Refreshing resources regenerates compendium metadata and native asset caches from the detected game path
+- **Long-list browsing polish** — Sticky filters, collapsible controls, and a back-to-top action keep extended browsing sessions manageable
+
+### 💾 Save Management
+- Clearly separates **vanilla save slots** from **modded save slots**
+- **Two-way copy** between vanilla and modded saves (with a preview of what will be overwritten)
+- **Save pairing & sync** — link any vanilla slot with any modded slot, enable auto-sync and saves are bidirectionally synced by modification time (rsync-style), with cross-slot pairing support
+- **Visual connection lines** between paired cards; click the × button on a line to unlink
+- **Auto-backup before every risky action** — no silent overwrites
+- **Backup list & restore** — browse past backups and restore with one click
+
+### ☁️ Steam Cloud Sync
+- **Auto-discovers** the current Steam account's cloud save directory — zero manual configuration
+- One-click **Upload to Cloud** (Local → Cloud) or **Download to Local** (Cloud → Local), syncing both vanilla and modded saves
+- **Full backup created automatically** before every cloud operation to ensure data safety
+- Quickly **open the cloud save folder** in your file manager for manual inspection
+
+### ⚙️ Settings & Diagnostics
+- Auto-detects your game directory on first launch
+- Configure download directory and Nexus API key
+- **In-app tutorial** for obtaining an API key (no browser needed)
+- Diagnostic page: validate game path, save path, and mod folder health
 
 ---
 
-## Download and install
 
-1. Open the [Releases page](https://github.com/wakaka6/SlaySP2Manger/releases)
-2. Download the latest `.msi`
-3. Run the installer
-4. Launch `SlaySP2Manager`
-5. Confirm or auto-detect the game directory on first use
+## 🚀 Download & Install
 
-Requirements:
+1. Go to the [**Releases page**](https://github.com/wakaka6/SlaySP2Manger/releases)
+2. Download the latest `.msi` installer
+3. Run the installer — no configuration needed
+4. Launch **SlaySP2Manager** and point it at your STS2 game folder
 
-- Windows 10/11 x64
+> **Requirements:** Windows 10/11 (x64). No additional runtime dependencies.
 
 ---
 
-## Local development
+## 🛠️ Development Setup
 
 ### Prerequisites
 
 | Tool | Version |
-| --- | --- |
+|------|---------|
 | Node.js | 18+ |
-| Rust | stable |
-| Windows | 10/11 |
+| Rust | stable (via `rustup`) |
+| Windows | 10/11 (build target) |
 
-### Start in dev mode
+### Run locally
 
 ```bash
+# Install frontend dependencies
 npm install
+
+# Start in Tauri dev mode (hot-reload)
 npm run tauri:dev
 ```
 
-### Build a release package
+### Build a release binary
 
 ```bash
 npm run tauri:build
-```
-
-Output:
-
-```text
-src-tauri/target/release/bundle/msi/
+# Output: src-tauri/target/release/bundle/msi/
 ```
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
-Bug reports, improvement ideas, and pull requests are welcome.
+Contributions, bug reports, and feature requests are welcome!
 
 1. Fork the repository
-2. Create a branch: `git checkout -b feat/my-feature`
-3. Commit your changes: `git commit -m "feat: add my feature"`
-4. Open a pull request
+2. Create your branch: `git checkout -b feat/my-feature`
+3. Commit your changes: `git commit -m 'feat: add my feature'`
+4. Push and open a Pull Request
 
-Please follow [Conventional Commits](https://www.conventionalcommits.org/).
+Please follow [Conventional Commits](https://www.conventionalcommits.org/) for commit messages.
 
 ---
 
-## License
+## 📄 License
 
-[MIT](LICENSE)
+MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
 <div align="center">
 
-Maintained for the Slay the Spire 2 community.
+Made with ❤️ for the Slay the Spire 2 community
 
 </div>
