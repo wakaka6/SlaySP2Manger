@@ -1,0 +1,152 @@
+.electric-border {
+  --electric-border-color: #5227ff;
+  --electric-border-thickness: 2px;
+  --eb-pointer-x: 50%;
+  --eb-pointer-y: 50%;
+  --eb-pointer-opacity: 0;
+  position: relative;
+  display: block;
+  min-width: 0;
+  border-radius: inherit;
+  overflow: visible;
+  isolation: isolate;
+}
+
+.eb-canvas-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.eb-canvas {
+  display: block;
+}
+
+.eb-content {
+  position: relative;
+  border-radius: inherit;
+  overflow: hidden;
+  z-index: 3;
+}
+
+.eb-content > :not(.eb-content-spotlight) {
+  position: relative;
+  z-index: 1;
+}
+
+.eb-content-spotlight {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  opacity: calc(var(--eb-pointer-opacity) * 0.5);
+  transition: opacity 180ms ease;
+  background:
+    radial-gradient(
+      180px circle at var(--eb-pointer-x) var(--eb-pointer-y),
+      color-mix(in srgb, var(--electric-border-color) 20%, transparent),
+      transparent 72%
+    );
+}
+
+.eb-layers {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.eb-glow-1,
+.eb-glow-2,
+.eb-pointer-border,
+.eb-background-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.eb-glow-1 {
+  border: var(--electric-border-thickness) solid color-mix(in srgb, var(--electric-border-color) 58%, transparent);
+  filter: blur(1px);
+  opacity: 0.78;
+  transition: opacity 180ms ease;
+}
+
+.eb-glow-2 {
+  border: var(--electric-border-thickness) solid color-mix(in srgb, var(--electric-border-color) 72%, white 28%);
+  filter: blur(6px);
+  opacity: 0.64;
+  transition: opacity 180ms ease;
+}
+
+.electric-border:hover .eb-glow-1 {
+  opacity: 0.92;
+}
+
+.electric-border:hover .eb-glow-2 {
+  opacity: 0.9;
+}
+
+.eb-pointer-border {
+  padding: max(var(--electric-border-thickness), 2px);
+  opacity: calc(var(--eb-pointer-opacity) * 0.95);
+  transition: opacity 180ms ease;
+  background:
+    radial-gradient(
+      160px circle at var(--eb-pointer-x) var(--eb-pointer-y),
+      color-mix(in srgb, var(--electric-border-color) 80%, white 20%),
+      color-mix(in srgb, var(--electric-border-color) 34%, transparent) 34%,
+      transparent 68%
+    );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+.eb-background-glow {
+  z-index: -1;
+  transform: scale(1.08);
+  filter: blur(28px);
+  opacity: 0.24;
+  transition: opacity 180ms ease;
+  background:
+    linear-gradient(
+      -30deg,
+      color-mix(in srgb, var(--electric-border-color) 68%, white 32%),
+      transparent 52%,
+      var(--electric-border-color)
+    );
+}
+
+.electric-border:hover .eb-background-glow {
+  opacity: 0.32;
+}
+
+.eb-pointer-glow {
+  position: absolute;
+  inset: -12%;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  opacity: calc(var(--eb-pointer-opacity) * 0.65);
+  filter: blur(24px);
+  transition: opacity 180ms ease;
+  background:
+    radial-gradient(
+      200px circle at var(--eb-pointer-x) var(--eb-pointer-y),
+      color-mix(in srgb, var(--electric-border-color) 42%, transparent),
+      transparent 72%
+    );
+}

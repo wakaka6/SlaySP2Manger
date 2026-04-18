@@ -182,7 +182,6 @@ export function SettingsPage() {
         description={t("settings.description")}
         title={t("settings.title")}
       />
-
       <div className="st-grid">
         {/* ── Game Directory ── */}
         <div className="st-section st-section--wide">

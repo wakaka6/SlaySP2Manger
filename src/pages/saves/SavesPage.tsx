@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useLocation, useNavigate } from "react-router-dom";
 import { CloudDiffWorkbenchDialog } from "../../components/saves/CloudDiffWorkbenchDialog";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
+import ElectricBorder from "../../components/common/ElectricBorder";
 import { PageHeader } from "../../components/common/PageHeader";
 import { useI18n } from "../../i18n/I18nProvider";
 import type { MessageKey } from "../../i18n/messages";
@@ -123,6 +124,10 @@ export function SavesPage() {
   const [isCloudSyncing, setIsCloudSyncing] = useState<"ascend" | "descend" | null>(null);
   const [steamCloudRiskAction, setSteamCloudRiskAction] = useState<"ascend" | "descend" | null>(null);
   const [cloudDiffOpen, setCloudDiffOpen] = useState(false);
+  const electricBorderColor =
+    typeof window === "undefined"
+      ? "#e8af52"
+      : getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#e8af52";
 
   const cloudMismatchSummary = useMemo(() => {
     if (!cloudStatus?.isAvailable || !cloudStatus.hasMismatch) return null;
@@ -661,7 +666,6 @@ export function SavesPage() {
   return (
     <section className="page">
       <PageHeader description={t("saves.description")} title={t("saves.title")} />
-
       {/* ── Loom of Destiny Layout ───────────────── */}
       <div className="saves-layout" ref={layoutRef}>
         {/* SVG connection lines overlay */}
@@ -752,7 +756,16 @@ export function SavesPage() {
           {!loaded ? renderLoadingState() : (
             <>
           {/* ── 1. The Cloud Sanctuary (Top Middle) ── */}
-          <div className={`saves-cloud-core saves-live-block${contentVisible ? " saves-live-block--visible" : ""}`}>
+          <ElectricBorder
+            borderRadius={14}
+            chaos={0.04}
+            className={`saves-live-block${contentVisible ? " saves-live-block--visible" : ""}`}
+            color={electricBorderColor}
+            speed={0.4}
+            style={{ borderRadius: 14, gridArea: "cloud", width: "100%" }}
+            thickness={2}
+          >
+            <div className="saves-cloud-core">
               <div className="cloud-core__info">
                  <div className="cloud-core__title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Cloud size={28} className="text-accent" />
@@ -825,7 +838,8 @@ export function SavesPage() {
                    </button>
                  </div>
              )}
-          </div>
+            </div>
+          </ElectricBorder>
           
           {/* ── 2. Vanilla Realm (Left) ── */}
           <div className={`saves-sync-bar saves-sync-bar--grid saves-live-block saves-live-block--delay-1${contentVisible ? " saves-live-block--visible" : ""}`}>

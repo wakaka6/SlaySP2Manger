@@ -29,6 +29,21 @@ import {
   uninstallMod,
 } from "../../lib/desktop";
 import {
+  PRESET_MOD_TAGS,
+  addCustomModTag,
+  addPresetModTag,
+  buildCustomTagCounts,
+  buildPresetTagCounts,
+  getModCustomTags,
+  getModPresetTagIds,
+  loadModTags,
+  removeCustomModTag,
+  removePresetModTag,
+  renameCustomModTag,
+  type ModTagMap,
+  type PresetModTagId,
+} from "../../lib/modTags";
+import {
   Trash2,
   FolderOpen,
   ChevronDown,
@@ -40,38 +55,11 @@ import {
   AlertCircle,
   Loader2,
   Bookmark,
-  Pencil,
+  Plus,
   RefreshCw,
   X,
 } from "lucide-react";
-
-// Mod Notes (localStorage)
-const MOD_NOTES_STORAGE_KEY = "slaysp2_mod_notes";
-
-function loadModNotes(): Record<string, string> {
-  try {
-    const raw = localStorage.getItem(MOD_NOTES_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveModNotes(notes: Record<string, string>) {
-  localStorage.setItem(MOD_NOTES_STORAGE_KEY, JSON.stringify(notes));
-}
-
-function setModNote(modId: string, note: string): Record<string, string> {
-  const notes = loadModNotes();
-  const trimmed = note.trim();
-  if (trimmed) {
-    notes[modId] = trimmed;
-  } else {
-    delete notes[modId];
-  }
-  saveModNotes(notes);
-  return notes;
-}
+import { PresetModTagIcon, formatCustomTagLabel } from "../../components/common/ModTagVisuals";
 
 function formatTime(value: string) {
   const date = new Date(value);
@@ -129,36 +117,102 @@ export function LibraryPage() {
   const isPickingFileRef = useRef(false);
   const importMenuRef = useRef<HTMLDivElement>(null);
 
-  // Mod notes state
-  const [modNotes, setModNotes] = useState<Record<string, string>>(loadModNotes);
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingNoteValue, setEditingNoteValue] = useState("");
-  const noteInputRef = useRef<HTMLInputElement>(null);
+  // Mod tags state
+  const [modTags, setModTagsState] = useState<ModTagMap>(loadModTags);
+  const [selectedPresetTagIds, setSelectedPresetTagIds] = useState<PresetModTagId[]>([]);
+  const [selectedCustomTags, setSelectedCustomTags] = useState<string[]>([]);
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
+  const [editingCustomTagOriginal, setEditingCustomTagOriginal] = useState<string | null>(null);
+  const [editingTagValue, setEditingTagValue] = useState("");
+  const tagInputRef = useRef<HTMLInputElement>(null);
+  const presetTagLabelById = useMemo(
+    () => new Map(PRESET_MOD_TAGS.map((item) => [item.id, t(item.messageKey)])),
+    [t],
+  );
 
-  // Focus note input when editing starts
+  // Focus tag input when editing starts
   useEffect(() => {
-    if (editingNoteId && noteInputRef.current) {
-      noteInputRef.current.focus();
+    if (editingTagId && tagInputRef.current) {
+      tagInputRef.current.focus();
     }
-  }, [editingNoteId]);
+  }, [editingTagId]);
 
-  function startEditNote(modId: string) {
-    setEditingNoteId(modId);
-    setEditingNoteValue(modNotes[modId] ?? "");
+  function getPresetTagLabel(tagId: PresetModTagId) {
+    return presetTagLabelById.get(tagId) ?? tagId;
   }
 
-  function commitNote(modId: string) {
-    const updated = setModNote(modId, editingNoteValue);
-    setModNotes(updated);
-    setEditingNoteId(null);
-    setEditingNoteValue("");
+  function beginCreateTag(modId: string) {
+    setEditingTagId(modId);
+    setEditingCustomTagOriginal(null);
+    setEditingTagValue("");
   }
 
-  function clearNote(modId: string) {
-    const updated = setModNote(modId, "");
-    setModNotes(updated);
-    setEditingNoteId(null);
-    setEditingNoteValue("");
+  function beginEditCustomTag(modId: string, tag: string) {
+    setEditingTagId(modId);
+    setEditingCustomTagOriginal(tag);
+    setEditingTagValue(tag);
+  }
+
+  function commitCustomTag(modId: string) {
+    const nextValue = editingTagValue.trim();
+    const updated = editingCustomTagOriginal
+      ? nextValue
+        ? renameCustomModTag(modId, editingCustomTagOriginal, nextValue)
+        : removeCustomModTag(modId, editingCustomTagOriginal)
+      : nextValue
+        ? addCustomModTag(modId, nextValue)
+        : null;
+
+    if (updated) {
+      setModTagsState(updated);
+    }
+    setEditingTagId(null);
+    setEditingCustomTagOriginal(null);
+    setEditingTagValue("");
+  }
+
+  function cancelTagInput() {
+    setEditingTagId(null);
+    setEditingCustomTagOriginal(null);
+    setEditingTagValue("");
+  }
+
+  function handleAddPresetTag(modId: string, tagId: PresetModTagId) {
+    const updated = addPresetModTag(modId, tagId);
+    setModTagsState(updated);
+  }
+
+  function handleRemovePresetTag(modId: string, tagId: PresetModTagId) {
+    const updated = removePresetModTag(modId, tagId);
+    setModTagsState(updated);
+  }
+
+  function handleRemoveCustomTag(modId: string, tag: string) {
+    const updated = removeCustomModTag(modId, tag);
+    setModTagsState(updated);
+    if (
+      editingTagId === modId &&
+      editingCustomTagOriginal?.trim().toLowerCase() === tag.trim().toLowerCase()
+    ) {
+      cancelTagInput();
+    }
+  }
+
+  function toggleSelectedPresetTag(tagId: PresetModTagId) {
+    setSelectedPresetTagIds((current) =>
+      current.includes(tagId)
+        ? current.filter((item) => item !== tagId)
+        : [...current, tagId],
+    );
+  }
+
+  function toggleSelectedCustomTag(tag: string) {
+    const compareKey = tag.trim().toLowerCase();
+    setSelectedCustomTags((current) =>
+      current.some((item) => item.trim().toLowerCase() === compareKey)
+        ? current.filter((item) => item.trim().toLowerCase() !== compareKey)
+        : [...current, tag],
+    );
   }
 
   const formatErrorMsg = useCallback(
@@ -265,9 +319,12 @@ export function LibraryPage() {
       mod.name.toLowerCase().includes(q) ||
       mod.author?.toLowerCase().includes(q) ||
       mod.id.toLowerCase().includes(q) ||
-      modNotes[mod.id]?.toLowerCase().includes(q)
+      getModCustomTags(modTags, mod.id).some(
+        (tag) => tag.toLowerCase().includes(q) || formatCustomTagLabel(tag).toLowerCase().includes(q),
+      ) ||
+      getModPresetTagIds(modTags, mod.id).some((tagId) => getPresetTagLabel(tagId).toLowerCase().includes(q))
     );
-  }, [searchQuery, modNotes]);
+  }, [getPresetTagLabel, modTags, searchQuery]);
 
   const searchFilteredEnabled = useMemo(
     () => enabledMods.filter(matchesSearch),
@@ -279,21 +336,98 @@ export function LibraryPage() {
     [disabledMods, matchesSearch],
   );
 
-  const filteredEnabled = useMemo(
+  const multiplayerFilteredEnabled = useMemo(
     () => (multiplayerOnly ? searchFilteredEnabled.filter((mod) => mod.affectsGameplay) : searchFilteredEnabled),
     [multiplayerOnly, searchFilteredEnabled],
   );
 
-  const filteredDisabled = useMemo(
+  const multiplayerFilteredDisabled = useMemo(
     () => (multiplayerOnly ? searchFilteredDisabled.filter((mod) => mod.affectsGameplay) : searchFilteredDisabled),
     [multiplayerOnly, searchFilteredDisabled],
   );
+
+  const presetFilterSet = useMemo(
+    () => new Set(selectedPresetTagIds),
+    [selectedPresetTagIds],
+  );
+
+  const customFilterSet = useMemo(
+    () => new Set(selectedCustomTags.map((tag) => tag.trim().toLowerCase())),
+    [selectedCustomTags],
+  );
+
+  const matchesSelectedTags = useCallback((mod: InstalledMod) => {
+    if (presetFilterSet.size === 0 && customFilterSet.size === 0) {
+      return true;
+    }
+
+    return (
+      getModPresetTagIds(modTags, mod.id).some((tagId) => presetFilterSet.has(tagId)) ||
+      getModCustomTags(modTags, mod.id).some((tag) => customFilterSet.has(tag.trim().toLowerCase()))
+    );
+  }, [customFilterSet, modTags, presetFilterSet]);
+
+  const filteredEnabled = useMemo(
+    () => multiplayerFilteredEnabled.filter(matchesSelectedTags),
+    [multiplayerFilteredEnabled, matchesSelectedTags],
+  );
+
+  const filteredDisabled = useMemo(
+    () => multiplayerFilteredDisabled.filter(matchesSelectedTags),
+    [multiplayerFilteredDisabled, matchesSelectedTags],
+  );
+
+  const currentTaggableItems = useMemo(
+    () => [...multiplayerFilteredEnabled, ...multiplayerFilteredDisabled],
+    [multiplayerFilteredDisabled, multiplayerFilteredEnabled],
+  );
+
+  const presetTagCounts = useMemo(
+    () => buildPresetTagCounts(currentTaggableItems, modTags),
+    [currentTaggableItems, modTags],
+  );
+
+  const customTagOptions = useMemo(() => {
+    const options = buildCustomTagCounts(currentTaggableItems, modTags);
+    const byKey = new Map(options.map((item) => [item.value.trim().toLowerCase(), item]));
+
+    for (const tag of selectedCustomTags) {
+      const compareKey = tag.trim().toLowerCase();
+      if (!compareKey || byKey.has(compareKey)) {
+        continue;
+      }
+
+      options.push({ value: tag, count: 0 });
+    }
+
+    return options.sort((left, right) => {
+      if (right.count !== left.count) {
+        return right.count - left.count;
+      }
+
+      return left.value.localeCompare(right.value);
+    });
+  }, [currentTaggableItems, modTags, selectedCustomTags]);
+
+  const hasTagFilterOptions = useMemo(
+    () =>
+      PRESET_MOD_TAGS.some((item) => presetTagCounts[item.id] > 0) ||
+      customTagOptions.length > 0 ||
+      selectedPresetTagIds.length > 0 ||
+      selectedCustomTags.length > 0,
+    [customTagOptions.length, presetTagCounts, selectedCustomTags.length, selectedPresetTagIds.length],
+  );
+
   const multiplayerMatchCount = useMemo(
     () => searchFilteredEnabled.concat(searchFilteredDisabled).filter((mod) => mod.affectsGameplay).length,
     [searchFilteredDisabled, searchFilteredEnabled],
   );
   const hasSearchQuery = Boolean(searchQuery.trim());
-  const hasActiveListFilter = multiplayerOnly || hasSearchQuery;
+  const hasSidebarFilters =
+    multiplayerOnly ||
+    selectedPresetTagIds.length > 0 ||
+    selectedCustomTags.length > 0;
+  const hasActiveListFilter = hasSidebarFilters || hasSearchQuery;
 
   // Import flows
 
@@ -392,59 +526,135 @@ export function LibraryPage() {
 
   const selectedCount = selectedModIds.size;
 
-  function renderModNote(mod: InstalledMod) {
-    if (editingNoteId === mod.id) {
-      return (
-        <div className="mod-card__note mod-card__note--editing">
-          <input
-            ref={noteInputRef}
-            className="mod-card__note-input"
-            value={editingNoteValue}
-            onChange={(e) => setEditingNoteValue(e.target.value)}
-            onBlur={() => commitNote(mod.id)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commitNote(mod.id);
-              if (e.key === "Escape") {
-                setEditingNoteId(null);
-                setEditingNoteValue("");
-              }
-            }}
-            placeholder={t("library.notePlaceholder")}
-            maxLength={80}
-          />
-          {editingNoteValue.trim() && (
-            <button
-              className="mod-card__note-clear"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                clearNote(mod.id);
-              }}
-              title={t("library.noteClear")}
-            >
-              <X size={12} />
-            </button>
-          )}
-        </div>
-      );
-    }
+  function renderModTags(mod: InstalledMod) {
+    const presetTagIds = getModPresetTagIds(modTags, mod.id);
+    const customTags = getModCustomTags(modTags, mod.id);
+    const hasAnyTags = presetTagIds.length > 0 || customTags.length > 0;
+    const isEditing = editingTagId === mod.id;
+    const editingCustomTagKey = editingCustomTagOriginal?.trim().toLowerCase() ?? null;
+    const presetSuggestions = PRESET_MOD_TAGS.filter((item) => !presetTagIds.includes(item.id));
+    const renderTagInput = () => (
+      <input
+        ref={tagInputRef}
+        className="mod-card__tag-input"
+        value={editingTagValue}
+        onChange={(event) => setEditingTagValue(event.target.value)}
+        onBlur={() => commitCustomTag(mod.id)}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commitCustomTag(mod.id);
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            cancelTagInput();
+          }
+        }}
+        placeholder={t("library.tagInputPlaceholder")}
+        maxLength={36}
+      />
+    );
 
     return (
       <div
-        className={`mod-card__note ${modNotes[mod.id] ? "has-note" : ""}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          startEditNote(mod.id);
+        className={`mod-card__note${hasAnyTags ? " has-note" : ""}${isEditing ? " mod-card__note--editing" : ""}`}
+        onClick={() => {
+          if (isEditing) {
+            tagInputRef.current?.focus();
+            return;
+          }
+          beginCreateTag(mod.id);
         }}
         title={t("library.noteTooltip")}
       >
-        {modNotes[mod.id] ? (
-          <span className="mod-card__note-text">{modNotes[mod.id]}</span>
-        ) : (
-          <span className="mod-card__note-placeholder">
-            <Pencil size={11} />
-            {t("library.notePlaceholder")}
-          </span>
-        )}
+        <div className="mod-card__tag-list">
+          {presetTagIds.map((tagId) => (
+            <span
+              className="mod-card__tag-chip mod-card__tag-chip--preset"
+              key={`preset:${tagId}`}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <PresetModTagIcon className="mod-card__tag-chip-icon" size={12} tagId={tagId} />
+              <span className="mod-card__tag-chip-label">{getPresetTagLabel(tagId)}</span>
+              <button
+                className="mod-card__tag-chip-remove"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => handleRemovePresetTag(mod.id, tagId)}
+                title={t("library.tagRemove")}
+                type="button"
+              >
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+          {customTags.map((tag) => (
+            isEditing && editingCustomTagKey === tag.trim().toLowerCase() ? (
+              <span className="mod-card__tag-chip-shell" key={`editing:${tag.toLowerCase()}`} onClick={(event) => event.stopPropagation()}>
+                {renderTagInput()}
+              </span>
+            ) : (
+              <span
+                className="mod-card__tag-chip mod-card__tag-chip--custom"
+                key={`custom:${tag.toLowerCase()}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  beginEditCustomTag(mod.id, tag);
+                }}
+              >
+                <span className="mod-card__tag-chip-label">{formatCustomTagLabel(tag)}</span>
+                <button
+                  className="mod-card__tag-chip-remove"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleRemoveCustomTag(mod.id, tag);
+                  }}
+                  title={t("library.tagRemove")}
+                  type="button"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )
+          ))}
+
+          {isEditing && editingCustomTagOriginal === null ? (
+            renderTagInput()
+          ) : (
+            <button
+              className={`mod-card__tag-create${hasAnyTags ? " mod-card__tag-create--hover-only" : ""}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                beginCreateTag(mod.id);
+              }}
+              type="button"
+            >
+              <Plus size={12} />
+              {t("library.tagCreate")}
+            </button>
+          )}
+        </div>
+
+        {isEditing && presetSuggestions.length > 0 ? (
+          <div className="mod-card__tag-suggestions" onClick={(event) => event.stopPropagation()}>
+            <div className="mod-card__tag-section-title">{t("library.tagSuggestions")}</div>
+            <div className="mod-card__tag-suggestions-list">
+              {presetSuggestions.map((item) => (
+                <button
+                  className="mod-card__tag-suggestion"
+                  key={item.id}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => handleAddPresetTag(mod.id, item.id)}
+                  type="button"
+                >
+                  <PresetModTagIcon className="mod-card__tag-suggestion-icon" size={12} tagId={item.id} />
+                  {getPresetTagLabel(item.id)}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -471,7 +681,7 @@ export function LibraryPage() {
               ) : null}
             </div>
             <div className="mod-card__author">{mod.author || t("library.unknownAuthor")}</div>
-            {renderModNote(mod)}
+            {renderModTags(mod)}
           </div>
         </div>
         <div className="mod-card__right">
@@ -828,14 +1038,18 @@ export function LibraryPage() {
 
       <div className="library-layout library-layout--filters">
         <aside className="library-pane library-pane--filters">
-          <div className={`library-filter-rail${multiplayerOnly ? " is-filtered" : ""}`}>
+          <div className={`library-filter-rail${hasSidebarFilters ? " is-filtered" : ""}`}>
             <div className="library-filter-rail__header">
               <span className="library-filter-rail__eyebrow">{t("library.filters")}</span>
-              {multiplayerOnly ? (
+              {hasSidebarFilters ? (
                 <button
                   className="button button--ghost library-filter-rail__clear"
                   type="button"
-                  onClick={() => setMultiplayerOnly(false)}
+                  onClick={() => {
+                    setMultiplayerOnly(false);
+                    setSelectedPresetTagIds([]);
+                    setSelectedCustomTags([]);
+                  }}
                 >
                   {t("library.clearFilters")}
                 </button>
@@ -858,6 +1072,66 @@ export function LibraryPage() {
                 <span className="library-filter-option__count">{multiplayerMatchCount}</span>
               </button>
             </div>
+
+            {hasTagFilterOptions ? (
+              <>
+                <div className="library-filter-group">
+                  <div className="library-filter-group__title">{t("library.tagPresetGroup")}</div>
+                  <div className="library-filter-rail__list library-filter-rail__list--tags">
+                    {PRESET_MOD_TAGS.map((item) => {
+                      const count = presetTagCounts[item.id];
+                      const isActive = selectedPresetTagIds.includes(item.id);
+                      return (
+                        <button
+                          key={item.id}
+                          className={`button button--secondary library-filter-option library-filter-option--tag${isActive ? " is-active" : ""}`}
+                          type="button"
+                          aria-pressed={isActive}
+                          disabled={!isActive && count === 0}
+                          onClick={() => toggleSelectedPresetTag(item.id)}
+                          title={getPresetTagLabel(item.id)}
+                        >
+                          <span className="library-filter-option__main">
+                            <PresetModTagIcon className="library-filter-option__tag-icon" size={14} tagId={item.id} />
+                            <span className="library-filter-tag-label">{getPresetTagLabel(item.id)}</span>
+                          </span>
+                          <span className="library-filter-option__count">{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {customTagOptions.length > 0 ? (
+                  <div className="library-filter-group">
+                    <div className="library-filter-group__title">{t("library.tagCustomGroup")}</div>
+                    <div className="library-filter-rail__list library-filter-rail__list--tags">
+                      {customTagOptions.map((item) => {
+                        const isActive = selectedCustomTags.some(
+                          (tag) => tag.trim().toLowerCase() === item.value.trim().toLowerCase(),
+                        );
+                        return (
+                          <button
+                            key={item.value}
+                            className={`button button--secondary library-filter-option library-filter-option--tag${isActive ? " is-active" : ""}`}
+                            type="button"
+                            aria-pressed={isActive}
+                            disabled={!isActive && item.count === 0}
+                          onClick={() => toggleSelectedCustomTag(item.value)}
+                          title={formatCustomTagLabel(item.value)}
+                        >
+                          <span className="library-filter-option__main">
+                            <span className="library-filter-tag-label">{formatCustomTagLabel(item.value)}</span>
+                          </span>
+                          <span className="library-filter-option__count">{item.count}</span>
+                        </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
           </div>
         </aside>
 
@@ -866,7 +1140,7 @@ export function LibraryPage() {
             {filteredEnabled.length === 0 && filteredDisabled.length === 0 ? (
               <div className="mod-list__empty">
                 <strong>
-                  {hasSearchQuery ? t("library.noSearchResults") : multiplayerOnly ? t("library.noFilterResults") : t("library.emptyEnabled")}
+                  {hasSearchQuery ? t("library.noSearchResults") : hasSidebarFilters ? t("library.noFilterResults") : t("library.emptyEnabled")}
                 </strong>
                 <span>{hasActiveListFilter ? "" : t("library.emptyEnabledHelp")}</span>
               </div>

@@ -1,0 +1,100 @@
+.animated-list {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  --animated-list-padding: 4px;
+  --animated-list-gap: 8px;
+  --animated-list-scrollbar-thumb: color-mix(in srgb, var(--border-strong) 82%, transparent);
+  --animated-list-scrollbar-track: color-mix(in srgb, var(--surface-contrast) 78%, transparent);
+  --animated-list-focus-ring: color-mix(in srgb, var(--accent) 26%, transparent);
+  --animated-list-gradient-top: color-mix(in srgb, var(--bg-panel) 96%, transparent);
+  --animated-list-gradient-bottom: color-mix(in srgb, var(--bg-panel) 96%, transparent);
+}
+
+.animated-list__scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--animated-list-gap);
+  position: relative;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: var(--animated-list-padding);
+  outline: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--animated-list-scrollbar-thumb) var(--animated-list-scrollbar-track);
+}
+
+.animated-list__scroll:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--animated-list-focus-ring);
+  border-radius: 14px;
+}
+
+.animated-list__scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.animated-list__scroll::-webkit-scrollbar-track {
+  background: var(--animated-list-scrollbar-track);
+  border-radius: 999px;
+}
+
+.animated-list__scroll::-webkit-scrollbar-thumb {
+  background: var(--animated-list-scrollbar-thumb);
+  border-radius: 999px;
+}
+
+.animated-list__scroll.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.animated-list__scroll.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.animated-list__item-shell {
+  cursor: pointer;
+}
+
+.animated-list__item {
+  padding: 16px;
+  background: color-mix(in srgb, var(--surface-contrast) 92%, transparent);
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 88%, transparent);
+  color: var(--text-primary);
+}
+
+.animated-list__item.is-selected {
+  background: color-mix(in srgb, var(--accent-fill-soft) 74%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.animated-list__item-text {
+  margin: 0;
+  color: inherit;
+}
+
+.animated-list__gradient {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  transition: opacity 0.24s ease;
+}
+
+.animated-list__gradient--top {
+  top: 0;
+  height: 48px;
+  background: linear-gradient(to bottom, var(--animated-list-gradient-top), transparent);
+}
+
+.animated-list__gradient--bottom {
+  bottom: 0;
+  height: 72px;
+  background: linear-gradient(to top, var(--animated-list-gradient-bottom), transparent);
+}

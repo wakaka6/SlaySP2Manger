@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useI18n } from "../../i18n/I18nProvider";
 import {
@@ -18,6 +18,18 @@ import {
   type ModProfile,
   type PresetBundlePreview,
 } from "../../lib/desktop";
+import {
+  PRESET_MOD_TAGS,
+  buildCustomTagCounts,
+  buildPresetTagCounts,
+  getModCustomTags,
+  getModPresetTagIds,
+  loadModTags,
+  type ModTagMap,
+  type PresetModTagId,
+} from "../../lib/modTags";
+import AnimatedList from "../../components/common/AnimatedList";
+import { PresetModTagIcon, formatCustomTagLabel } from "../../components/common/ModTagVisuals";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { Save, CheckCircle, Trash2, DatabaseZap, Plus, Layers, Zap, Package, Check, Share2, FolderDown } from "lucide-react";
 
@@ -76,6 +88,9 @@ export function ProfilesPage() {
   const [profiles, setProfiles] = useState<ModProfile[]>([]);
   const [enabledMods, setEnabledMods] = useState<InstalledMod[]>([]);
   const [availableMods, setAvailableMods] = useState<InstalledMod[]>([]);
+  const [modTags] = useState<ModTagMap>(loadModTags);
+  const [selectedPresetTagIds, setSelectedPresetTagIds] = useState<PresetModTagId[]>([]);
+  const [selectedCustomTags, setSelectedCustomTags] = useState<string[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ProfileDraft>(createEmptyDraft);
   const [isCreating, setIsCreating] = useState(false);
@@ -87,6 +102,10 @@ export function ProfilesPage() {
   const [bundlePreview, setBundlePreview] = useState<PresetBundlePreview | null>(null);
   const [bundleConflictResolutions, setBundleConflictResolutions] = useState<Record<string, string>>({});
   const [bundleImporting, setBundleImporting] = useState(false);
+  const presetTagLabelById = useMemo(
+    () => new Map(PRESET_MOD_TAGS.map((item) => [item.id, t(item.messageKey)])),
+    [t],
+  );
 
   const reload = useCallback(async (nextSelectedId?: string | null) => {
     const [profileItems, enabledItems, disabledItems, bootstrap] = await Promise.all([
@@ -239,6 +258,27 @@ export function ProfilesPage() {
       modIds: enabledMods.map((item) => item.id),
     }));
     setStatus(t("profiles.synced"));
+  }
+
+  function getPresetTagLabel(tagId: PresetModTagId) {
+    return presetTagLabelById.get(tagId) ?? tagId;
+  }
+
+  function toggleSelectedPresetTag(tagId: PresetModTagId) {
+    setSelectedPresetTagIds((current) =>
+      current.includes(tagId)
+        ? current.filter((item) => item !== tagId)
+        : [...current, tagId],
+    );
+  }
+
+  function toggleSelectedCustomTag(tag: string) {
+    const compareKey = tag.trim().toLowerCase();
+    setSelectedCustomTags((current) =>
+      current.some((item) => item.trim().toLowerCase() === compareKey)
+        ? current.filter((item) => item.trim().toLowerCase() !== compareKey)
+        : [...current, tag],
+    );
   }
 
   async function handleSave() {
@@ -430,6 +470,61 @@ export function ProfilesPage() {
 
   const availableIds = new Set(availableMods.map((m) => m.id.toLowerCase()));
   const selectedCount = draft.modIds.filter((id) => availableIds.has(id.toLowerCase())).length;
+  const presetFilterSet = useMemo(
+    () => new Set(selectedPresetTagIds),
+    [selectedPresetTagIds],
+  );
+  const customFilterSet = useMemo(
+    () => new Set(selectedCustomTags.map((tag) => tag.trim().toLowerCase())),
+    [selectedCustomTags],
+  );
+  const filteredAvailableMods = useMemo(() => {
+    if (presetFilterSet.size === 0 && customFilterSet.size === 0) {
+      return availableMods;
+    }
+
+    return availableMods.filter((mod) =>
+      getModPresetTagIds(modTags, mod.id).some((tagId) => presetFilterSet.has(tagId)) ||
+      getModCustomTags(modTags, mod.id).some((tag) => customFilterSet.has(tag.trim().toLowerCase())),
+    );
+  }, [availableMods, customFilterSet, modTags, presetFilterSet]);
+  const presetTagCounts = useMemo(
+    () => buildPresetTagCounts(availableMods, modTags),
+    [availableMods, modTags],
+  );
+  const customTagOptions = useMemo(() => {
+    const options = buildCustomTagCounts(availableMods, modTags);
+    const byKey = new Map(options.map((item) => [item.value.trim().toLowerCase(), item]));
+
+    for (const tag of selectedCustomTags) {
+      const compareKey = tag.trim().toLowerCase();
+      if (!compareKey || byKey.has(compareKey)) {
+        continue;
+      }
+
+      options.push({ value: tag, count: 0 });
+    }
+
+    return options.sort((left, right) => {
+      if (right.count !== left.count) {
+        return right.count - left.count;
+      }
+
+      return left.value.localeCompare(right.value);
+    });
+  }, [availableMods, modTags, selectedCustomTags]);
+  const hasTagFilterOptions = useMemo(
+    () =>
+      PRESET_MOD_TAGS.some((item) => presetTagCounts[item.id] > 0) ||
+      customTagOptions.length > 0 ||
+      selectedPresetTagIds.length > 0 ||
+      selectedCustomTags.length > 0,
+    [customTagOptions.length, presetTagCounts, selectedCustomTags.length, selectedPresetTagIds.length],
+  );
+  const hasModFilters = selectedPresetTagIds.length > 0 || selectedCustomTags.length > 0;
+  const selectedProfileIndex = !isCreating
+    ? profiles.findIndex((profile) => profile.id === selectedProfileId)
+    : -1;
 
   return (
     <section className="page page--profiles" ref={pageRef}>
@@ -458,21 +553,26 @@ export function ProfilesPage() {
           <div className="profiles-sidebar__label">
             {t("profiles.savedCount", { count: profiles.length })}
           </div>
-          <div className="profile-list">
-            {profiles.length === 0 ? (
+          {profiles.length === 0 ? (
+            <div className="profile-list">
               <div className="profiles-empty-hint">
                 <Layers size={32} style={{ opacity: 0.3, marginBottom: 12 }} />
                 <span>{t("profiles.noProfilesHelp")}</span>
               </div>
-            ) : (
-              profiles.map((profile) => {
-                const isSelected = !isCreating && selectedProfileId === profile.id;
+            </div>
+          ) : (
+            <AnimatedList
+              items={profiles}
+              selectedIndex={selectedProfileIndex}
+              onItemSelect={(profile) => handleSelect(profile)}
+              getItemKey={(profile) => profile.id}
+              renderItem={(profile, _index, selected) => {
                 const isActive = activeProfileName === profile.name;
+                const installedCount = profile.modIds.filter((id) => availableIds.has(id.toLowerCase())).length;
+
                 return (
                   <button
-                    className={`profile-item${isSelected ? " is-active" : ""}${isActive ? " is-live" : ""}`}
-                    key={profile.id}
-                    onClick={() => handleSelect(profile)}
+                    className={`profile-item${selected ? " is-active" : ""}${isActive ? " is-live" : ""}`}
                     type="button"
                   >
                     <div className="profile-item__icon">
@@ -487,15 +587,20 @@ export function ProfilesPage() {
                         <span className="p-badge p-badge--live">{t("profiles.liveBadge")}</span>
                       ) : (
                         <span className="p-badge p-badge--muted">
-                          {t("profiles.modCountBadge", { count: profile.modIds.filter((id) => availableIds.has(id.toLowerCase())).length })}
+                          {t("profiles.modCountBadge", { count: installedCount })}
                         </span>
                       )}
                     </div>
                   </button>
                 );
-              })
-            )}
-          </div>
+              }}
+              className="profile-list-animated"
+              listClassName="profile-list"
+              showGradients={profiles.length > 0}
+              enableArrowNavigation={false}
+              ariaLabel={t("profiles.savedCount", { count: profiles.length })}
+            />
+          )}
         </nav>
 
         {/* ── RIGHT: Detail pane */}
@@ -581,38 +686,136 @@ export function ProfilesPage() {
                 <span>{t("profiles.noModsHelp")}</span>
               </div>
             ) : (
-              <div className="profiles-mod-checklist">
-                {availableMods.map((mod) => {
-                  const included = draft.modIds.some((id) => id.toLowerCase() === mod.id.toLowerCase());
-                  return (
-                    <button
-                      key={mod.id}
-                      className={`profiles-mod-row${included ? " is-checked" : ""}`}
-                      onClick={() => toggleMod(mod.id)}
-                      type="button"
-                    >
-                      <span className={`profiles-mod-check${included ? " is-on" : ""}`}>
-                        {included && <Check size={11} />}
-                      </span>
-                      <span className="profiles-mod-main">
-                        <span className="profiles-mod-title">
-                          <span className="profiles-mod-name">{mod.name}</span>
-                          {mod.affectsGameplay ? (
-                            <span className="profiles-mod-impact" title={multiplayerAffectedLabel}>
-                              <span className="profiles-mod-impact-dot" aria-hidden="true"></span>
-                              {multiplayerAffectedLabel}
+              <>
+                {hasTagFilterOptions ? (
+                  <div className={`profiles-mod-filters${hasModFilters ? " is-filtered" : ""}`}>
+                    <div className="profiles-mod-filters__header">
+                      <span className="profiles-mod-filters__eyebrow">{t("library.tagFilterTitle")}</span>
+                      {hasModFilters ? (
+                        <button
+                          className="button button--ghost profiles-mod-filters__clear"
+                          type="button"
+                          onClick={() => {
+                            setSelectedPresetTagIds([]);
+                            setSelectedCustomTags([]);
+                          }}
+                        >
+                          {t("library.clearFilters")}
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <div className="profiles-mod-filters__group">
+                      <div className="profiles-mod-filters__group-title">{t("library.tagPresetGroup")}</div>
+                      <div className="profiles-mod-filters__list">
+                        {PRESET_MOD_TAGS.map((item) => {
+                          const count = presetTagCounts[item.id];
+                          const isActive = selectedPresetTagIds.includes(item.id);
+                          return (
+                            <button
+                              key={item.id}
+                              className={`button button--secondary profiles-mod-filter-chip${isActive ? " is-active" : ""}`}
+                              type="button"
+                              aria-pressed={isActive}
+                              disabled={!isActive && count === 0}
+                              onClick={() => toggleSelectedPresetTag(item.id)}
+                              title={getPresetTagLabel(item.id)}
+                            >
+                              <PresetModTagIcon className="profiles-mod-filter-chip__icon" size={13} tagId={item.id} />
+                              <span className="profiles-mod-filter-chip__label">{getPresetTagLabel(item.id)}</span>
+                              <span className="profiles-mod-filter-chip__count">{count}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {customTagOptions.length > 0 ? (
+                      <div className="profiles-mod-filters__group">
+                        <div className="profiles-mod-filters__group-title">{t("library.tagCustomGroup")}</div>
+                        <div className="profiles-mod-filters__list">
+                          {customTagOptions.map((item) => {
+                            const isActive = selectedCustomTags.some(
+                              (tag) => tag.trim().toLowerCase() === item.value.trim().toLowerCase(),
+                            );
+                            return (
+                              <button
+                                key={item.value}
+                                className={`button button--secondary profiles-mod-filter-chip${isActive ? " is-active" : ""}`}
+                                type="button"
+                                aria-pressed={isActive}
+                                disabled={!isActive && item.count === 0}
+                                onClick={() => toggleSelectedCustomTag(item.value)}
+                                title={formatCustomTagLabel(item.value)}
+                              >
+                                <span className="profiles-mod-filter-chip__label">{formatCustomTagLabel(item.value)}</span>
+                                <span className="profiles-mod-filter-chip__count">{item.count}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {filteredAvailableMods.length === 0 ? (
+                  <div className="profiles-mods-empty">
+                    <Package size={28} style={{ opacity: 0.3, marginBottom: 8 }} />
+                    <span>{t("library.noFilterResults")}</span>
+                  </div>
+                ) : (
+                  <div className="profiles-mod-checklist">
+                    {filteredAvailableMods.map((mod) => {
+                      const included = draft.modIds.some((id) => id.toLowerCase() === mod.id.toLowerCase());
+                      const modPresetTagIds = getModPresetTagIds(modTags, mod.id);
+                      const modCustomTags = getModCustomTags(modTags, mod.id);
+                      return (
+                        <button
+                          key={mod.id}
+                          className={`profiles-mod-row${included ? " is-checked" : ""}`}
+                          onClick={() => toggleMod(mod.id)}
+                          type="button"
+                        >
+                          <span className={`profiles-mod-check${included ? " is-on" : ""}`}>
+                            {included && <Check size={11} />}
+                          </span>
+                          <span className="profiles-mod-main">
+                            <span className="profiles-mod-title">
+                              <span className="profiles-mod-name">{mod.name}</span>
+                              {modPresetTagIds.length > 0 || modCustomTags.length > 0 ? (
+                                <span className="profiles-mod-tags">
+                                  {modPresetTagIds.map((tagId) => (
+                                    <span className="profiles-mod-tag profiles-mod-tag--preset" key={`preset:${tagId}`} title={getPresetTagLabel(tagId)}>
+                                      <PresetModTagIcon className="profiles-mod-tag__icon" size={11} tagId={tagId} />
+                                      <span className="profiles-mod-tag-text">{getPresetTagLabel(tagId)}</span>
+                                    </span>
+                                  ))}
+                                  {modCustomTags.map((tag) => (
+                                    <span className="profiles-mod-tag profiles-mod-tag--custom" key={`custom:${tag}`} title={formatCustomTagLabel(tag)}>
+                                      <span className="profiles-mod-tag-text">{formatCustomTagLabel(tag)}</span>
+                                    </span>
+                                  ))}
+                                </span>
+                              ) : null}
+                              {mod.affectsGameplay ? (
+                                <span className="profiles-mod-impact" title={multiplayerAffectedLabel}>
+                                  <span className="profiles-mod-impact-dot" aria-hidden="true"></span>
+                                  {multiplayerAffectedLabel}
+                                </span>
+                              ) : null}
                             </span>
-                          ) : null}
-                        </span>
-                        <span className="profiles-mod-meta">
-                          {mod.author || t("profiles.unknownAuthor")}
-                          {mod.version ? ` \u00b7 ${mod.version}` : ""}
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                            <span className="profiles-mod-meta">
+                              {mod.author || t("profiles.unknownAuthor")}
+                              {mod.version ? ` \u00b7 ${mod.version}` : ""}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
 

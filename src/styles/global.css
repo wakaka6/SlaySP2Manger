@@ -1852,6 +1852,23 @@ button:disabled {
   gap: 10px;
 }
 
+.library-filter-rail__list--tags {
+  gap: 8px;
+}
+
+.library-filter-group {
+  display: grid;
+  gap: 10px;
+}
+
+.library-filter-group__title {
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .library-filter-option {
   width: 100%;
   min-height: 44px;
@@ -1910,6 +1927,26 @@ button:disabled {
 .library-filter-option.is-active .library-filter-option__count {
   background: color-mix(in srgb, var(--accent-fill-soft) 88%, transparent);
   color: var(--accent);
+}
+
+.library-filter-option--tag {
+  min-height: 40px;
+}
+
+.library-filter-tag-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-filter-option__tag-icon {
+  flex: 0 0 auto;
+  opacity: 0.82;
+}
+
+.library-filter-option--tag:disabled {
+  opacity: 0.52;
 }
 
 .library-filter-rail__clear {
@@ -2125,13 +2162,12 @@ button:disabled {
   min-width: 0;
 }
 
-/* ── Mod Note / Alias ────────────────────────────────────────────── */
+/* ── Mod Tag Editor ─────────────────────────────────────────────── */
 .mod-card__note {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  display: grid;
+  gap: 10px;
   cursor: pointer;
-  padding: 2px 0;
+  padding: 4px 0 0;
   min-height: 20px;
   transition: opacity var(--duration-fast) var(--ease-standard);
 }
@@ -2149,84 +2185,193 @@ button:disabled {
   opacity: 0.85;
 }
 
-.mod-card__note-placeholder {
+.mod-card__tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: min(100%, 520px);
+}
+
+.mod-card__tag-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: var(--text-dim);
-  border-bottom: 1px dashed transparent;
-  transition: all var(--duration-fast) var(--ease-standard);
-}
-
-.mod-card__note:hover .mod-card__note-placeholder {
-  color: var(--text-muted);
-  border-bottom-color: var(--border-subtle);
-}
-
-.mod-card__note-text {
-  font-size: 12px;
-  color: var(--accent-ink);
-  font-weight: 500;
-  background: var(--accent-soft);
-  padding: 1px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 280px;
+  gap: 6px;
+  min-height: 28px;
+  min-width: 0;
+  max-width: min(100%, 240px);
+  padding: 0 6px 0 10px;
+  border-radius: 999px;
   border: 1px solid transparent;
   transition: all var(--duration-fast) var(--ease-standard);
 }
 
-.mod-card__note:hover .mod-card__note-text {
+.mod-card__tag-chip-shell {
+  display: inline-flex;
+  align-items: center;
+}
+
+.mod-card__tag-chip--preset {
+  color: var(--accent-ink);
+  background: color-mix(in srgb, var(--accent-soft) 92%, white 8%);
   border-color: var(--accent-border);
 }
 
-.mod-card__note--editing {
-  position: relative;
-  opacity: 1;
+.mod-card__tag-chip--custom {
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--surface-contrast) 88%, transparent);
+  border-color: color-mix(in srgb, var(--border-subtle) 92%, transparent);
+  cursor: pointer;
 }
 
-.mod-card__note-input {
-  width: 260px;
-  height: 26px;
-  padding: 0 24px 0 8px;
-  border: 1px solid var(--accent-border-strong);
-  border-radius: 4px;
-  background: var(--bg-input);
-  color: var(--text-primary);
+.mod-card__tag-chip-label {
   font-size: 12px;
-  outline: none;
-  box-shadow: 0 0 0 2px var(--accent-soft);
-  transition: all var(--duration-fast) var(--ease-standard);
+  font-weight: 500;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.mod-card__note-input::placeholder {
-  color: var(--text-dim);
+.mod-card__tag-chip-icon {
+  flex: 0 0 auto;
+  opacity: 0.78;
 }
 
-.mod-card__note-clear {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
+.mod-card__tag-chip-remove {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 18px;
   height: 18px;
+  flex: 0 0 auto;
   border: none;
-  border-radius: 3px;
+  border-radius: 999px;
   background: transparent;
-  color: var(--text-muted);
+  color: inherit;
   cursor: pointer;
-  transition: all var(--duration-fast);
+  opacity: 0.7;
+  transition: all var(--duration-fast) var(--ease-standard);
 }
 
-.mod-card__note-clear:hover {
-  background: var(--danger-soft);
-  color: var(--danger);
+.mod-card__tag-chip-remove:hover {
+  opacity: 1;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.mod-card__note--editing {
+  opacity: 1;
+}
+
+.mod-card__tag-input {
+  width: 156px;
+  min-width: 112px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--accent-border-strong);
+  border-radius: 999px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 86%, transparent);
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.mod-card__tag-input::placeholder {
+  color: var(--text-dim);
+}
+
+.mod-card__tag-create {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 28px;
+  max-width: 160px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px dashed color-mix(in srgb, var(--border-strong) 72%, transparent);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.mod-card__tag-create:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border-strong));
+  background: color-mix(in srgb, var(--accent-soft) 52%, transparent);
+}
+
+.mod-card__tag-create--hover-only {
+  max-width: 0;
+  gap: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-color: transparent;
+  opacity: 0;
+  transform: translateY(3px);
+  pointer-events: none;
+}
+
+.mod-card:hover .mod-card__tag-create--hover-only,
+.mod-card:focus-within .mod-card__tag-create--hover-only,
+.mod-card__note:hover .mod-card__tag-create--hover-only,
+.mod-card__note:focus-within .mod-card__tag-create--hover-only {
+  max-width: 160px;
+  gap: 6px;
+  padding-left: 12px;
+  padding-right: 12px;
+  border-color: color-mix(in srgb, var(--border-strong) 72%, transparent);
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.mod-card__tag-suggestions {
+  display: grid;
+  gap: 8px;
+}
+
+.mod-card__tag-section-title {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mod-card__tag-suggestions-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mod-card__tag-suggestion {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border-subtle));
+  background: color-mix(in srgb, var(--surface-default) 82%, transparent);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.mod-card__tag-suggestion:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 58%, transparent);
+}
+
+.mod-card__tag-suggestion-icon {
+  flex: 0 0 auto;
+  opacity: 0.82;
 }
 
 .mod-card__right {
@@ -5938,10 +6083,17 @@ input::-webkit-textfield-decoration-container {
 }
 
 .page--profiles .profile-list {
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   padding-right: 2px;
   scrollbar-width: thin;
+}
+
+.profile-list-animated {
+  --animated-list-padding: 0;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .profiles-empty-hint {
@@ -6176,6 +6328,119 @@ input::-webkit-textfield-decoration-container {
   text-align: center;
 }
 
+.profiles-mod-filters {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px 0 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.profiles-mod-filters.is-filtered .profiles-mod-filters__eyebrow {
+  color: var(--accent);
+}
+
+.profiles-mod-filters__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.profiles-mod-filters__eyebrow {
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.profiles-mod-filters__clear {
+  min-height: 28px;
+  padding: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.profiles-mod-filters__group {
+  display: grid;
+  gap: 8px;
+}
+
+.profiles-mod-filters__group-title {
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.profiles-mod-filters__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profiles-mod-filter-chip {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: transparent;
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+
+.profiles-mod-filter-chip:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface-faint) 78%, transparent);
+  border-color: color-mix(in srgb, var(--border-subtle) 72%, transparent);
+  color: var(--text-primary);
+}
+
+.profiles-mod-filter-chip.is-active {
+  background: color-mix(in srgb, var(--accent-fill-soft) 70%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--text-primary);
+}
+
+.profiles-mod-filter-chip__label {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profiles-mod-filter-chip__icon {
+  flex: 0 0 auto;
+  opacity: 0.82;
+}
+
+.profiles-mod-filter-chip__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-faint) 82%, transparent);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.profiles-mod-filter-chip.is-active .profiles-mod-filter-chip__count {
+  background: color-mix(in srgb, var(--accent-fill-soft) 88%, transparent);
+  color: var(--accent);
+}
+
+.profiles-mod-filter-chip:disabled {
+  opacity: 0.52;
+}
+
 .profiles-mod-checklist {
   display: flex;
   flex-direction: column;
@@ -6251,6 +6516,48 @@ input::-webkit-textfield-decoration-container {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.profiles-mod-tags {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.profiles-mod-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: min(100%, 220px);
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+}
+
+.profiles-mod-tag--custom {
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--surface-contrast) 88%, transparent);
+  border-color: color-mix(in srgb, var(--border-subtle) 92%, transparent);
+}
+
+.profiles-mod-tag__icon {
+  flex: 0 0 auto;
+  opacity: 0.8;
+}
+
+.profiles-mod-tag-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .profiles-mod-impact {
