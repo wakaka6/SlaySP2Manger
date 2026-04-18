@@ -402,6 +402,13 @@ export function LibraryPage() {
     () => buildPresetTagCounts(currentTaggableItems, modTags),
     [currentTaggableItems, modTags],
   );
+  const visiblePresetTagOptions = useMemo(
+    () =>
+      PRESET_MOD_TAGS.filter(
+        (item) => presetTagCounts[item.id] > 0 || selectedPresetTagIds.includes(item.id),
+      ),
+    [presetTagCounts, selectedPresetTagIds],
+  );
 
   const customTagOptions = useMemo(() => {
     const options = buildCustomTagCounts(currentTaggableItems, modTags);
@@ -427,11 +434,10 @@ export function LibraryPage() {
 
   const hasTagFilterOptions = useMemo(
     () =>
-      PRESET_MOD_TAGS.some((item) => presetTagCounts[item.id] > 0) ||
+      visiblePresetTagOptions.length > 0 ||
       customTagOptions.length > 0 ||
-      selectedPresetTagIds.length > 0 ||
       selectedCustomTags.length > 0,
-    [customTagOptions.length, presetTagCounts, selectedCustomTags.length, selectedPresetTagIds.length],
+    [customTagOptions.length, selectedCustomTags.length, visiblePresetTagOptions.length],
   );
 
   const multiplayerMatchCount = useMemo(
@@ -1243,39 +1249,39 @@ export function LibraryPage() {
 
             {hasTagFilterOptions ? (
               <>
-                <div className="library-filter-group">
+                {visiblePresetTagOptions.length > 0 ? (
+                  <div className="library-filter-group">
                     <div className="library-filter-group__header">
                       <div className="library-filter-group__title">{t("library.tagPresetGroup")}</div>
                       {selectedPresetTagIds.length > 0 ? (
                         <span className="library-filter-group__badge">{selectedPresetTagIds.length}</span>
                       ) : null}
                     </div>
-                  <div className="library-filter-rail__list library-filter-rail__list--tags">
-                    {PRESET_MOD_TAGS.filter(
-                      (item) => presetTagCounts[item.id] > 0 || selectedPresetTagIds.includes(item.id),
-                    ).map((item) => {
-                      const count = presetTagCounts[item.id];
-                      const isActive = selectedPresetTagIds.includes(item.id);
-                      return (
-                        <button
-                          key={item.id}
-                          className={`button button--secondary library-filter-option library-filter-option--tag${isActive ? " is-active" : ""}`}
-                          type="button"
-                          aria-pressed={isActive}
-                          disabled={!isActive && count === 0}
-                          onClick={() => toggleSelectedPresetTag(item.id)}
-                          title={getPresetTagLabel(item.id)}
-                        >
-                          <span className="library-filter-option__main">
-                            <PresetModTagIcon className="library-filter-option__tag-icon" size={14} tagId={item.id} />
-                            <span className="library-filter-tag-label">{getPresetTagLabel(item.id)}</span>
-                          </span>
-                          <span className="library-filter-option__count">{count}</span>
-                        </button>
-                      );
-                    })}
+                    <div className="library-filter-rail__list library-filter-rail__list--tags">
+                      {visiblePresetTagOptions.map((item) => {
+                        const count = presetTagCounts[item.id];
+                        const isActive = selectedPresetTagIds.includes(item.id);
+                        return (
+                          <button
+                            key={item.id}
+                            className={`button button--secondary library-filter-option library-filter-option--tag${isActive ? " is-active" : ""}`}
+                            type="button"
+                            aria-pressed={isActive}
+                            disabled={!isActive && count === 0}
+                            onClick={() => toggleSelectedPresetTag(item.id)}
+                            title={getPresetTagLabel(item.id)}
+                          >
+                            <span className="library-filter-option__main">
+                              <PresetModTagIcon className="library-filter-option__tag-icon" size={14} tagId={item.id} />
+                              <span className="library-filter-tag-label">{getPresetTagLabel(item.id)}</span>
+                            </span>
+                            <span className="library-filter-option__count">{count}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                ) : null}
 
                 {customTagOptions.length > 0 ? (
                   <div className="library-filter-group">

@@ -5,6 +5,24 @@ All notable changes to SlaySP2Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-04-18
+
+### Added
+
+- **Preset and custom mod tags**: Mods can now carry localized preset tags and user-defined tags, and the same tag model is available in both the Library and the preset mod picker.
+- **Animated manager lists**: Preset and manager selection now use a motion-enhanced scrolling list for a smoother, more legible browsing experience.
+
+### Changed
+
+- **Refined tag authoring**: Creating tags is now click-first instead of comma-separated text, preset tags include icons, custom tags use a dedicated icon, and custom tags can be renamed inline after creation.
+- **Quieter filter rail**: The Library's left-side tag filters are now left-aligned, hide zero-count preset tags, collapse empty preset/custom groups, truncate overly long custom labels safely, and reduce visual noise while preserving counts.
+- **Interactive UI polish**: Added restrained hover and focus feedback to Library mod cards and linked save slots so scanning mods and save relationships feels more responsive without becoming noisy.
+
+### Fixed
+
+- Fixed long custom tag names overflowing into adjacent content in both the mod card editor and the left filter list.
+- Fixed the "Add tag" affordance appearing too eagerly in existing tag rows; it now stays contextual and only fades in on hover when a mod already has tags.
+
 ## [0.8.1] - 2026-04-11
 
 ### Changed

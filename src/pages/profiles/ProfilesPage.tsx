@@ -496,6 +496,13 @@ export function ProfilesPage() {
     () => buildPresetTagCounts(availableMods, modTags),
     [availableMods, modTags],
   );
+  const visiblePresetTagOptions = useMemo(
+    () =>
+      PRESET_MOD_TAGS.filter(
+        (item) => presetTagCounts[item.id] > 0 || selectedPresetTagIds.includes(item.id),
+      ),
+    [presetTagCounts, selectedPresetTagIds],
+  );
   const customTagOptions = useMemo(() => {
     const options = buildCustomTagCounts(availableMods, modTags);
     const byKey = new Map(options.map((item) => [item.value.trim().toLowerCase(), item]));
@@ -519,11 +526,10 @@ export function ProfilesPage() {
   }, [availableMods, modTags, selectedCustomTags]);
   const hasTagFilterOptions = useMemo(
     () =>
-      PRESET_MOD_TAGS.some((item) => presetTagCounts[item.id] > 0) ||
+      visiblePresetTagOptions.length > 0 ||
       customTagOptions.length > 0 ||
-      selectedPresetTagIds.length > 0 ||
       selectedCustomTags.length > 0,
-    [customTagOptions.length, presetTagCounts, selectedCustomTags.length, selectedPresetTagIds.length],
+    [customTagOptions.length, selectedCustomTags.length, visiblePresetTagOptions.length],
   );
   const hasModFilters = selectedPresetTagIds.length > 0 || selectedCustomTags.length > 0;
   const selectedProfileIndex = !isCreating
@@ -709,32 +715,32 @@ export function ProfilesPage() {
                       ) : null}
                     </div>
 
-                    <div className="profiles-mod-filters__group">
-                      <div className="profiles-mod-filters__group-title">{t("library.tagPresetGroup")}</div>
-                      <div className="profiles-mod-filters__list">
-                        {PRESET_MOD_TAGS.filter(
-                          (item) => presetTagCounts[item.id] > 0 || selectedPresetTagIds.includes(item.id),
-                        ).map((item) => {
-                          const count = presetTagCounts[item.id];
-                          const isActive = selectedPresetTagIds.includes(item.id);
-                          return (
-                            <button
-                              key={item.id}
-                              className={`button button--secondary profiles-mod-filter-chip${isActive ? " is-active" : ""}`}
-                              type="button"
-                              aria-pressed={isActive}
-                              disabled={!isActive && count === 0}
-                              onClick={() => toggleSelectedPresetTag(item.id)}
-                              title={getPresetTagLabel(item.id)}
-                            >
-                              <PresetModTagIcon className="profiles-mod-filter-chip__icon" size={13} tagId={item.id} />
-                              <span className="profiles-mod-filter-chip__label">{getPresetTagLabel(item.id)}</span>
-                              <span className="profiles-mod-filter-chip__count">{count}</span>
-                            </button>
-                          );
-                        })}
+                    {visiblePresetTagOptions.length > 0 ? (
+                      <div className="profiles-mod-filters__group">
+                        <div className="profiles-mod-filters__group-title">{t("library.tagPresetGroup")}</div>
+                        <div className="profiles-mod-filters__list">
+                          {visiblePresetTagOptions.map((item) => {
+                            const count = presetTagCounts[item.id];
+                            const isActive = selectedPresetTagIds.includes(item.id);
+                            return (
+                              <button
+                                key={item.id}
+                                className={`button button--secondary profiles-mod-filter-chip${isActive ? " is-active" : ""}`}
+                                type="button"
+                                aria-pressed={isActive}
+                                disabled={!isActive && count === 0}
+                                onClick={() => toggleSelectedPresetTag(item.id)}
+                                title={getPresetTagLabel(item.id)}
+                              >
+                                <PresetModTagIcon className="profiles-mod-filter-chip__icon" size={13} tagId={item.id} />
+                                <span className="profiles-mod-filter-chip__label">{getPresetTagLabel(item.id)}</span>
+                                <span className="profiles-mod-filter-chip__count">{count}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
 
                     {customTagOptions.length > 0 ? (
                       <div className="profiles-mod-filters__group">
