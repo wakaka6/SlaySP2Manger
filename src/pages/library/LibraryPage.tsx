@@ -5,7 +5,6 @@ import {
   useMemo,
   useState,
   useRef,
-  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useNavigate } from "react-router-dom";
@@ -791,7 +790,7 @@ export function LibraryPage() {
       event.currentTarget.style.setProperty("--library-card-glow-active", "0");
     };
 
-    const handlePointerDown = (event: ReactMouseEvent<HTMLElement>) => {
+    const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
       const element = event.currentTarget;
       const rect = element.getBoundingClientRect();
       const x = event.clientX - rect.left;
@@ -824,7 +823,7 @@ export function LibraryPage() {
         style={
           {
             "--library-card-glow-rgb": glowRgb,
-          } as CSSProperties
+          } as CSSProperties & Record<string, string>
         }
       >
         <span aria-hidden="true" className="mod-card__magic-spotlight" />
