@@ -2,6 +2,8 @@
 
 Rust CLI for generating the Slay the Spire 2 card compendium snapshot from a local game install.
 
+By default, generated snapshots are written to `output/compendium/` at the repo root so they stay out of the tracked source tree.
+
 ## Data sources
 
 - `SlayTheSpire2.pck`

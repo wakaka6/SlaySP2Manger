@@ -5,6 +5,7 @@ dist/
 .playwright-cli/
 refer/
 output/
+src-tauri/resources/compendium/card-metadata*.json
 
 src-tauri/target/
 tools/compendium_snapshot/target/

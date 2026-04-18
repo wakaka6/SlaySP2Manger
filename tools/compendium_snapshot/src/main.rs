@@ -26,20 +26,43 @@ fn main() {
     }
 }
 
+pub fn write_snapshot_for_game_root(game_root: &Path, output_path: &Path) -> Result<(), String> {
+    let snapshot = build_snapshot(game_root)?;
+    write_snapshot_to_path(&snapshot, output_path)
+}
+
+pub fn inspect_card_class(game_root: &Path, class_name: &str) -> Result<(), String> {
+    let parser =
+        CardAssemblyParser::new(&game_root.join("data_sts2_windows_x86_64").join("sts2.dll"))?;
+    parser.inspect_class(class_name)
+}
+
 fn run() -> AppResult<()> {
     let config = Config::from_env()?;
-    let release_info = read_release_info(&config.game_root)?;
-    let pck = PckArchive::open(&config.game_root.join("SlayTheSpire2.pck"))?;
-    let parser = CardAssemblyParser::new(
-        &config
-            .game_root
-            .join("data_sts2_windows_x86_64")
-            .join("sts2.dll"),
-    )?;
     if let Some(class_name) = &config.inspect_class {
-        parser.inspect_class(class_name)?;
+        inspect_card_class(&config.game_root, class_name)?;
         return Ok(());
     }
+    let snapshot = build_snapshot(&config.game_root)?;
+    let output_path = config
+        .output_dir
+        .join(format!("card-metadata.{}.json", snapshot.version));
+    write_snapshot_to_path(&snapshot, &output_path)?;
+
+    println!(
+        "Wrote {} cards to {}",
+        snapshot.card_count,
+        output_path.display()
+    );
+    println!("Missing art: {}", snapshot.missing_art_ids.len());
+    Ok(())
+}
+
+fn build_snapshot(game_root: &Path) -> AppResult<SnapshotFile> {
+    let release_info = read_release_info(game_root)?;
+    let pck = PckArchive::open(&game_root.join("SlayTheSpire2.pck"))?;
+    let parser =
+        CardAssemblyParser::new(&game_root.join("data_sts2_windows_x86_64").join("sts2.dll"))?;
     let portrait_index = build_portrait_index(&pck)?;
 
     let mut cards = Vec::new();
@@ -89,25 +112,22 @@ fn run() -> AppResult<()> {
             .then_with(|| left.id.cmp(&right.id))
     });
 
-    let snapshot = SnapshotFile {
-        version: release_info.version.clone(),
-        commit: release_info.commit.clone(),
+    Ok(SnapshotFile {
+        version: release_info.version,
+        commit: release_info.commit,
         generated_at: Utc::now().to_rfc3339(),
         card_count: cards.len(),
         missing_art_ids: missing_art,
         cards,
-    };
+    })
+}
 
-    fs::create_dir_all(&config.output_dir).map_err(|error| error.to_string())?;
-    let output_path = config
-        .output_dir
-        .join(format!("card-metadata.{}.json", release_info.version));
-    let json = serde_json::to_string_pretty(&snapshot).map_err(|error| error.to_string())?;
-    fs::write(&output_path, format!("{json}\n")).map_err(|error| error.to_string())?;
-
-    println!("Wrote {} cards to {}", snapshot.card_count, output_path.display());
-    println!("Missing art: {}", snapshot.missing_art_ids.len());
-    Ok(())
+fn write_snapshot_to_path(snapshot: &SnapshotFile, output_path: &Path) -> AppResult<()> {
+    if let Some(parent) = output_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+    let json = serde_json::to_string_pretty(snapshot).map_err(|error| error.to_string())?;
+    fs::write(output_path, format!("{json}\n")).map_err(|error| error.to_string())
 }
 
 #[derive(Debug, Clone)]
@@ -123,8 +143,7 @@ impl Config {
         let default_output_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")
             .join("..")
-            .join("src-tauri")
-            .join("resources")
+            .join("output")
             .join("compendium");
 
         let mut game_root = default_game_root;
@@ -211,7 +230,8 @@ impl PckArchive {
         let mut file = File::open(path).map_err(|error| error.to_string())?;
 
         let mut magic = [0_u8; 4];
-        file.read_exact(&mut magic).map_err(|error| error.to_string())?;
+        file.read_exact(&mut magic)
+            .map_err(|error| error.to_string())?;
         if &magic != b"GDPC" {
             return Err("unexpected PCK magic".to_string());
         }
@@ -482,7 +502,11 @@ impl CardAssemblyParser {
             .filter(|item| item.namespace == CARD_NAMESPACE)
             .filter(|item| item.name != "CardModel")
             .filter(|item| !item.name.starts_with("Mock"))
-            .filter(|item| item.base().map(|base| base.name == "CardModel").unwrap_or(false))
+            .filter(|item| {
+                item.base()
+                    .map(|base| base.name == "CardModel")
+                    .unwrap_or(false)
+            })
             .map(|inner| CardTypeInfo {
                 name: inner.name.clone(),
                 inner,
@@ -497,7 +521,12 @@ impl CardAssemblyParser {
             .find(|item| item.name == class_name)
             .ok_or_else(|| format!("class not found: {}", class_name))?;
         println!("class {}", type_def.name);
-        for method_name in [".ctor", "get_CanonicalVars", "get_CanonicalKeywords", "OnUpgrade"] {
+        for method_name in [
+            ".ctor",
+            "get_CanonicalVars",
+            "get_CanonicalKeywords",
+            "OnUpgrade",
+        ] {
             let Some(method) = self.find_method(&type_def, method_name) else {
                 println!("missing method {}", method_name);
                 continue;
@@ -675,10 +704,9 @@ impl CardAssemblyParser {
                             }
                         }
                         0x0A => {
-                            let member_ref = self
-                                .assembly
-                                .member_ref(&token)
-                                .ok_or_else(|| format!("missing member ref 0x{:08X}", token.value()))?;
+                            let member_ref = self.assembly.member_ref(&token).ok_or_else(|| {
+                                format!("missing member ref 0x{:08X}", token.value())
+                            })?;
                             let owner_name = member_ref
                                 .declaredby
                                 .name()
@@ -769,15 +797,14 @@ impl CardAssemblyParser {
                             if !method_info.is_static && !stack.is_empty() {
                                 stack.pop();
                             }
-                            let value = simple_getters
-                                .get(&method_info.name)
-                                .copied()
-                                .ok_or_else(|| {
+                            let value = simple_getters.get(&method_info.name).copied().ok_or_else(
+                                || {
                                     format!(
                                         "missing cached getter {} for {}",
                                         method_info.name, type_def.name
                                     )
-                                })?;
+                                },
+                            )?;
                             stack.push(EvalValue::Int(value));
                         }
                         _ => {
@@ -795,7 +822,8 @@ impl CardAssemblyParser {
                             let value = pop_i32(&mut stack, "Decimal::.ctor")?;
                             stack.push(EvalValue::Number(f64::from(value)));
                         }
-                        _ if matches!(stack.last(), Some(EvalValue::FunctionPtr(_))) && stack.len() >= 2 =>
+                        _ if matches!(stack.last(), Some(EvalValue::FunctionPtr(_)))
+                            && stack.len() >= 2 =>
                         {
                             let _function =
                                 pop_value(&mut stack, "delegate ctor function pointer")?;
@@ -811,17 +839,16 @@ impl CardAssemblyParser {
                             stack.push(value);
                         }
                         (owner_name, _) if owner_name.contains("ReadOnlySingleElementList") => {
-                            let value =
-                                pop_value(&mut stack, "ReadOnlySingleElementList ctor")?;
+                            let value = pop_value(&mut stack, "ReadOnlySingleElementList ctor")?;
                             stack.push(EvalValue::Array(Rc::new(RefCell::new(vec![value]))));
                         }
                         ("TypeSpecRow", _) => {
-                            if matches!(stack.last(), Some(EvalValue::FunctionPtr(_))) && stack.len() >= 2
+                            if matches!(stack.last(), Some(EvalValue::FunctionPtr(_)))
+                                && stack.len() >= 2
                             {
                                 let _function =
                                     pop_value(&mut stack, "TypeSpecRow delegate function")?;
-                                let _target =
-                                    pop_value(&mut stack, "TypeSpecRow delegate target")?;
+                                let _target = pop_value(&mut stack, "TypeSpecRow delegate target")?;
                                 stack.push(EvalValue::Delegate);
                             } else if stack.len() >= 2 {
                                 let maybe_value = stack.last().cloned();
@@ -842,8 +869,7 @@ impl CardAssemblyParser {
                                     stack.push(value);
                                 }
                             } else {
-                                let value =
-                                    pop_value(&mut stack, "TypeSpecRow fallback single")?;
+                                let value = pop_value(&mut stack, "TypeSpecRow fallback single")?;
                                 stack.push(value);
                             }
                         }
@@ -1380,8 +1406,10 @@ impl CardAssemblyParser {
                             operand_debug(&instruction.operand),
                             self.resolve_field_name(&token)?
                         ))
-                    } else if matches!(instruction.mnemonic, "call" | "callvirt" | "newobj" | "ldftn")
-                    {
+                    } else if matches!(
+                        instruction.mnemonic,
+                        "call" | "callvirt" | "newobj" | "ldftn"
+                    ) {
                         let method = self.resolve_method_target(&token)?;
                         Ok(format!(
                             "{} ({}::{} / params={})",
@@ -1499,24 +1527,30 @@ fn pop_f64(stack: &mut Vec<EvalValue>, context: &str) -> AppResult<f64> {
 fn pop_string(stack: &mut Vec<EvalValue>, context: &str) -> AppResult<String> {
     match pop_value(stack, context)? {
         EvalValue::String(value) => Ok(value),
-        other => Err(format!("expected string in {} but found {:?}", context, other)),
+        other => Err(format!(
+            "expected string in {} but found {:?}",
+            context, other
+        )),
     }
 }
 
-fn pop_array(
-    stack: &mut Vec<EvalValue>,
-    context: &str,
-) -> AppResult<Rc<RefCell<Vec<EvalValue>>>> {
+fn pop_array(stack: &mut Vec<EvalValue>, context: &str) -> AppResult<Rc<RefCell<Vec<EvalValue>>>> {
     match pop_value(stack, context)? {
         EvalValue::Array(value) => Ok(value),
-        other => Err(format!("expected array in {} but found {:?}", context, other)),
+        other => Err(format!(
+            "expected array in {} but found {:?}",
+            context, other
+        )),
     }
 }
 
 fn pop_var_key(stack: &mut Vec<EvalValue>, context: &str) -> AppResult<String> {
     match pop_value(stack, context)? {
         EvalValue::VarKey(value) => Ok(value),
-        other => Err(format!("expected var key in {} but found {:?}", context, other)),
+        other => Err(format!(
+            "expected var key in {} but found {:?}",
+            context, other
+        )),
     }
 }
 
@@ -1553,27 +1587,27 @@ fn is_var_owner_type(owner_name: &str) -> bool {
     owner_name.ends_with("Var")
         || matches!(
             owner_name.as_str(),
-        "DamageVar"
-            | "CardsVar"
-            | "BlockVar"
-            | "DynamicVar"
-            | "EnergyVar"
-            | "CalculationBaseVar"
-            | "CalculationExtraVar"
-            | "RepeatVar"
-            | "ExtraDamageVar"
-            | "CalculatedDamageVar"
-            | "CalculatedVar"
-            | "StarsVar"
-            | "SummonVar"
-            | "HpLossVar"
-            | "ForgeVar"
-            | "OstyDamageVar"
-            | "CalculatedBlockVar"
-            | "IntVar"
-            | "GoldVar"
-            | "MaxHpVar"
-            | "HealVar"
+            "DamageVar"
+                | "CardsVar"
+                | "BlockVar"
+                | "DynamicVar"
+                | "EnergyVar"
+                | "CalculationBaseVar"
+                | "CalculationExtraVar"
+                | "RepeatVar"
+                | "ExtraDamageVar"
+                | "CalculatedDamageVar"
+                | "CalculatedVar"
+                | "StarsVar"
+                | "SummonVar"
+                | "HpLossVar"
+                | "ForgeVar"
+                | "OstyDamageVar"
+                | "CalculatedBlockVar"
+                | "IntVar"
+                | "GoldVar"
+                | "MaxHpVar"
+                | "HealVar"
         )
 }
 
@@ -1590,7 +1624,10 @@ fn build_dynamic_var(owner_name: &str, args: &[EvalValue]) -> BuiltVar {
 
 fn normalize_var_key(owner_name: &str, args: &[EvalValue]) -> String {
     let owner_name = sanitize_owner_name(owner_name);
-    if matches!(owner_name.as_str(), "DynamicVar" | "IntVar" | "CalculatedVar") {
+    if matches!(
+        owner_name.as_str(),
+        "DynamicVar" | "IntVar" | "CalculatedVar"
+    ) {
         if let Some(EvalValue::String(value)) = args.first() {
             return value.clone();
         }
@@ -1620,7 +1657,10 @@ fn normalize_keyword_values(value: &EvalValue) -> Vec<String> {
             .filter_map(keyword_name)
             .map(str::to_string)
             .collect(),
-        EvalValue::Int(item) => keyword_name(*item).map(str::to_string).into_iter().collect(),
+        EvalValue::Int(item) => keyword_name(*item)
+            .map(str::to_string)
+            .into_iter()
+            .collect(),
         EvalValue::Number(item) => keyword_name(*item as i32)
             .map(str::to_string)
             .into_iter()
@@ -1641,11 +1681,16 @@ fn pascal_to_snake(value: &str) -> String {
     let mut output = String::new();
 
     for (index, ch) in chars.iter().enumerate() {
-        let prev = index.checked_sub(1).and_then(|item| chars.get(item)).copied();
+        let prev = index
+            .checked_sub(1)
+            .and_then(|item| chars.get(item))
+            .copied();
         let next = chars.get(index + 1).copied();
         if ch.is_ascii_uppercase()
             && index > 0
-            && (prev.map(|item| item.is_ascii_lowercase() || item.is_ascii_digit()).unwrap_or(false)
+            && (prev
+                .map(|item| item.is_ascii_lowercase() || item.is_ascii_digit())
+                .unwrap_or(false)
                 || next.map(|item| item.is_ascii_lowercase()).unwrap_or(false))
         {
             output.push('_');

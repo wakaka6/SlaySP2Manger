@@ -27,6 +27,7 @@ winreg = "0.55"
 tauri-plugin-updater = "2"
 sha1 = "0.10"
 filetime = "0.2"
+dotscope = "0.6.0"
 image = { version = "0.25", default-features = false, features = ["png", "webp"] }
 texture2ddecoder = "0.1.2"
 zstd = "0.13"

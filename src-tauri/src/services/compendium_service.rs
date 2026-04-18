@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
 
 use image::{imageops::crop_imm, DynamicImage, ImageBuffer, ImageFormat, Rgba, RgbaImage};
 use serde::Deserialize;
 use tauri::{AppHandle, Manager};
 use texture2ddecoder::decode_bc7;
 
+use super::compendium_snapshot_runtime::write_snapshot_for_game_root;
 use crate::app::state::AppSettings;
 use crate::domain::compendium::{
     CompendiumCard, CompendiumCardNativeAssets, CompendiumIndex, CompendiumKeywordDefinition,
@@ -16,8 +16,6 @@ use crate::domain::compendium::{
     CompendiumVar,
 };
 use crate::services::game_service::GameService;
-
-const SNAPSHOT_JSON: &str = include_str!("../../resources/compendium/card-metadata.v0.103.2.json");
 
 #[derive(Debug, Clone)]
 pub struct CompendiumService {
@@ -528,8 +526,22 @@ impl CompendiumService {
         )
         .map_err(|error| error.to_string())?;
 
-        let snapshot = load_snapshot()?;
-        let stale = release.version != snapshot.version || release.commit != snapshot.commit;
+        let app_cache_dir = app_handle
+            .path()
+            .app_cache_dir()
+            .map_err(|error| error.to_string())?;
+        let snapshot_cache_file = app_cache_dir
+            .join("compendium")
+            .join(&release.version)
+            .join("snapshot")
+            .join("card-metadata.json");
+        let snapshot = ensure_snapshot(
+            Path::new(&install.root_dir),
+            &snapshot_cache_file,
+            &release,
+            force_refresh,
+        )?;
+        let stale = !snapshot_matches_release(&snapshot, &release);
         let resolved_locale = match locale.as_deref() {
             Some("en-US") => "en-US",
             _ => "zh-CN",
@@ -551,12 +563,7 @@ impl CompendiumService {
         .map_err(|error| error.to_string())?;
 
         let keyword_catalog = build_keyword_catalog(&keyword_text);
-        let cache_dir = app_handle
-            .path()
-            .app_cache_dir()
-            .map_err(|error| error.to_string())?
-            .join("compendium")
-            .join(&snapshot.version);
+        let cache_dir = app_cache_dir.join("compendium").join(&snapshot.version);
         fs::create_dir_all(&cache_dir).map_err(|error| error.to_string())?;
         let native_cache_dir = cache_dir.join("native");
         let native_fonts =
@@ -631,12 +638,31 @@ impl CompendiumService {
     }
 }
 
-fn load_snapshot() -> Result<&'static CompendiumSnapshot, String> {
-    static SNAPSHOT: OnceLock<Result<CompendiumSnapshot, String>> = OnceLock::new();
-    SNAPSHOT
-        .get_or_init(|| serde_json::from_str(SNAPSHOT_JSON).map_err(|error| error.to_string()))
-        .as_ref()
-        .map_err(Clone::clone)
+fn ensure_snapshot(
+    game_root: &Path,
+    snapshot_cache_file: &Path,
+    release: &ReleaseInfo,
+    force_refresh: bool,
+) -> Result<CompendiumSnapshot, String> {
+    if !force_refresh {
+        if let Ok(snapshot) = load_snapshot_from_path(snapshot_cache_file) {
+            if snapshot_matches_release(&snapshot, release) {
+                return Ok(snapshot);
+            }
+        }
+    }
+
+    write_snapshot_for_game_root(game_root, snapshot_cache_file)?;
+    load_snapshot_from_path(snapshot_cache_file)
+}
+
+fn load_snapshot_from_path(path: &Path) -> Result<CompendiumSnapshot, String> {
+    serde_json::from_str(&fs::read_to_string(path).map_err(|error| error.to_string())?)
+        .map_err(|error| error.to_string())
+}
+
+fn snapshot_matches_release(snapshot: &CompendiumSnapshot, release: &ReleaseInfo) -> bool {
+    snapshot.version == release.version && snapshot.commit == release.commit
 }
 
 fn build_keyword_catalog(
