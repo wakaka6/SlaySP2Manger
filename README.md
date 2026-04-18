@@ -4,23 +4,21 @@
 
 # SlaySP2Manager
 
-**Slay the Spire 2 桌面端 Mod 管理器**  
-基于 Rust + Tauri + React 构建 — 快速、安全、全自动化管理。
+**《杀戮尖塔 2》桌面 Mod 管理器**  
+基于 Rust + Tauri + React 构建，目标是把 Mod 安装、预设切换、存档保护和图鉴整理到一个稳定的桌面工具里。
 
 [![GitHub release](https://img.shields.io/github/v/release/wakaka6/SlaySP2Manger?style=flat-square&color=C9A84C)](https://github.com/wakaka6/SlaySP2Manger/releases)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/wakaka6/SlaySP2Manger/release.yml?style=flat-square&label=Build)](https://github.com/wakaka6/SlaySP2Manger/actions)
 [![GitHub stars](https://img.shields.io/github/stars/wakaka6/SlaySP2Manger?style=flat-square&color=F1C40F)](https://github.com/wakaka6/SlaySP2Manger/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/wakaka6/SlaySP2Manger?style=flat-square&color=3498DB)](https://github.com/wakaka6/SlaySP2Manger/network)
-[![GitHub watchers](https://img.shields.io/github/watchers/wakaka6/SlaySP2Manger?style=flat-square&color=2ECC71)](https://github.com/wakaka6/SlaySP2Manger/watchers)
 [![License](https://img.shields.io/github/license/wakaka6/SlaySP2Manger?style=flat-square&color=95A5A6)](LICENSE)
 
-**中文文档** | [English](./README.en.md)
+**当前版本：`0.9.0`** | [English](./README.en.md)
 
 </div>
 
 ---
 
-## 🖥️ 演示
+## 演示
 
 <div align="center">
   <video src="https://github.com/user-attachments/assets/4eddda81-022d-4ac5-9ad8-38529399b653" width="100%" autoplay loop muted playsinline></video>
@@ -28,98 +26,125 @@
 
 ---
 
-## 🎯 我们解决了什么问题
+## 这个项目解决什么问题
 
-给《杀戮尖塔 2》装 Mod 很麻烦——我自己也经历过：
+给《杀戮尖塔 2》装 Mod 和维护存档，本来会有几个很烦的点：
 
-- 🔍 **游戏目录在哪？** 第一次装 Mod 的玩家常常花 20 分钟寻找游戏路径和存档路径。
-- 🔀 **浏览器和文件夹来回切。** 在 Nexus Mods 上找到想装的 Mod，下载、解压、复制到不知对不对的目录，再祈祷游戏不崩。
-- 💥 **悄无声息的冲突。** 两个 Mod 覆盖同一个文件，没有任何提示，游戏直接挂了，却不知道问题出在哪。
-- 💾 **存档焦虑。** 想体验一次模组玩法，却害怕原版存档被覆盖，进退两难。
-- 🔙 **没有撤销。** 更新出错之后，没有简单的回滚方式。
+- 找不到游戏目录、Mods 目录和存档目录。
+- 在 Nexus、浏览器和文件夹之间反复切换，安装过程碎片化。
+- Mod 冲突没有前置提示，出问题时很难回溯。
+- 想试 Mod，又担心覆盖原版存档。
+- 预设切换、备份恢复和云存档同步都缺少一个稳定入口。
+- 想查卡牌资料时，社区网站信息虽然全，但和本地游戏版本、语言、资源不一定一致。
 
-**SlaySP2Manager** 把上面这些焦虑场景，变成一个安静、专注、一窗搞定的操作流程。
-
----
-
-## ✨ 功能概览
-
-### 📦 模组库
-- **扫描并展示**本地已安装的所有 Mod，一目了然
-- 单击即可**启用 / 禁用 / 卸载** Mod
-- **从 ZIP 安装** — 拖拽文件或手动选择；应用读取 manifest、检测冲突，在写入之前显示预览
-- **冲突检测** — 在问题发生前高亮显示 Mod 之间的文件级冲突
-- **操作日志** — 每次安装、更新、卸载都有清晰的记录
-
-### 🔍 发现（Nexus Mods 集成）
-- **在应用内搜索** Nexus Mods 上的 STS2 Mod，无需切换浏览器
-- **Mod 详情面板** — 描述、作者、版本、点赞数、标签
-- **多语言友好** — 支持在应用内翻译 Mod 描述，消除阅读障碍
-- **在 Nexus 中打开** — 需要时可直接跳转到完整的 Nexus 页面
-- **下载队列** — 全程可见，切换页面后不会消失
-- 需要免费的 Nexus Mods API Key（应用内有获取引导教程）
-
-### 🗂️ 预设
-- 创建 **多套本地 Mod 预设**（例如"原版兼容""全力混乱"）
-- 安全切换预设 — 应用在切换前会自动校验完整性
-- 支持复制、重命名预设
-- **整合包分享**：将预设连同所有关联 Mod 打包为 `.zip` 整合包（含 `.spm` 清单），一键分享给好友
-- **整合包导入**：点击按钮或拖拽整合包到窗口即可导入，自动检测冲突并提供逐 Mod 的「跳过 / 替换」选择
-- 在模组库页面 **一键保存当前启用的 Mod 为新预设**
-
-### 💾 存档管理
-- 清晰区分**原版存档槽位**和**模组存档槽位**
-- 原版与模组存档之间**双向复制**（操作前显示将覆盖哪些内容）
-- **存档配对同步** — 将任意原版槽位与模组槽位关联，开启自动同步后根据修改时间双向同步（类似 rsync），支持跨槽位配对
-- 卡片之间**可视化连线**，清晰展示配对关系；点击连线中间的 × 按钮即可解除
-- **高风险操作前自动备份** — 不会悄悄覆盖任何东西
-- **备份列表与恢复** — 浏览历史备份，一键恢复
-
-### ☁️ Steam 云存档同步
-- **自动发现**当前 Steam 账号的云存档目录，无需手动配置
-- 一键**上传至云端**（本地 → Cloud）或**下载至本地**（Cloud → 本地），原版与模组存档全量同步
-- 每次云端操作前**自动创建完整备份**，确保数据安全
-- 支持直接**打开云存档文件夹**，方便手动查看和管理
-
-### ⚙️ 设置与诊断
-- 首次启动自动检测游戏目录
-- 可配置下载目录和 Nexus API Key
-- **应用内教程**：引导获取 API Key，无需离开应用
-- 诊断页面：校验游戏路径、存档路径和 Mod 目录健康情况
+`SlaySP2Manager` 的目标，就是把这些流程压到一个应用里处理。
 
 ---
 
+## 0.9.0 重点更新
 
-## 🚀 下载与安装
-
-1. 前往 [**Releases 页面**](https://github.com/wakaka6/SlaySP2Manger/releases)
-2. 下载最新的 `.msi` 安装包
-3. 运行安装程序，无需额外配置
-4. 启动 **SlaySP2Manager**，指向你的 STS2 游戏目录
-
-> **系统要求：** Windows 10/11（x64）。无需安装任何运行时依赖。
+- 新增 **原生卡牌图鉴** 页面，支持卡牌浏览、筛选、升级态切换和详情查看。
+- 图鉴会从 **本地游戏安装动态生成元数据**，不再依赖仓库内置的静态 `card-metadata` 文件。
+- 图鉴卡面可直接提取 **游戏内卡图、边框、横幅、能量图标和标题字体**，展示更接近游戏原始资源。
+- 图鉴浏览体验补充了 **吸顶筛选栏、折叠筛选区、回到顶部按钮** 和更完整的浅色主题样式。
+- Profiles 页面现在支持 **现有配置档的模组选中自动保存**。
 
 ---
 
-## 🛠️ 本地开发
+## 功能概览
+
+### Mod Library
+
+- 扫描并展示本地已安装的 Mod。
+- 单击启用、禁用、卸载。
+- 支持从 `.zip` 导入，并在真正写入前做预览和冲突检查。
+- 记录安装、更新、卸载等操作日志。
+
+### Discover
+
+- 应用内搜索 Nexus Mods 上的 STS2 Mod。
+- 查看作者、版本、标签、简介和插图。
+- 支持跳转 Nexus 页面。
+- 支持下载队列与应用内 API Key 配置。
+
+### Presets / Profiles
+
+- 保存多套本地 Mod 预设。
+- 一键把当前启用 Mod 保存为预设。
+- 支持预设导出、导入、分享整合包。
+- 对现有配置档的模组勾选会自动保存，减少反复手动点击保存。
+
+### Compendium
+
+- 新增独立卡牌图鉴页。
+- 支持角色、类型、稀有度筛选和关键字查看。
+- 支持基础态 / 升级态切换。
+- 从本地游戏提取卡图与原生卡面资源。
+- 点击刷新时，会根据已识别的游戏路径重新构建图鉴元数据和资源缓存。
+
+### Save Management
+
+- 区分原版存档与 Mod 存档。
+- 支持双向复制、配对同步、可视化连线。
+- 高风险操作前自动备份。
+- 提供备份列表和恢复能力。
+
+### Steam Cloud Sync
+
+- 自动识别当前 Steam 账号的云存档目录。
+- 支持本地到云端、云端到本地的一键同步。
+- 云操作前自动做完整备份。
+- 支持云存档差异检查与工作台。
+
+### Settings & Diagnostics
+
+- 自动检测游戏目录。
+- 配置 Nexus API Key、代理和下载相关设置。
+- 诊断游戏路径、Mods 目录和存档状态。
+
+---
+
+## 图鉴数据源说明
+
+从 `0.9.0` 开始，图鉴数据源采用“本地动态生成”：
+
+- 元数据来源于本地游戏安装中的 `sts2.dll` 和 `SlayTheSpire2.pck`。
+- 刷新资源时，应用会在本地重新生成图鉴 snapshot。
+- 生成结果与提取出的卡图、边框、字体等资源会缓存到应用缓存目录。
+- 仓库里不再需要提交 `card-metadata.*.json` 这类静态快照文件。
+
+这意味着图鉴内容会更贴近用户本机实际安装的游戏版本和语言资源。
+
+---
+
+## 下载与安装
+
+1. 前往 [Releases 页面](https://github.com/wakaka6/SlaySP2Manger/releases)
+2. 下载最新 `.msi`
+3. 运行安装程序
+4. 启动 `SlaySP2Manager`
+5. 首次进入后确认或自动识别游戏目录
+
+系统要求：
+
+- Windows 10/11 x64
+
+---
+
+## 本地开发
 
 ### 环境要求
 
 | 工具 | 版本要求 |
-|------|---------|
+| --- | --- |
 | Node.js | 18+ |
-| Rust | stable（通过 `rustup` 安装） |
-| Windows | 10/11（构建目标） |
-
-> 若 `cargo` 未加入 PATH，需将 `%USERPROFILE%\.cargo\bin` 添加到系统环境变量。
+| Rust | stable |
+| Windows | 10/11 |
 
 ### 启动开发模式
 
 ```bash
-# 安装前端依赖
 npm install
-
-# 启动 Tauri 开发模式（热重载）
 npm run tauri:dev
 ```
 
@@ -127,32 +152,37 @@ npm run tauri:dev
 
 ```bash
 npm run tauri:build
-# 产物目录：src-tauri/target/release/bundle/msi/
+```
+
+输出目录：
+
+```text
+src-tauri/target/release/bundle/msi/
 ```
 
 ---
 
-## 🤝 参与贡献
+## 参与贡献
 
-欢迎提交 Bug 报告、功能建议和 Pull Request！
+欢迎提交 Bug、改进建议和 Pull Request。
 
-1. Fork 本仓库
-2. 创建你的分支：`git checkout -b feat/my-feature`
-3. 提交改动：`git commit -m 'feat: 新增某功能'`
-4. 推送并发起 Pull Request
+1. Fork 仓库
+2. 新建分支：`git checkout -b feat/my-feature`
+3. 提交改动：`git commit -m "feat: add my feature"`
+4. 发起 Pull Request
 
-提交信息请遵循 [Conventional Commits](https://www.conventionalcommits.org/) 规范。
+建议遵循 [Conventional Commits](https://www.conventionalcommits.org/)。
 
 ---
 
-## 📄 许可证
+## 许可证
 
-MIT License — 详见 [LICENSE](LICENSE)。
+[MIT](LICENSE)
 
 ---
 
 <div align="center">
 
-用❤️为《杀戮尖塔 2》社区打造
+为《杀戮尖塔 2》社区持续打磨。
 
 </div>
