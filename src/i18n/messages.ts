@@ -164,6 +164,19 @@ export type MessageKey =
   | "profiles.bundleImporting"
   | "profiles.bundleNewMods"
   | "profiles.bundleConflictMods"
+  | "profiles.regularBundlePreviewTitle"
+  | "profiles.regularBundlePreviewDesc"
+  | "profiles.regularBundleImportConfirm"
+  | "profiles.regularBundleReady"
+  | "profiles.regularBundleNoMods"
+  | "profiles.regularBundleNewMods"
+  | "profiles.regularBundleExistingMods"
+  | "profiles.regularBundlePresetSuccess"
+  | "profiles.regularBundleInstallSuccess"
+  | "profiles.importAsPreset"
+  | "profiles.importAsPresetHelp"
+  | "profiles.bundlePresetName"
+  | "profiles.importedBundleDefaultName"
   | "library.savePreset"
   | "library.savePresetName"
   | "library.savePresetDesc"
@@ -639,6 +652,19 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "profiles.bundleImporting": "Importing preset bundle...",
     "profiles.bundleNewMods": "New mods ({count}):",
     "profiles.bundleConflictMods": "Conflicting mods ({count}):",
+    "profiles.regularBundlePreviewTitle": "Import Mod Bundle",
+    "profiles.regularBundlePreviewDesc": "Found {count} importable mod(s) in this archive.",
+    "profiles.regularBundleImportConfirm": "Import",
+    "profiles.regularBundleReady": "Found {count} mod(s). Choose how to import this bundle.",
+    "profiles.regularBundleNoMods": "No importable mods were found in this archive.",
+    "profiles.regularBundleNewMods": "New mods to install ({count}):",
+    "profiles.regularBundleExistingMods": "Already installed, will be added to preset ({count}):",
+    "profiles.regularBundlePresetSuccess": "Imported {installed} mod(s) and saved preset \"{name}\" with {count} mod(s).",
+    "profiles.regularBundleInstallSuccess": "Imported {installed} mod(s).",
+    "profiles.importAsPreset": "Save as a new preset after import",
+    "profiles.importAsPresetHelp": "The new preset will be saved immediately and will select every mod found in this ZIP bundle.",
+    "profiles.bundlePresetName": "Preset name",
+    "profiles.importedBundleDefaultName": "Imported bundle",
     "discover.title": "Discover",
     "discover.description": "Search for mods for Slay the Spire 2 and view details on Nexus.",
     "discover.searchPlaceholder": "Search mod name, author or category...",
@@ -1110,6 +1136,19 @@ export const MESSAGES: Record<Locale, Dictionary> = {
     "profiles.bundleImporting": "正在导入预设整合包...",
     "profiles.bundleNewMods": "新增模组 ({count})：",
     "profiles.bundleConflictMods": "冲突模组 ({count})：",
+    "profiles.regularBundlePreviewTitle": "导入模组整合包",
+    "profiles.regularBundlePreviewDesc": "在这个压缩包中找到 {count} 个可导入模组。",
+    "profiles.regularBundleImportConfirm": "导入",
+    "profiles.regularBundleReady": "已找到 {count} 个模组，请选择导入方式。",
+    "profiles.regularBundleNoMods": "这个压缩包里没有找到可导入模组。",
+    "profiles.regularBundleNewMods": "将安装的新模组 ({count})：",
+    "profiles.regularBundleExistingMods": "已安装，将加入预设 ({count})：",
+    "profiles.regularBundlePresetSuccess": "已导入 {installed} 个模组，并保存预设“{name}”（{count} 个模组）。",
+    "profiles.regularBundleInstallSuccess": "已导入 {installed} 个模组。",
+    "profiles.importAsPreset": "导入后保存为新预设",
+    "profiles.importAsPresetHelp": "新预设会立即保存，并勾选这个 ZIP 整合包里的所有模组。",
+    "profiles.bundlePresetName": "预设名称",
+    "profiles.importedBundleDefaultName": "导入的整合包",
     "discover.title": "发现",
     "discover.description": "搜索适合 Slay the Spire 2 的模组，并跳转到 Nexus 查看详情。",
     "discover.searchPlaceholder": "搜索模组名、作者或功能关键词",
