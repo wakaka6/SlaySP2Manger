@@ -5041,9 +5041,11 @@ button:disabled {
 }
 
 .dialog-card {
+  display: flex;
+  flex-direction: column;
   width: min(560px, calc(100vw - 32px));
   max-height: calc(100vh - 48px);
-  overflow: auto;
+  overflow: hidden;
   padding: 28px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
@@ -5069,6 +5071,14 @@ button:disabled {
 
 .dialog-card__body {
   margin-top: 16px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.dialog-card__actions {
+  flex-shrink: 0;
+  margin-top: 20px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -7507,6 +7517,67 @@ input::-webkit-textfield-decoration-container {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.bundle-preset-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-faint);
+  cursor: pointer;
+}
+
+.bundle-preset-option input {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.bundle-preset-option__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bundle-preset-option__copy strong {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.bundle-preset-option__copy span {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.bundle-preset-name {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 16px;
+}
+
+.bundle-preset-name span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.bundle-preset-name input {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font: inherit;
 }
 
 /* Segmented toggle for skip / replace */

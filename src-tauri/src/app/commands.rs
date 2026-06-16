@@ -1148,6 +1148,8 @@ pub async fn preview_preset_bundle(
         // Check for preset.spm
         let spm_path = temp_dir.join("preset.spm");
         if !spm_path.exists() {
+            let temp_dir_string = temp_dir.to_string_lossy().to_string();
+            let _ = std::fs::remove_dir_all(&temp_dir);
             return Ok(PresetBundlePreview {
                 has_manifest: false,
                 preset_name: None,
@@ -1155,7 +1157,7 @@ pub async fn preview_preset_bundle(
                 new_mods: Vec::new(),
                 conflict_mods: Vec::new(),
                 missing_mod_ids: Vec::new(),
-                temp_dir: temp_dir.to_string_lossy().to_string(),
+                temp_dir: temp_dir_string,
             });
         }
 

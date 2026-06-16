@@ -514,14 +514,20 @@ export function LibraryPage() {
       setBatchEnableNow(enableNow);
       setBatchPreview(preview);
 
-      // Auto-select: ready mods are checked, conflict/error/unsupported are not
+      // Auto-select installable mods. Conflicts default to replace so dragging a
+      // newer version over an existing mod works as an update flow.
       const autoSelected = new Set<string>();
+      const defaultResolutions: Record<string, "replace" | "rename"> = {};
       preview.discoveredMods.forEach((mod, idx) => {
-        if (mod.status === "ready") {
+        if (mod.status === "ready" || mod.status === "conflict") {
           autoSelected.add(`${mod.modId}::${idx}`);
+        }
+        if (mod.status === "conflict") {
+          defaultResolutions[mod.modId] = "replace";
         }
       });
       setSelectedModIds(autoSelected);
+      setBatchConflictResolutions(defaultResolutions);
 
       setStatus(t("library.generatedPreview"));
     } catch (error) {

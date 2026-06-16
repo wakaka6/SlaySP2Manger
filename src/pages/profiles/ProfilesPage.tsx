@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useI18n } from "../../i18n/I18nProvider";
 import {
   applyProfile,
+  batchInstallMods,
   confirmImportPresetBundle,
   createProfile,
   deleteProfile,
@@ -13,8 +14,10 @@ import {
   listProfiles,
   pickPresetBundle,
   previewPresetBundle,
+  processImportTargets,
   updateProfile,
   updateProfileModSelection,
+  type BatchImportPreview,
   type InstalledMod,
   type ModProfile,
   type PresetBundlePreview,
@@ -45,6 +48,13 @@ type ProfileDraft = {
   modIds: string[];
   createdAt: string;
   updatedAt: string;
+};
+
+type RegularBundleImportDraft = {
+  path: string;
+  presetName: string;
+  importAsPreset: boolean;
+  preview: BatchImportPreview;
 };
 
 function toDraft(profile: ModProfile): ProfileDraft {
@@ -83,6 +93,32 @@ function mergeMods(enabledMods: InstalledMod[], disabledMods: InstalledMod[]) {
   return Array.from(byId.values()).sort((left, right) => left.name.localeCompare(right.name));
 }
 
+function bundleNameFromPath(path: string) {
+  const fileName = path.split(/[\\/]/).filter(Boolean).pop() ?? "Imported bundle";
+  return fileName.replace(/\.[^.]+$/, "") || fileName;
+}
+
+function dedupeModIds(modIds: string[]) {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const modId of modIds) {
+    const trimmed = modId.trim();
+    const key = trimmed.toLowerCase();
+    if (!trimmed || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    result.push(trimmed);
+  }
+
+  return result;
+}
+
+function importableBundleMods(preview: BatchImportPreview) {
+  return preview.discoveredMods.filter((mod) => mod.status === "ready" || mod.status === "conflict");
+}
+
 export function ProfilesPage() {
   const { t } = useI18n();
   const location = useLocation();
@@ -110,6 +146,8 @@ export function ProfilesPage() {
   const [bundlePreview, setBundlePreview] = useState<PresetBundlePreview | null>(null);
   const [bundleConflictResolutions, setBundleConflictResolutions] = useState<Record<string, string>>({});
   const [bundleImporting, setBundleImporting] = useState(false);
+  const [regularBundleImport, setRegularBundleImport] = useState<RegularBundleImportDraft | null>(null);
+  const [regularBundleImporting, setRegularBundleImporting] = useState(false);
   const presetTagLabelById = useMemo(
     () => new Map(PRESET_MOD_TAGS.map((item) => [item.id, t(item.messageKey)])),
     [t],
@@ -244,6 +282,21 @@ export function ProfilesPage() {
     setDraft(toDraft(profile));
     setIsCreating(false);
     setStatus(t("profiles.selected", { name: profile.name }));
+  }
+
+  function getUniqueProfileName(baseName: string) {
+    const fallback = t("profiles.importedBundleDefaultName");
+    const trimmedBase = (baseName.trim() || fallback).trim();
+    let candidate = trimmedBase;
+    let suffix = 2;
+    const existing = profilesRef.current;
+
+    while (existing.some((profile) => profile.name.trim().toLowerCase() === candidate.toLowerCase())) {
+      candidate = `${trimmedBase} (${suffix})`;
+      suffix += 1;
+    }
+
+    return candidate;
   }
 
   function beginCreate() {
@@ -517,7 +570,20 @@ export function ProfilesPage() {
       const preview = await previewPresetBundle(filePath);
       if (!preview.hasManifest) {
         // No .spm manifest — not a preset bundle, just a regular mod archive
-        setStatus(t("profiles.bundleNotPreset"));
+        const modPreview = await processImportTargets([filePath], false);
+        const mods = importableBundleMods(modPreview);
+        if (mods.length === 0) {
+          setStatus(t("profiles.regularBundleNoMods"));
+          return;
+        }
+
+        setRegularBundleImport({
+          path: filePath,
+          presetName: getUniqueProfileName(bundleNameFromPath(filePath)),
+          importAsPreset: true,
+          preview: modPreview,
+        });
+        setStatus(t("profiles.regularBundleReady", { count: mods.length }));
         return;
       }
 
@@ -571,6 +637,72 @@ export function ProfilesPage() {
       setStatus(error instanceof Error ? error.message : t("profiles.bundleImportFailed"));
     } finally {
       setBundleImporting(false);
+    }
+  }
+
+  async function handleConfirmRegularBundleImport() {
+    if (!regularBundleImport || regularBundleImporting) return;
+
+    const mods = importableBundleMods(regularBundleImport.preview);
+    const profileModIds = dedupeModIds(mods.map((mod) => mod.modId));
+    const readyModIds = dedupeModIds(
+      regularBundleImport.preview.discoveredMods
+        .filter((mod) => mod.status === "ready")
+        .map((mod) => mod.modId),
+    );
+
+    if (profileModIds.length === 0) {
+      setStatus(t("profiles.regularBundleNoMods"));
+      setRegularBundleImport(null);
+      return;
+    }
+
+    const name = getUniqueProfileName(regularBundleImport.presetName);
+    setRegularBundleImporting(true);
+    isBusyRef.current = true;
+    setBusyAction("importBundle");
+    try {
+      let installedCount = 0;
+      let failedCount = 0;
+      if (readyModIds.length > 0) {
+        const result = await batchInstallMods(
+          [regularBundleImport.path],
+          false,
+          false,
+          readyModIds,
+          {},
+        );
+        installedCount = result.successCount;
+        failedCount = result.failureCount;
+      }
+
+      if (regularBundleImport.importAsPreset) {
+        const created = await createProfile(name, null, profileModIds);
+        setRegularBundleImport(null);
+        await reload(created.id);
+        setStatus(
+          t("profiles.regularBundlePresetSuccess", {
+            name: created.name,
+            installed: installedCount,
+            count: profileModIds.length,
+          }),
+        );
+      } else {
+        setRegularBundleImport(null);
+        await reload(selectedProfileId);
+        setStatus(
+          failedCount > 0
+            ? t("library.batchResultSummary", { success: installedCount, fail: failedCount })
+            : t("profiles.regularBundleInstallSuccess", { installed: installedCount }),
+        );
+      }
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : t("profiles.bundleImportFailed"));
+    } finally {
+      isBusyRef.current = false;
+      setBusyAction(null);
+      setRegularBundleImporting(false);
+      void flushAutoSaveQueue();
     }
   }
 
@@ -951,6 +1083,97 @@ export function ProfilesPage() {
       />
 
       {/* ── Bundle conflict resolution dialog */}
+      {regularBundleImport && (
+        <ConfirmDialog
+          open
+          title={t("profiles.regularBundlePreviewTitle")}
+          description={t("profiles.regularBundlePreviewDesc", {
+            count: importableBundleMods(regularBundleImport.preview).length,
+          })}
+          confirmLabel={
+            regularBundleImporting
+              ? t("profiles.bundleImporting")
+              : t("profiles.regularBundleImportConfirm")
+          }
+          cancelLabel={t("library.savePresetCancel")}
+          onConfirm={() => void handleConfirmRegularBundleImport()}
+          onCancel={() => setRegularBundleImport(null)}
+        >
+          <label className="bundle-preset-option">
+            <input
+              type="checkbox"
+              checked={regularBundleImport.importAsPreset}
+              onChange={(event) =>
+                setRegularBundleImport((current) =>
+                  current ? { ...current, importAsPreset: event.target.checked } : current,
+                )
+              }
+            />
+            <span className="bundle-preset-option__copy">
+              <strong>{t("profiles.importAsPreset")}</strong>
+              <span>{t("profiles.importAsPresetHelp")}</span>
+            </span>
+          </label>
+
+          {regularBundleImport.importAsPreset ? (
+            <label className="bundle-preset-name">
+              <span>{t("profiles.bundlePresetName")}</span>
+              <input
+                value={regularBundleImport.presetName}
+                onChange={(event) =>
+                  setRegularBundleImport((current) =>
+                    current ? { ...current, presetName: event.target.value } : current,
+                  )
+                }
+                maxLength={80}
+              />
+            </label>
+          ) : null}
+
+          {regularBundleImport.preview.readyCount > 0 ? (
+            <div className="bundle-section">
+              <div className="bundle-section__title">
+                {t("profiles.regularBundleNewMods", { count: regularBundleImport.preview.readyCount })}
+              </div>
+              <div className="bundle-mod-list">
+                {regularBundleImport.preview.discoveredMods
+                  .filter((mod) => mod.status === "ready")
+                  .map((mod, index) => (
+                    <div key={`${mod.modId}:ready:${index}`} className="bundle-mod-item bundle-mod-item--new">
+                      <Package size={14} />
+                      <span className="bundle-mod-item__name">
+                        {mod.name}
+                        {mod.version ? ` (${mod.version})` : ""}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ) : null}
+
+          {regularBundleImport.preview.conflictCount > 0 ? (
+            <div className="bundle-section">
+              <div className="bundle-section__title">
+                {t("profiles.regularBundleExistingMods", { count: regularBundleImport.preview.conflictCount })}
+              </div>
+              <div className="bundle-mod-list">
+                {regularBundleImport.preview.discoveredMods
+                  .filter((mod) => mod.status === "conflict")
+                  .map((mod, index) => (
+                    <div key={`${mod.modId}:conflict:${index}`} className="bundle-mod-item bundle-mod-item--conflict">
+                      <Package size={14} />
+                      <span className="bundle-mod-item__name">
+                        {mod.name}
+                        {mod.version ? ` (${mod.version})` : ""}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ) : null}
+        </ConfirmDialog>
+      )}
+
       {bundlePreview && (
         <ConfirmDialog
           open
