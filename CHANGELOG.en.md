@@ -5,6 +5,21 @@ All notable changes to SlaySP2Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-11-18
+
+### Added
+
+- **Import a plain mod archive as a new preset**: Using "Import bundle" on the Profiles page now handles an archive that does not contain a `.spm` preset manifest. The app previews the importable mods and, by default, saves a new preset after import. The preset name comes from the archive file name and gains a numeric suffix when that name is already taken. The preset option can be turned off to install only the new mods. Mods that are already installed are not overwritten by this import; they are added to the new preset's selection.
+
+### Changed
+
+- **Library import preview now includes installed mods by default**: The batch import preview pre-selects mods that conflict with an installed copy and sets their resolution to "Override existing mod". Confirming the preview replaces the installed mod with the copy from the archive. "Install with new ID (auto-rename)" and unchecking the mod are still available.
+
+### Fixed
+
+- Fixed preview of an archive without `preset.spm` leaving its temporary extraction directory behind.
+- Fixed confirmation dialogs with long content pushing the action buttons out of view. The dialog body now scrolls on its own, and the confirm and cancel actions stay visible.
+
 ## [0.9.0] - 2026-04-19
 
 ### Added
